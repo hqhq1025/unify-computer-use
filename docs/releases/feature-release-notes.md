@@ -4,6 +4,8 @@
 
 | 日期 | 功能域 | 用户价值 | 变更摘要 |
 | --- | --- | --- | --- |
+| 2026-07-29 | Linux 大型 accessibility tree | LibreOffice Calc 等含大表格的应用上 `get_app_state` 不再挂死，且默认预算下就能读到单元格内容；此前遍历会掉进 Calc 谎报的 10.7 亿子节点，而即使不超时，返回的也全是菜单节点。 | 遍历尊重 `MANAGES_DESCENDANTS` 契约并对自管理表格改用 `Table.get_accessible_at(row, col)` 坐标寻址；配额检查前移到 `child_at()` 之前并新增单容器 fanout 上限；`find_first()` 补上节点预算；未展开的菜单保留自身但不递归子项。运行时超时改为 `OPEN_COMPUTER_USE_RUNTIME_TIMEOUT_SECONDS` 可配。 |
+| 2026-07-29 | Linux 点击语义 | Agent 更倾向使用 `element_index` 这条不抢焦点的语义路径，而不是退回会抢焦点的坐标点击。 | `action_names()` 不再列出 `click` 工具自身会调用的默认动作（此前每个可点击节点都渲染 `Secondary Actions: click`，一次快照出现 1000+ 次），措辞改为 `More actions`；`click` 与 `perform_secondary_action` 的 description 写明两条路径在焦点行为上的差异。 |
 | 2026-07-29 | Linux at-spi 兼容性 | Ubuntu 22.04 等携带 at-spi2-core 2.44 的发行版上，Linux runtime 恢复可用；此前 `get_app_state` 会全部失败并报 `'Accessible' object has no attribute 'is_text'`。 | 改用 `get_text_iface()` / `get_editable_text_iface()` 判断接口是否存在，替换 4 处对 libatspi 2.52+ 才有的 `is_text` / `is_editable_text` 便捷属性的访问；这类属性访问会在传入 `safe()` 之前就抛 `AttributeError`，无法被兜住。 |
 | 2026-07-29 | Linux 键盘输入 | Linux 上的 `press_key` 现在能真正发出目标按键：`ctrl+a`、`ctrl+s` 等组合键可以正常触发，`Return`、`Tab`、`Escape`、方向键等命名键不再向文档注入 `4`、`r`、`o` 之类的错误字符。 | 修复 Linux AT-SPI 键盘合成把 keysym 当作 hardware keycode 传给 `PRESS` / `RELEASE` / `PRESSRELEASE` 的问题（keysym 超出 X 合法 keycode 范围后被截断到低 8 位，落到不相干的键上）；单字符主键仅在无修饰键时才走 `STRING`，修饰键释放移入 `finally`，未知修饰键不再被静默忽略。 |
 | 2026-07-27 | 可配置与后台点击 | 调用方可以显式选择点击实现，并在 macOS 上对被遮挡的同 Space 窗口执行后台点击，同时保持真实鼠标、前台应用、窗口焦点和层级不变。 | 发布 `0.3.0`，为 `click` 新增 `click_method`，提供 `auto`、`accessibility`、`app_post`、`global` 和 macOS-only `sky_click`；默认 `auto` 行为保持不变，显式模式失败时不静默切换实现，`global` 继续要求环境授权。 |
