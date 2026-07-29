@@ -50,6 +50,22 @@ def safe(call, default=None):
         return default
 
 
+def has_text_iface(node):
+    """节点是否实现 Text 接口。
+
+    不能用 Accessible.is_text —— 该便捷方法是 libatspi 2.52+ 才加的，
+    at-spi2-core 2.44（Ubuntu 22.04）上不存在。而且它是属性访问，
+    在传进 safe() 之前就会抛 AttributeError，safe() 兜不住。
+    get_text_iface() 在新旧版本都存在。
+    """
+    return safe(node.get_text_iface) is not None
+
+
+def has_editable_text_iface(node):
+    """节点是否实现 EditableText 接口。理由同 has_text_iface。"""
+    return safe(node.get_editable_text_iface) is not None
+
+
 def require_desktop_session():
     missing = []
     if not os.environ.get("XDG_RUNTIME_DIR"):
@@ -217,7 +233,7 @@ def accessible_id(node):
 
 
 def text_value(node, text_limit=DEFAULT_TEXT_LIMIT):
-    if not bool(safe(node.is_text, False)):
+    if not has_text_iface(node):
         return ""
     text_iface = safe(node.get_text_iface)
     if text_iface is None:
@@ -407,7 +423,7 @@ def selected_text(app_pid, text_limit=DEFAULT_TEXT_LIMIT):
             focused = find_first(
                 win, lambda node: state_contains(node, Atspi.StateType.FOCUSED)
             )
-            if focused is None or not bool(safe(focused.is_text, False)):
+            if focused is None or not has_text_iface(focused):
                 return None
             text_iface = safe(focused.get_text_iface)
             selections = safe(lambda: Atspi.Text.get_text_selections(text_iface), [])
@@ -690,9 +706,7 @@ def send_text(text):
 
 def find_editable_text(root):
     def is_editable(node):
-        return bool(safe(node.is_editable_text, False)) and bool(
-            safe(node.is_text, False)
-        )
+        return has_editable_text_iface(node) and has_text_iface(node)
 
     return find_first(root, is_editable)
 
@@ -717,7 +731,7 @@ def insert_text(root, text):
 
 
 def set_element_value(node, value):
-    if node is not None and bool(safe(node.is_editable_text, False)):
+    if node is not None and has_editable_text_iface(node):
         editable = safe(node.get_editable_text_iface)
         if editable is not None:
             return bool(
