@@ -53,10 +53,12 @@ def safe(call, default=None):
 def has_text_iface(node):
     """节点是否实现 Text 接口。
 
-    不能用 Accessible.is_text —— 该便捷方法是 libatspi 2.52+ 才加的，
-    at-spi2-core 2.44（Ubuntu 22.04）上不存在。而且它是属性访问，
-    在传进 safe() 之前就会抛 AttributeError，safe() 兜不住。
-    get_text_iface() 在新旧版本都存在。
+    不能用 Accessible.is_text —— 该便捷方法是 libatspi 2.52+ 才加入的，
+    在 at-spi2-core 2.44（Ubuntu 22.04）上不存在。而且它是**属性访问**，
+    会在传进 safe() 之前就抛 AttributeError，safe() 的 try/except 兜不住，
+    导致 get_app_state 整个失败。
+
+    get_text_iface() 在新旧版本都存在，是更基础也更可移植的判据。
     """
     return safe(node.get_text_iface) is not None
 
@@ -668,21 +670,31 @@ MODIFIER_KEYS = {
 def keycode(name):
     """把键名解析成 X11 hardware keycode。
 
-    AT-SPI 的 PRESS / RELEASE / PRESSRELEASE 收的是 **hardware keycode**，
-    只有 SYM 收 keysym。此前这里传的是 keysym，而 keysym 远超 X 合法 keycode
-    范围 (8-255)，会被截断到低 8 位，于是发出完全不相干的键，例如
-    Return(65293)->13->"4"、space(32)->"o"、Escape(65307)->27->"r"、
-    Tab(65289)->9->Escape、Delete(65535)->255->XF86RFKill，
-    Control_L(65507)->227->XF86Finance（即修饰键从未真正按下）。
+    Atspi.generate_keyboard_event(keyval, keystring, synth_type) 在
+    PRESS / RELEASE / PRESSRELEASE 三种模式下，第一个参数要的是
+    **hardware keycode**；只有 SYM 模式才接受 keysym。
+
+    传 keysym 进去不会报错，而是被截断到低 8 位，发出完全不相干的键：
+
+        Escape    keysym 65307 -> 截断 27  -> 实际发出 'r'
+        Return    keysym 65293 -> 截断 13  -> 实际发出 '4'
+        Delete    keysym 65535 -> 截断 255 -> 实际发出 XF86RFKill
+        Control_L keysym 65507 -> 截断 227 -> 修饰键根本没按下
+
+    这是静默注入错误动作，比直接报错危险，所以这里解析失败一律抛异常。
     """
-    if Gdk is not None:
-        value = Gdk.keyval_from_name(name)
-        if value:
-            keymap = Gdk.Keymap.get_default()
-            found, entries = keymap.get_entries_for_keyval(value)
-            if found and entries:
-                return int(entries[0].keycode)
-    raise RuntimeError("Unsupported key: " + name)
+    if Gdk is None:
+        raise RuntimeError("Gdk unavailable; cannot resolve keycode for: " + name)
+    sym = Gdk.keyval_from_name(name)
+    if not sym and len(name) == 1:
+        sym = ord(name)
+    if not sym:
+        raise RuntimeError("Unsupported key: " + name)
+    keymap = Gdk.Keymap.get_default()
+    ok, entries = keymap.get_entries_for_keyval(sym)
+    if not ok or not entries:
+        raise RuntimeError("No hardware keycode mapped for key: " + name)
+    return int(entries[0].keycode)
 
 
 def send_key(key):
@@ -692,17 +704,19 @@ def send_key(key):
     main = parts[-1]
     modifiers = parts[:-1]
     pressed = []
-    for modifier in modifiers:
-        name = MODIFIER_KEYS.get(modifier.lower())
-        if name is None:
-            raise RuntimeError("Unsupported modifier: " + modifier)
-        value = keycode(name)
-        Atspi.generate_keyboard_event(value, None, Atspi.KeySynthType.PRESS)
-        pressed.append(value)
     try:
+        for modifier in modifiers:
+            name = MODIFIER_KEYS.get(modifier.lower())
+            if name is None:
+                # 原实现是静默 continue，会让 "ctrl+shft+s" 这类拼写错误
+                # 悄悄退化成孤立的 "s"，行为诡异且极难排查。
+                raise RuntimeError("Unsupported modifier: " + modifier)
+            code = keycode(name)
+            Atspi.generate_keyboard_event(code, None, Atspi.KeySynthType.PRESS)
+            pressed.append(code)
         normalized = KEY_ALIASES.get(main.lower(), main)
-        # 只有在没有修饰键时才能用 STRING。STRING 是"插入这段文本"语义，
-        # 会绕过已经 PRESS 的修饰键状态，让 ctrl+a 退化成输入字面的 'a'。
+        # 单字符键只有在**无修饰键**时才能走 STRING。STRING 是"插入这段文本"
+        # 的语义，会绕过已经 PRESS 的修饰键状态，使 ctrl+a 退化成输入字面 'a'。
         if len(normalized) == 1 and not pressed:
             Atspi.generate_keyboard_event(0, normalized, Atspi.KeySynthType.STRING)
         else:
@@ -710,9 +724,10 @@ def send_key(key):
                 keycode(normalized), None, Atspi.KeySynthType.PRESSRELEASE
             )
     finally:
-        # 放在 finally：主键解析失败时若不释放，修饰键会永久卡在按下状态。
-        for value in reversed(pressed):
-            Atspi.generate_keyboard_event(value, None, Atspi.KeySynthType.RELEASE)
+        # 必须放 finally：主键解析失败时若不释放，修饰键会永久卡在按下状态，
+        # 之后所有输入都会带上这个修饰键。
+        for code in reversed(pressed):
+            Atspi.generate_keyboard_event(code, None, Atspi.KeySynthType.RELEASE)
 
 
 def send_text(text):
