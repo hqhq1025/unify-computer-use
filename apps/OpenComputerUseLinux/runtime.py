@@ -325,6 +325,117 @@ def record_for(node, index, path, window_bounds, text_limit=DEFAULT_TEXT_LIMIT):
     }
 
 
+# 自管理表格容器一次最多渲染多少单元格。典型视口约 37 行 × 21 列 = 777 个，
+# 实测取回（含文本）0.12s，0.2ms/cell。设上限兜住超宽表格。
+MAX_TABLE_CELLS = int(os.environ.get("OPEN_COMPUTER_USE_MAX_TABLE_CELLS", "1200"))
+
+
+def visible_cell_range(node):
+    """探测自管理表格容器当前视口对应的 (row0, row1, col0, col1)。
+
+    MANAGES_DESCENDANTS 容器不能枚举子节点（Calc 的 sheet 谎报 10.7 亿个），
+    但可以按坐标寻址。做法是用 Component.get_accessible_at_point 打容器矩形的
+    两个对角，反解出可见的行列范围——在 Calc 里这是 O(1) 的像素→行列换算
+    （ScAccessibleSpreadsheet::getAccessibleAtPoint 走 GetPosFromPixel）。
+
+    返回 None 表示探测失败，调用方应回退到"不枚举"。
+    """
+    table = safe(node.get_table_iface)
+    component = safe(node.get_component_iface)
+    if table is None or component is None:
+        return None
+    rect = safe(
+        lambda: Atspi.Component.get_extents(component, Atspi.CoordType.SCREEN)
+    )
+    if rect is None or rect.width <= 0 or rect.height <= 0:
+        return None
+
+    corners = [
+        (rect.x + 3, rect.y + 3),
+        (rect.x + rect.width - 4, rect.y + rect.height - 4),
+    ]
+    found = []
+    for x, y in corners:
+        cell = safe(
+            lambda x=x, y=y: Atspi.Component.get_accessible_at_point(
+                component, x, y, Atspi.CoordType.SCREEN
+            )
+        )
+        if cell is None:
+            return None
+        index = safe(cell.get_index_in_parent)
+        if index is None:
+            return None
+        row = safe(lambda: Atspi.Table.get_row_at_index(table, index))
+        col = safe(lambda: Atspi.Table.get_column_at_index(table, index))
+        if row is None or col is None:
+            return None
+        found.append((int(row), int(col)))
+
+    if len(found) != 2:
+        return None
+    rows = sorted(f[0] for f in found)
+    cols = sorted(f[1] for f in found)
+    return rows[0], rows[1], cols[0], cols[1]
+
+
+def render_visible_cells(
+    node, depth, path, window_bounds, records, lines,
+    text_limit=DEFAULT_TEXT_LIMIT, max_tree_nodes=MAX_ELEMENTS,
+):
+    """把自管理表格容器当前视口内的单元格渲染进树，返回渲染数量。
+
+    这是 should_enumerate_children() 拒绝枚举之后的替代路径：枚举会掉进
+    Calc 谎报的 10.7 亿子节点，而按 (row, col) 寻址在 Calc 里是 O(1) 查表。
+    """
+    span = visible_cell_range(node)
+    if span is None:
+        return 0
+    row0, row1, col0, col1 = span
+    table = safe(node.get_table_iface)
+    if table is None:
+        return 0
+
+    total = (row1 - row0 + 1) * (col1 - col0 + 1)
+    budget = min(MAX_TABLE_CELLS, max(0, max_tree_nodes - len(records)))
+    count = 0
+    for row in range(row0, row1 + 1):
+        for col in range(col0, col1 + 1):
+            if count >= budget:
+                break
+            cell = safe(lambda r=row, c=col: Atspi.Table.get_accessible_at(table, r, c))
+            if cell is None:
+                continue
+            index = len(records)
+            record = record_for(
+                cell, index, path + [index], window_bounds, text_limit=text_limit
+            )
+            records.append(record)
+            # 只取文本，不回退到 numeric_value：Calc 的空单元格 Value 接口
+            # 返回 0.0，会让空白单元格看起来像是填了 0 —— 对"找出空单元格"
+            # 这类任务是致命的误导。
+            value = text_value(cell, text_limit=text_limit)
+            lines.append(
+                ("\t" * (depth + 2))
+                + "{} cell R{}C{} {}".format(index, row, col, value).rstrip()
+            )
+            count += 1
+        if count >= budget:
+            break
+
+    if count:
+        lines.append(
+            ("\t" * (depth + 2))
+            + "(showing {} of {} cells in view; table is {}x{} — "
+              "address other cells by row/column)".format(
+                  count, total,
+                  safe(lambda: Atspi.Table.get_n_rows(table), "?"),
+                  safe(lambda: Atspi.Table.get_n_columns(table), "?"),
+              )
+        )
+    return count
+
+
 def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT, max_tree_nodes=MAX_ELEMENTS, max_tree_depth=MAX_DEPTH):
     records = []
     lines = []
@@ -362,12 +473,18 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT, m
         )
 
         if not should_enumerate_children(node):
-            # 超大/自管理容器不枚举。显式告知，避免模型以为这里是空的。
-            lines.append(
-                ("\t" * (depth + 2))
-                + "(contents not enumerated: {} manages its own descendants; "
-                  "address cells directly instead)".format(role)
+            # 超大/自管理容器不能枚举，改用坐标寻址取当前视口内的单元格。
+            rendered = render_visible_cells(
+                node, depth, path, window_bounds, records, lines,
+                text_limit=text_limit, max_tree_nodes=max_tree_nodes,
             )
+            if rendered == 0:
+                # 寻址也失败时显式说明，避免模型以为这里本来就是空的。
+                lines.append(
+                    ("\t" * (depth + 2))
+                    + "(contents not enumerated: {} manages its own descendants "
+                      "and cell addressing failed)".format(role)
+                )
             return
 
         for child_index in range(child_count(node)):
