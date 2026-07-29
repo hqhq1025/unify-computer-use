@@ -125,6 +125,33 @@ def state_contains(node, state):
     return bool(safe(lambda: state_set.contains(state), False))
 
 
+# 子节点数硬上限。LibreOffice Calc 的 sheet 节点会谎报 2^31 个子节点：
+# 它的 accessible range 是整张表（16384 列 × 1048576 行），
+# getAccessibleChildCount() 返回 rows*cols = 1.7e10，经 D-Bus int32 截断后
+# 就是 2147483647。朴素遍历掉进这个节点不是"慢"，是永远不会结束。
+# 源码：sc/source/ui/Accessibility/AccessibleTableBase.cxx:274
+#       （上游注释原文：'FIXME: ... is a plain and simple madness'）
+HARD_CHILD_CAP = int(os.environ.get("OPEN_COMPUTER_USE_MAX_CHILDREN", "4096"))
+
+
+def should_enumerate_children(node):
+    """是否应该枚举该节点的子节点。
+
+    两道守卫都只读 libatspi 的本地缓存（ATSPI_CACHE_DEFAULT 覆盖 STATES 与
+    CHILDREN），不产生 D-Bus 往返，因此可以无脑放在遍历热路径上：
+
+    1. MANAGES_DESCENDANTS —— AT-SPI 规范对超大容器（表格等）的正式契约：
+       "the children should not, and need not, be enumerated by the client"。
+       Calc 的 sheet 正是这么标记的（AccessibleSpreadsheet.cxx:1066）。
+       这类容器要用 Table.get_accessible_at(row, col) 按坐标寻址，
+       或 Component.get_accessible_at_point() 做点命中，而不是枚举。
+    2. child_count 硬上限 —— 兜住任何谎报子节点数的实现。
+    """
+    if state_contains(node, Atspi.StateType.MANAGES_DESCENDANTS):
+        return False
+    return child_count(node) <= HARD_CHILD_CAP
+
+
 def extents(node):
     component = safe(node.get_component_iface)
     if component is None:
@@ -334,6 +361,15 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT, m
             ).rstrip()
         )
 
+        if not should_enumerate_children(node):
+            # 超大/自管理容器不枚举。显式告知，避免模型以为这里是空的。
+            lines.append(
+                ("\t" * (depth + 2))
+                + "(contents not enumerated: {} manages its own descendants; "
+                  "address cells directly instead)".format(role)
+            )
+            return
+
         for child_index in range(child_count(node)):
             child = child_at(node, child_index)
             visit(child, depth + 1, path + [child_index])
@@ -493,6 +529,8 @@ def find_first(root, predicate):
         return None
     if predicate(root):
         return root
+    if not should_enumerate_children(root):
+        return None
     for index in range(child_count(root)):
         found = find_first(child_at(root, index), predicate)
         if found is not None:
@@ -507,6 +545,8 @@ def iter_all(root):
         if node is None or len(items) >= MAX_ELEMENTS:
             return
         items.append(node)
+        if not should_enumerate_children(node):
+            return
         for index in range(child_count(node)):
             visit(child_at(node, index))
 

@@ -516,7 +516,14 @@ func runPython(request linuxRequest) (*linuxResponse, error) {
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	// 原为硬编码 30s。大型 a11y 树遍历可能超出，改为可配以便诊断。
+	runtimeTimeout := 30 * time.Second
+	if raw := os.Getenv("OPEN_COMPUTER_USE_RUNTIME_TIMEOUT_SECONDS"); raw != "" {
+		if seconds, convErr := strconv.Atoi(raw); convErr == nil && seconds > 0 {
+			runtimeTimeout = time.Duration(seconds) * time.Second
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), runtimeTimeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "python3", scriptPath, operationPath)
@@ -525,7 +532,7 @@ func runPython(request linuxRequest) (*linuxResponse, error) {
 	cmd.Stderr = &stderr
 	output, err := cmd.Output()
 	if ctx.Err() == context.DeadlineExceeded {
-		return nil, errors.New("Linux runtime timed out after 30s")
+		return nil, fmt.Errorf("Linux runtime timed out after %s", runtimeTimeout)
 	}
 	if err != nil {
 		text := strings.TrimSpace(stderr.String())
