@@ -88,7 +88,9 @@
 
 **S3 端到端能力**
 - 先在 OSWorld 子集上量出 baseline，再据此设定成功率目标
-- 报告口径固定为三元组：**成功率 / 平均步数 / 平均 token**，不单独报成功率
+- 报告口径固定为四元组：**成功率 / 平均步数 / 平均 token / a11y 通道使用率**。
+  最后一项来自 OSWorld-MCP 的教训——它报告的最高 Tool Invocation Rate 只有 33.3%，
+  工具做得好不代表 agent 会用；不度量这一项就无法区分"工具不行"和"没被调用"
 
 ## 推进顺序
 
@@ -163,10 +165,50 @@ Linux runtime 是从 macOS 移植过来的，但大量逻辑没有跟上。与�
   且必须独立 `user-data-dir`，否则参数被现有会话交接吞掉）
 
 ### P3 · OSWorld 接入与基线
-- harness 跑通，能加载任务、执行、调用验证器
+- harness 跑通。优先评估在 OSWorld-MCP 的 `run_multienv_e2e.py` 之上改造（它已解决 MCP↔OSWorld 接线），
+  而不是从零接入 OSWorld
 - 选定首批任务子集（建议从 LibreOffice 起步：任务密度高、a11y 完整、已有修复积累）
-- 产出 baseline 三元组
+- 产出 baseline 四元组（成功率 / 步数 / token / a11y 通道使用率）
 - harness 观测策略：默认只给 a11y 树，VLM 事件驱动触发而非固定步数
+
+## OSWorld 侧的既有事实（2026-07-30 查阅官方 repo）
+
+查阅 `xlang-ai/OSWorld`（3045 star，2026-07-28 仍在提交）与 `X-PLUG/OSWorld-MCP` 后确认：
+
+**技术栈与我们一致，X11 确认**
+- 环境服务端 `desktop_env/server/main.py`（1797 行）用 **pyatspi**——和本 MCP 同一套 AT-SPI 栈
+- 用 **Xlib**，全仓库 wayland 仅 1 处提及。X11 确认，与我们的基线环境一致
+- a11y 树被序列化成带命名空间的 **XML**（`st:` 状态 / `cp:` 组件 / `val:` 值 / `act:` 动作等）
+
+**a11y-first 是官方一等公民**
+- 观测空间：`a11y_tree` / `screenshot` / `screenshot_a11y_tree` / `som`
+- 动作空间：`pyautogui` / `computer_13`
+- 也就是说"只给 a11y 树"本来就是官方支持的设定，不需要我们自己发明
+
+**官方已有裁剪启发式，与本计划的 H1/H3 完全一致**
+`mm_agents/accessibility_tree_wrap/heuristic_retrieve.py` 的 `judge_node()` 做两件事：
+1. **角色白名单**：只保留 document / item / button / heading / label / scrollbar /
+   searchbox / textbox / link / textfield / textarea / menu 以及 entry / combo-box /
+   table-cell / terminal / paragraph 等
+2. **可见性过滤**：Ubuntu 侧要求 `showing=true` **且** `visible=true`
+
+这意味着 H1（可见性过滤）与 H3（角色过滤）**不是待验证假设，是行业既有做法**，
+且有参考实现。对本计划的影响：P1 的下限从"可能有效"变成"至少要做到与官方持平"，
+真正的差异化空间在 macOS 那套更精细的判据（`isPlainGenericTextContainer` 等）
+以及 macOS 和 OSWorld 都没做的部分（增量观测、查询式接口）。
+
+**OSWorld-MCP 已经验证了"MCP 工具能提升 computer-use agent"这一命题**
+- ICLR 2026 接收，158 个工具覆盖 7 个应用，250 个 tool-beneficial 任务
+- 报告数据：OpenAI o3 在 15 步设定下 **8.3% → 17.6%**
+- 但**工具形态与我们不同**：它是 per-app 的语义工具（LibreOffice/VS Code/Chrome/VLC 各一套），
+  我们做的是**通用 a11y 驱动**的 computer-use 接口。这是两个不同的赌注，不可直接互相印证
+- 其 `run_multienv_e2e.py` + `osworld_mcp_client.py` 已经解决了 MCP↔OSWorld 的接线问题，
+  P3 可以考虑在其之上改造，而不是从零接。注意它最后提交于 2026-05-13，落后于 OSWorld 主线
+
+**一个必须正视的风险：模型不一定会去用工具**
+OSWorld-MCP 报告的最高 Tool Invocation Rate 仅 **33.3%**（Claude-4-Sonnet，50 步）。
+也就是说工具做得好不等于会被调用。**"agent 是否愿意用 a11y 通道"本身就是一个要度量的指标**，
+应纳入 S3 的报告口径。
 
 ## P1 研究议题：a11y 该怎么给 agent
 
@@ -187,9 +229,9 @@ Linux runtime 是从 macOS 移植过来的，但大量逻辑没有跟上。与�
 
 | 编号 | 假设 | 预期收益 | 风险 |
 |---|---|---|---|
-| H1 | 只保留屏幕可见节点，不丢任务关键元素 | GTK 系 ~88% 压缩 | 未展开菜单项被裁掉后，agent 不知道功能存在 |
+| H1 | 只保留屏幕可见节点，不丢任务关键元素 | GTK 系 ~88% 压缩 | 未展开菜单项被裁掉后，agent 不知道功能存在。**注：OSWorld 官方 `judge_node()` 已这么做（要求 showing 且 visible），此项已是既有做法而非待验证假设** |
 | H2 | 扁平索引列表比缩进树更省 token | 去掉缩进与重复层级 | 丢失层级语义，可能影响定位判断 |
-| H3 | 过滤纯结构性容器（filler/panel/separator） | 中等 | 少数容器本身可点 |
+| H3 | 过滤纯结构性容器（filler/panel/separator） | 中等 | 少数容器本身可点。**注：OSWorld 官方用角色白名单达到同等效果，可直接参照** |
 | H4 | 增量观测：只给相对上次的变化 | 多步任务收益最大 | 需要稳定的元素标识；agent 需能请求全量 |
 | H5 | 菜单等层级按需展开，不预先枚举 | 直击 LibreOffice 的虚高 | 多一轮交互 |
 
@@ -250,7 +292,9 @@ H1 有最强的数据支持，建议先做。H4 潜在收益最大，但依赖 P
 - [ ] P1：建立保留率 / 压缩率离线评测
 - [ ] P1：移植 shouldSkipChild / isPlainGenericTextContainer / placeholderValue
 - [ ] P1：验证 H1（可见性过滤）
-- [ ] P3：OSWorld harness 跑通并产出 baseline 三元组
+- [x] 查阅 OSWorld / OSWorld-MCP 官方实现，确认 X11、观测/动作空间、官方裁剪启发式
+- [ ] P3：评估在 OSWorld-MCP 的 `run_multienv_e2e.py` 之上改造 vs 直接接 OSWorld
+- [ ] P3：OSWorld harness 跑通并产出四元组基线
 
 ## 决策记录
 
@@ -271,6 +315,11 @@ H1 有最强的数据支持，建议先做。H4 潜在收益最大，但依赖 P
   Linux runtime 是 macOS 的移植且大量逻辑没跟上（13 项能力里 9 项缺失）。
   macOS 侧的判据已在真实应用上验证过，直接对照移植的风险远低于自己重新设计。
   仅对 macOS 没有回答的问题（增量观测、呈现形态、查询式接口）才做实验。
+- 2026-07-30：确认目标环境为 **X11**。OSWorld 环境服务端使用 Xlib + pyatspi，
+  全仓库仅 1 处提及 wayland。与本计划的基线环境一致，Wayland 适配不纳入范围。
+- 2026-07-30：**P1 的裁剪不再当作开放研究**。OSWorld 官方 `judge_node()` 已经在做
+  角色白名单 + showing/visible 过滤，macOS 侧有更精细的判据。
+  P1 的下限是"与官方持平"，差异化空间在 macOS 的精细判据和两边都没做的增量观测。
 - 2026-07-30：**观测双轨拆分的优先级高于树裁剪**。
   实测发现 `build_snapshot()` 无条件截图，`get_app_state` 和所有动作工具的返回都带图，
   gedit 单次观测里截图占 35%。裁剪把文本砍掉 ~88% 之后，截图会升到约 80%，
