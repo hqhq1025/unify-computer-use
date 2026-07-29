@@ -294,11 +294,13 @@ func (s *service) getAppState(app string, textLimit *textLimit, maxTreeNodes, ma
 	if maxTreeDepth != nil {
 		request.MaxTreeDepth = *maxTreeDepth
 	}
-	snapshot, _, result := s.refreshSnapshot(app, request)
+	snapshot, notes, result := s.refreshSnapshot(app, request)
 	if result.IsError {
 		return result
 	}
-	return snapshot.result()
+	// get_app_state 也要带上诊断：应用可能活着但 a11y 是空壳，
+	// 不说明的话 agent 会把"我看不见"误读成"界面是空的"。
+	return snapshot.resultWithNotes(notes)
 }
 
 func (s *service) click(app, elementIndex string, x, y *float64, clickCount int, mouseButton, clickMethod string) toolCallResult {

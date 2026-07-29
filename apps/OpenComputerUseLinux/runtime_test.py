@@ -547,6 +547,77 @@ class ActionNotesTests(AtspiPatchedTestCase):
         self.assertIn("was not verified", notes[0])
 
 
+class SnapshotDiagnosticsTests(AtspiPatchedTestCase):
+    """回归：应用活着、窗口也在，但 a11y 只有一个窗口框时必须明确告知。
+
+    实测证据：Chrome 未加 --force-renderer-accessibility 时有 11 个活进程、
+    AT-SPI 里有正常注册和窗口标题，但 get_app_state 返回 isError=false 且树里
+    只有 1 个元素。agent 无从分辨"界面是空的"和"我看不见这个界面"。
+    """
+
+    def test_flags_app_that_exposes_only_its_window_frame(self):
+        records = [
+            {
+                "controlType": "frame",
+                "name": "about:blank - Google Chrome",
+                "actions": ["doDefault", "showContextMenu"],
+            }
+        ]
+
+        notes = runtime.snapshot_diagnostics(records)
+
+        self.assertEqual(len(notes), 1)
+        self.assertIn("exposes no accessibility content", notes[0])
+        self.assertIn("force-renderer-accessibility", notes[0])
+        self.assertIn("does NOT mean the window is empty", notes[0])
+
+    def test_stays_silent_when_the_tree_has_real_content(self):
+        records = [
+            {"controlType": "frame", "name": "Untitled - gedit", "actions": []},
+            {"controlType": "push button", "name": "Save", "actions": ["click"]},
+        ]
+
+        self.assertEqual(runtime.snapshot_diagnostics(records), [])
+
+    def test_a_named_non_container_alone_counts_as_content(self):
+        records = [
+            {"controlType": "frame", "name": "Doc", "actions": []},
+            {"controlType": "label", "name": "hello", "actions": []},
+        ]
+
+        self.assertEqual(runtime.snapshot_diagnostics(records), [])
+
+    def test_containers_without_content_do_not_count(self):
+        """只有一堆无名无动作的容器，等同于空壳。"""
+        records = [
+            {"controlType": "frame", "name": "App", "actions": ["doDefault"]},
+            {"controlType": "panel", "name": "", "actions": []},
+            {"controlType": "filler", "name": "", "actions": []},
+        ]
+
+        self.assertEqual(len(runtime.snapshot_diagnostics(records)), 1)
+
+    def test_empty_record_set_is_not_diagnosed(self):
+        """完全没有 records 是另一类问题（取不到窗口），不在本诊断范围内。"""
+        self.assertEqual(runtime.snapshot_diagnostics([]), [])
+
+    def test_get_app_state_returns_the_diagnostic_as_notes(self):
+        shell = {
+            "elements": [
+                {"controlType": "frame", "name": "W", "actions": ["doDefault"]}
+            ]
+        }
+        original = runtime.build_snapshot
+        runtime.build_snapshot = lambda *a, **k: shell
+        self.addCleanup(setattr, runtime, "build_snapshot", original)
+
+        response = runtime.perform_operation({"tool": "get_app_state", "app": "x"})
+
+        self.assertTrue(response["ok"])
+        self.assertEqual(len(response["notes"]), 1)
+        self.assertIn("exposes no accessibility content", response["notes"][0])
+
+
 class FocusWindowTests(AtspiPatchedTestCase):
     def test_active_window_needs_no_grab(self):
         component = FakeComponent(grabs=True)

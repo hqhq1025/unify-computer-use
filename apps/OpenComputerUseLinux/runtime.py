@@ -1247,20 +1247,52 @@ UNVERIFIED_SYNTHESIS = (
 )
 
 
+def snapshot_diagnostics(records):
+    """检测"应用活着、窗口也在，但 a11y 是空壳"这种状态。
+
+    Chromium / Electron 默认不为渲染进程生成 a11y 树，snap 封装的应用接不上
+    accessibility 总线——两种情况下应用都正常运行、窗口标题也正常，但整棵树里
+    只有一个窗口框。此时返回 isError=false 且不加说明，agent 只会以为"这个窗口
+    是空的"，然后在一个它根本看不见的应用上反复试错。
+
+    这里不报错而是给诊断：窗口确实可能合法地为空（空白对话框），报错会误伤；
+    但必须让 agent 能分辨"界面为空"和"我看不见这个界面"，这也是切到 VLM 通道的信号。
+    """
+    if not records:
+        return []
+    for record in records:
+        role = str(record.get("controlType") or "").lower()
+        if role in {"frame", "window", "dialog", "alert", "application"}:
+            continue
+        if record.get("name") or record.get("actions") or record.get("value"):
+            return []
+    return [
+        "This app is running and has a window, but exposes no accessibility content "
+        "beyond the window frame itself ({} element(s) total). Element-targeted actions "
+        "cannot work here, and an empty tree does NOT mean the window is empty. Common "
+        "causes: Chromium-based apps (Chrome, Electron, VS Code) need "
+        "--force-renderer-accessibility; snap-packaged apps usually cannot reach the "
+        "accessibility bus at all. Either relaunch the app with accessibility enabled, "
+        "or switch to the screenshot/coordinate path for this app.".format(len(records))
+    ]
+
+
 def perform_operation(operation):
     tool = operation.get("tool")
     if tool == "list_apps":
         return {"ok": True, "text": list_apps_text()}
     if tool == "get_app_state":
-        return {
-            "ok": True,
-            "snapshot": build_snapshot(
-                operation.get("app", ""),
-                text_limit=parse_text_limit(operation.get("text_limit"), DEFAULT_TEXT_LIMIT),
-                max_tree_nodes=positive_int(operation.get("max_tree_nodes"), MAX_ELEMENTS),
-                max_tree_depth=positive_int(operation.get("max_tree_depth"), MAX_DEPTH),
-            ),
-        }
+        snapshot = build_snapshot(
+            operation.get("app", ""),
+            text_limit=parse_text_limit(operation.get("text_limit"), DEFAULT_TEXT_LIMIT),
+            max_tree_nodes=positive_int(operation.get("max_tree_nodes"), MAX_ELEMENTS),
+            max_tree_depth=positive_int(operation.get("max_tree_depth"), MAX_DEPTH),
+        )
+        response = {"ok": True, "snapshot": snapshot}
+        diagnostics = snapshot_diagnostics(snapshot.get("elements") or [])
+        if diagnostics:
+            response["notes"] = diagnostics
+        return response
 
     app = resolve_app(operation.get("app", ""))
     _, window = main_window(app)
