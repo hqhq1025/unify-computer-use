@@ -142,6 +142,20 @@ MAX_CHILD_FANOUT = int(os.environ.get("OPEN_COMPUTER_USE_MAX_FANOUT", "512"))
 # 原实现无上限，谓词不匹配时会尝试走遍整棵树。
 FIND_FIRST_BUDGET = int(os.environ.get("OPEN_COMPUTER_USE_FIND_BUDGET", "4000"))
 
+# 已被 click 工具覆盖的语义动作名。必须与 preferred_action_index() 里的
+# preferred_exact 保持一致 —— 两者是同一件事的两面：一个负责调用，
+# 一个负责不要重复展示。
+CLICK_COVERED_ACTIONS = {
+    "click",
+    "press",
+    "activate",
+    "default.activate",
+    "invoke",
+    "select",
+    "toggle",
+    "open",
+}
+
 # 未展开的菜单不递归其子项。实测默认配额 1200 下，LibreOffice 的菜单树会占掉
 # 100% 配额（一份完整菜单栏约 780 节点），表格单元格一个都进不来 —— 功能等于
 # 不存在。只对菜单类角色应用该规则：其它中间层容器（panel / scroll pane）在
@@ -266,6 +280,17 @@ def resolve_app(query):
 
 
 def action_names(node):
+    """列出该节点**尚未被 click 工具覆盖**的语义动作。
+
+    必须过滤掉 preferred_action_index() 会挑中的那些（click/press/activate/…），
+    否则每个可点击节点都会显示 "Secondary Actions: click"，而那恰恰就是
+    click 工具自己要调用的动作。重复列出会让模型误以为那是另一条备选路径，
+    进而在 click(element_index) 与 perform_secondary_action 之间反复摇摆，
+    甚至退回坐标点击。
+
+    macOS 侧的 meaningfulActions() 出于同样理由过滤掉
+    AXPress / AXConfirm / AXOpen / AXShowMenu。这里与之对齐。
+    """
     names = []
     count = int(safe(node.get_n_actions, 0) or 0)
     for index in range(count):
@@ -274,8 +299,11 @@ def action_names(node):
             safe(lambda i=index: node.get_action_description(i), "") or ""
         )
         label = name or description
-        if label and label not in names:
-            names.append(label)
+        if not label or label in names:
+            continue
+        if label.strip().lower() in CLICK_COVERED_ACTIONS:
+            continue
+        names.append(label)
     return names
 
 
@@ -477,7 +505,7 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT, m
             value_segment = " Value: " + safe_value
         actions_segment = ""
         if record["actions"]:
-            actions_segment = " Secondary Actions: " + ", ".join(record["actions"])
+            actions_segment = " More actions: " + ", ".join(record["actions"])
         frame_segment = ""
         if record["frame"] is not None:
             f = record["frame"]

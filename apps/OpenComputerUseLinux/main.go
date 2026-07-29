@@ -1147,7 +1147,7 @@ func toolDefinitions() []toolDefinition {
 	return []toolDefinition{
 		{
 			Name:        "click",
-			Description: "Click an element by index or pixel coordinates from screenshot. This tool is part of plugin `Computer Use`.",
+			Description: "Click an element. PREFER element_index: it invokes the element's own accessibility action, which is reliable and does NOT steal focus from whatever the user is doing. Fall back to x/y pixel coordinates only when the target has no element_index in the accessibility tree \u2014 coordinate clicks synthesize a real mouse event and DO take focus. This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"app":           stringProperty("App name or bundle identifier"),
@@ -1190,7 +1190,7 @@ func toolDefinitions() []toolDefinition {
 		},
 		{
 			Name:        "perform_secondary_action",
-			Description: "Invoke a secondary accessibility action exposed by an element. This tool is part of plugin `Computer Use`.",
+			Description: "Invoke an additional accessibility action on an element, beyond the default one that `click` already performs (e.g. increment, decrement, expand). Like click-by-index, this does not steal focus. Use the action names listed under \"More actions\" in the accessibility tree. This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"app":           stringProperty("App name or bundle identifier"),
