@@ -27,7 +27,7 @@ var clickMethodValues = []string{"auto", "accessibility", "app_post", "sky_click
 //go:embed runtime.py
 var linuxRuntimeScript string
 
-const serverInstructions = "Computer Use tools let you interact with Linux desktop apps by performing UI actions.\n\nBegin by calling `get_app_state` every turn you want to use Computer Use to get the latest state before acting. The available tools are list_apps, get_app_state, click, perform_secondary_action, scroll, drag, type_text, press_key, and set_value.\n\nPrefer element-targeted interactions over coordinate clicks when an index for the targeted element is available. Linux actions use AT-SPI2 semantic actions and editable text APIs first. Coordinate mouse and key synthesis are best-effort fallbacks and are not a universal Wayland background input model."
+const serverInstructions = "Computer Use tools let you interact with Linux desktop apps by performing UI actions.\n\nBegin by calling `get_app_state` every turn you want to use Computer Use to get the latest state before acting. The available tools are list_apps, get_app_state, click, perform_secondary_action, scroll, drag, type_text, press_key, and set_value.\n\nPrefer element-targeted interactions over coordinate clicks when an index for the targeted element is available. Linux actions use AT-SPI2 semantic actions and editable text APIs first. Coordinate mouse and key synthesis are best-effort fallbacks and are not a universal Wayland background input model.\n\nInput synthesis on Linux is global: it lands on whichever window currently holds focus, not on the app named in the call. Tools that fall back to synthesis therefore bring the target window to the foreground first, and fail rather than deliver input somewhere else. Expect press_key, scroll, drag and coordinate click to steal focus, and prefer set_value or element-targeted click when you need to avoid that."
 
 type toolDefinition struct {
 	Name        string         `json:"name"`
@@ -121,8 +121,23 @@ func (s *appSnapshot) renderedText() string {
 }
 
 func (s *appSnapshot) result() toolCallResult {
+	return s.resultWithNotes(nil)
+}
+
+// resultWithNotes 在 accessibility tree 前面先说清楚这次动作实际做了什么、
+// 结果有没有被确认过。只返回一棵新树很容易被读成"动作成功了"，但它只是快照。
+func (s *appSnapshot) resultWithNotes(notes []string) toolCallResult {
+	text := s.renderedText()
+	if len(notes) > 0 {
+		lines := make([]string, 0, len(notes)+1)
+		for _, note := range notes {
+			lines = append(lines, "Note: "+note)
+		}
+		lines = append(lines, "", text)
+		text = strings.Join(lines, "\n")
+	}
 	result := toolCallResult{
-		Content: []contentItem{{Type: "text", Text: s.renderedText()}},
+		Content: []contentItem{{Type: "text", Text: text}},
 	}
 	if s != nil && s.ScreenshotPNGBase64 != "" {
 		result.Content = append(result.Content, contentItem{
@@ -175,6 +190,7 @@ type linuxResponse struct {
 	OK       bool         `json:"ok"`
 	Text     string       `json:"text,omitempty"`
 	Error    string       `json:"error,omitempty"`
+	Notes    []string     `json:"notes,omitempty"`
 	Snapshot *appSnapshot `json:"snapshot,omitempty"`
 }
 
@@ -278,7 +294,7 @@ func (s *service) getAppState(app string, textLimit *textLimit, maxTreeNodes, ma
 	if maxTreeDepth != nil {
 		request.MaxTreeDepth = *maxTreeDepth
 	}
-	snapshot, result := s.refreshSnapshot(app, request)
+	snapshot, _, result := s.refreshSnapshot(app, request)
 	if result.IsError {
 		return result
 	}
@@ -442,30 +458,58 @@ func (s *service) setValue(app, elementIndex, value string) toolCallResult {
 }
 
 func (s *service) actionResult(app string, request linuxRequest) toolCallResult {
-	snapshot, result := s.refreshSnapshot(app, request)
+	// 动作前的状态在 Go 侧已经缓存着了（动作工具契约要求先调 get_app_state，
+	// 且每个动作自己也会刷新缓存），所以 before/after 比对不需要额外遍历一次树。
+	before := s.currentSnapshot(app)
+	snapshot, notes, result := s.refreshSnapshot(app, request)
 	if result.IsError {
 		return result
 	}
-	return snapshot.result()
+	if before != nil && !observablyChanged(before, snapshot) {
+		notes = append(notes, "Nothing observable changed: the window title, accessibility tree, focus and selection are identical to the state before this action. Treat the action as unconfirmed rather than successful.")
+	}
+	return snapshot.resultWithNotes(notes)
+}
+
+// observablyChanged 比较动作前后两份快照里 agent 能观察到的部分。
+// 截图不参与比较：光标闪烁之类的像素噪音会让它永远"有变化"。
+func observablyChanged(before, after *appSnapshot) bool {
+	if before == nil || after == nil {
+		return true
+	}
+	if before.WindowTitle != after.WindowTitle ||
+		before.FocusedSummary != after.FocusedSummary ||
+		before.SelectedText != after.SelectedText {
+		return true
+	}
+	if len(before.TreeLines) != len(after.TreeLines) {
+		return true
+	}
+	for i := range before.TreeLines {
+		if before.TreeLines[i] != after.TreeLines[i] {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *service) currentSnapshot(app string) *appSnapshot {
 	return s.snapshots[strings.ToLower(app)]
 }
 
-func (s *service) refreshSnapshot(app string, request linuxRequest) (*appSnapshot, toolCallResult) {
+func (s *service) refreshSnapshot(app string, request linuxRequest) (*appSnapshot, []string, toolCallResult) {
 	response, err := runPython(request)
 	if err != nil {
-		return nil, textResult(err.Error(), true)
+		return nil, nil, textResult(err.Error(), true)
 	}
 	if !response.OK {
-		return nil, textResult(response.Error, true)
+		return nil, nil, textResult(response.Error, true)
 	}
 	if response.Snapshot == nil {
-		return nil, textResult("Linux runtime did not return an app snapshot.", true)
+		return nil, nil, textResult("Linux runtime did not return an app snapshot.", true)
 	}
 	s.rememberSnapshot(app, response.Snapshot)
-	return response.Snapshot, toolCallResult{}
+	return response.Snapshot, response.Notes, toolCallResult{}
 }
 
 func (s *service) rememberSnapshot(query string, snapshot *appSnapshot) {

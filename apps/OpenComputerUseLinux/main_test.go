@@ -361,6 +361,164 @@ func listenUnixSocket(t *testing.T, path string) {
 	})
 }
 
+func TestLinuxRuntimeSelectsEditableTargetByState(t *testing.T) {
+	if !strings.Contains(linuxRuntimeScript, "state_contains(node, Atspi.StateType.EDITABLE)") {
+		t.Fatal("Linux runtime must require the EDITABLE state when choosing a text target; interface presence alone matches hidden placeholder widgets")
+	}
+	if !strings.Contains(linuxRuntimeScript, "candidates.sort(key=lambda item: item[0], reverse=True)") {
+		t.Fatal("Linux runtime should rank editable candidates so the focused widget wins")
+	}
+	if strings.Contains(linuxRuntimeScript, "return find_first(root, is_editable)") {
+		t.Fatal("Linux runtime must not fall back to the first editable-text interface in tree order")
+	}
+}
+
+func TestLinuxRuntimeVerifiesTextInsertionLanded(t *testing.T) {
+	if !strings.Contains(linuxRuntimeScript, "after = safe(lambda: Atspi.Text.get_character_count(text_iface))") {
+		t.Fatal("Linux runtime should re-read the character count after insert_text")
+	}
+	if !strings.Contains(linuxRuntimeScript, "return int(after) > before, before, int(after)") {
+		t.Fatal("Atspi.EditableText.insert_text returns True even when nothing is written, so the write must be confirmed by growth")
+	}
+	if !strings.Contains(linuxRuntimeScript, "return after == payload or after != before") {
+		t.Fatal("set_value must confirm the write landed instead of trusting set_text_contents")
+	}
+}
+
+func TestLinuxRuntimeTypesAtCaretAndReplacesSelection(t *testing.T) {
+	if !strings.Contains(linuxRuntimeScript, "def text_insertion_point(text_iface):") {
+		t.Fatal("Linux runtime should resolve an insertion point instead of always appending")
+	}
+	if !strings.Contains(linuxRuntimeScript, "Atspi.Text.get_caret_offset(text_iface)") {
+		t.Fatal("type_text should insert at the caret so it behaves like real typing")
+	}
+	if !strings.Contains(linuxRuntimeScript, "Atspi.EditableText.delete_text(editable, selection[0], selection[1])") {
+		t.Fatal("type_text should replace a non-empty selection, the way typing does")
+	}
+}
+
+func TestLinuxRuntimeRejectsOffscreenSentinelCoordinates(t *testing.T) {
+	if !strings.Contains(linuxRuntimeScript, "abs(rect.x) > MAX_SANE_EXTENT or abs(rect.y) > MAX_SANE_EXTENT") {
+		t.Fatal("unrendered widgets report INT_MIN origins; coordinate actions must not target them")
+	}
+	if !strings.Contains(linuxRuntimeScript, "MAX_SANE_EXTENT = 100000") {
+		t.Fatal("Linux runtime should define the sane extent bound shared by size and origin checks")
+	}
+}
+
+func TestLinuxRuntimeReportsExecutionPath(t *testing.T) {
+	if !strings.Contains(linuxRuntimeScript, "UNVERIFIED_SYNTHESIS") {
+		t.Fatal("Linux runtime should mark synthesis-based actions as unverified")
+	}
+	for _, note := range []string{
+		"Invoked the element's AT-SPI accessibility action.",
+		"Wrote the text through the AT-SPI editable-text API and confirmed it ",
+		"fell back to ",
+	} {
+		if !strings.Contains(linuxRuntimeScript, note) {
+			t.Fatalf("action notes must distinguish verified from best-effort paths: missing %q", note)
+		}
+	}
+	if !strings.Contains(linuxRuntimeScript, "response[\"notes\"] = notes") {
+		t.Fatal("Linux runtime should return the action notes to the Go bridge")
+	}
+}
+
+func TestActionResultFlagsUnchangedState(t *testing.T) {
+	base := func() *appSnapshot {
+		return &appSnapshot{
+			WindowTitle:    "Doc",
+			FocusedSummary: "a text field",
+			SelectedText:   "",
+			TreeLines:      []string{"0 frame Doc", "1 text hello"},
+		}
+	}
+	if observablyChanged(base(), base()) {
+		t.Fatal("identical snapshots must count as unchanged")
+	}
+	changedTree := base()
+	changedTree.TreeLines = []string{"0 frame Doc", "1 text hello world"}
+	if !observablyChanged(base(), changedTree) {
+		t.Fatal("a different tree must count as changed")
+	}
+	shorterTree := base()
+	shorterTree.TreeLines = []string{"0 frame Doc"}
+	if !observablyChanged(base(), shorterTree) {
+		t.Fatal("a tree with fewer lines must count as changed")
+	}
+	changedTitle := base()
+	changedTitle.WindowTitle = "Doc *"
+	if !observablyChanged(base(), changedTitle) {
+		t.Fatal("a different window title must count as changed")
+	}
+	changedSelection := base()
+	changedSelection.SelectedText = "hello"
+	if !observablyChanged(base(), changedSelection) {
+		t.Fatal("a different selection must count as changed")
+	}
+	changedFocus := base()
+	changedFocus.FocusedSummary = "a button"
+	if !observablyChanged(base(), changedFocus) {
+		t.Fatal("a different focused element must count as changed")
+	}
+	// 截图必须排除在外：光标闪烁会让每次动作都"有变化"，信号就废了。
+	sameButNewScreenshot := base()
+	sameButNewScreenshot.ScreenshotPNGBase64 = "different-pixels"
+	if observablyChanged(base(), sameButNewScreenshot) {
+		t.Fatal("screenshot noise must not count as an observable change")
+	}
+}
+
+func TestResultWithNotesPrependsNotesBeforeTree(t *testing.T) {
+	snapshot := &appSnapshot{
+		App:       appDescriptor{Name: "gedit", PID: 7},
+		TreeLines: []string{"0 frame Doc"},
+	}
+	result := snapshot.resultWithNotes([]string{"first note", "second note"})
+	text := result.Content[0].Text
+	if !strings.HasPrefix(text, "Note: first note\nNote: second note\n") {
+		t.Fatalf("notes should lead the result text, got %q", text)
+	}
+	if !strings.Contains(text, "0 frame Doc") {
+		t.Fatal("the accessibility tree must still be present")
+	}
+	if snapshot.resultWithNotes(nil).Content[0].Text != snapshot.renderedText() {
+		t.Fatal("an action without notes should render exactly as before")
+	}
+}
+
+func TestLinuxRuntimeGuardsGlobalInputSynthesis(t *testing.T) {
+	if !strings.Contains(linuxRuntimeScript, "def require_window_focus(window, what):") {
+		t.Fatal("Linux runtime needs a focus guard before global input synthesis")
+	}
+	for _, guarded := range []string{
+		"require_window_focus(window, \"press_key\")",
+		"require_window_focus(window, \"type_text\")",
+		"require_window_focus(window, \"scroll\")",
+		"require_window_focus(window, \"drag\")",
+		"require_window_focus(window, \"click\")",
+	} {
+		if !strings.Contains(linuxRuntimeScript, guarded) {
+			t.Fatalf("global synthesis path is unguarded: missing %s", guarded)
+		}
+	}
+	if !strings.Contains(linuxRuntimeScript, "Refusing to synthesize") {
+		t.Fatal("Linux runtime should fail loudly rather than deliver input to whichever window holds focus")
+	}
+}
+
+func TestLinuxRuntimeFocusesWindowThroughFocusableChild(t *testing.T) {
+	if !strings.Contains(linuxRuntimeScript, "Atspi.StateType.FOCUSABLE") {
+		t.Fatal("Linux runtime should look for a FOCUSABLE child; grab_focus on a GTK frame always fails")
+	}
+	if !strings.Contains(linuxRuntimeScript, "FOCUS_GRAB_CANDIDATES") {
+		t.Fatal("Linux runtime should cap focus-grab attempts because grabbing moves real focus inside the app")
+	}
+	if !strings.Contains(linuxRuntimeScript, "Atspi.StateType.ACTIVE") {
+		t.Fatal("Linux runtime should use the window ACTIVE state to decide whether synthesis is safe")
+	}
+}
+
 func findToolDefinition(t *testing.T, name string) toolDefinition {
 	t.Helper()
 	for _, tool := range toolDefinitions() {
@@ -382,4 +540,13 @@ func shortTempDir(t *testing.T) string {
 		_ = os.RemoveAll(path)
 	})
 	return path
+}
+
+func TestMCPInstructionsDocumentGlobalSynthesisFocusContract(t *testing.T) {
+	if !strings.Contains(serverInstructions, "Input synthesis on Linux is global") {
+		t.Fatal("MCP instructions must tell the agent that synthesis ignores the app argument")
+	}
+	if !strings.Contains(serverInstructions, "bring the target window to the foreground") {
+		t.Fatal("MCP instructions must document that synthesis tools steal focus")
+	}
 }

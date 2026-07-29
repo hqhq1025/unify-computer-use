@@ -27,6 +27,12 @@ from gi.repository import Atspi
 MAX_ELEMENTS = 1200
 MAX_DEPTH = 64
 DEFAULT_TEXT_LIMIT = 500
+# 抬窗时最多尝试几个 FOCUSABLE 控件。抓焦点会真的改变应用内的焦点位置，
+# 所以只试少量最可能的候选，不要把整棵树扫一遍。
+FOCUS_GRAB_CANDIDATES = 8
+# 合理屏幕坐标/尺寸的上限。超出这个量级的只可能是未渲染控件的 INT_MIN 哨兵值，
+# 再夸张的多显示器布局也到不了这个数量级。
+MAX_SANE_EXTENT = 100000
 
 
 def frame(x, y, width, height):
@@ -197,9 +203,14 @@ def extents(node):
         rect is None
         or rect.width <= 0
         or rect.height <= 0
-        or rect.width > 100000
-        or rect.height > 100000
+        or rect.width > MAX_SANE_EXTENT
+        or rect.height > MAX_SANE_EXTENT
     ):
+        return None
+    # 未渲染的控件在 GTK 上会返回 INT_MIN 量级的原点。尺寸看着正常（常见 1x1），
+    # 所以只过滤 width/height 拦不住：它们会带着 -2147483648 这样的坐标进入
+    # element 树，coordinate click/drag 打上去就落到无意义的位置。
+    if abs(rect.x) > MAX_SANE_EXTENT or abs(rect.y) > MAX_SANE_EXTENT:
         return None
     return frame(rect.x, rect.y, rect.width, rect.height)
 
@@ -859,6 +870,66 @@ def mouse_button_events(button):
     return "b1p", "b1r"
 
 
+def window_is_active(window):
+    return window is not None and state_contains(window, Atspi.StateType.ACTIVE)
+
+
+def focus_window(window, timeout=1.0):
+    """尽力把目标窗口抬到输入焦点，返回是否成功。
+
+    frame 自身的 Atspi.Component.grab_focus() 在 GTK 上恒返回 False，
+    必须找一个 FOCUSABLE 的子控件来抓焦点；窗口内上次获得焦点的控件
+    即使在窗口失活时仍保留 FOCUSED 状态，所以优先试它。
+    """
+    if window is None:
+        return False
+    if window_is_active(window):
+        return True
+
+    def grab(node):
+        component = safe(node.get_component_iface)
+        if component is None:
+            return False
+        return bool(safe(lambda: Atspi.Component.grab_focus(component), False))
+
+    focusable = [
+        node
+        for node in iter_all(window)
+        if state_contains(node, Atspi.StateType.FOCUSABLE)
+    ]
+    focusable.sort(
+        key=lambda node: state_contains(node, Atspi.StateType.FOCUSED), reverse=True
+    )
+    for node in focusable[:FOCUS_GRAB_CANDIDATES]:
+        if not grab(node):
+            continue
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if window_is_active(window):
+                return True
+            time.sleep(0.05)
+    return window_is_active(window)
+
+
+def require_window_focus(window, what):
+    """合成输入前强制确认目标窗口已激活。
+
+    Atspi.generate_keyboard_event / generate_mouse_event 走的是 XTEST 全局
+    合成：按键落到当前**输入焦点**窗口、点击落到该屏幕坐标**最上层**窗口，
+    都跟工具调用里的 app 参数无关。不先夺焦点就直接合成，内容会打进别的
+    应用——最坏情况是本该输入编辑器的文本落进终端并被执行。
+
+    抬窗失败时宁可硬失败，也不要静默把输入送错地方。
+    """
+    if focus_window(window):
+        return
+    raise RuntimeError(
+        "Refusing to synthesize {}: could not bring the target window to the "
+        "foreground. Input synthesis is global and would be delivered to "
+        "whichever window currently holds focus.".format(what)
+    )
+
+
 def send_mouse_click(x, y, button, count):
     down, up = mouse_button_events(button)
     repeat = max(1, int(count or 1))
@@ -945,26 +1016,39 @@ def keycode(name):
     return int(entries[0].keycode)
 
 
-def send_key(key):
+def parse_key(key):
+    """把按键字符串解析成 (修饰键 keycode 列表, 规范化后的主键)，不发送任何事件。
+
+    解析必须能独立于发送先做一遍：夺焦点是有副作用的（会打断用户），
+    不该为了一个根本拼错的按键先把窗口抢过来、再报参数错误。
+    """
     parts = [part for part in str(key).split("+") if part]
     if not parts:
         raise RuntimeError("Unsupported key: " + str(key))
     main = parts[-1]
-    modifiers = parts[:-1]
+    codes = []
+    for modifier in parts[:-1]:
+        name = MODIFIER_KEYS.get(modifier.lower())
+        if name is None:
+            # 原实现是静默 continue，会让 "ctrl+shft+s" 这类拼写错误
+            # 悄悄退化成孤立的 "s"，行为诡异且极难排查。
+            raise RuntimeError("Unsupported modifier: " + modifier)
+        codes.append(keycode(name))
+    normalized = KEY_ALIASES.get(main.lower(), main)
+    # 单字符键只有在**无修饰键**时才能走 STRING。STRING 是"插入这段文本"
+    # 的语义，会绕过已经 PRESS 的修饰键状态，使 ctrl+a 退化成输入字面 'a'。
+    if not (len(normalized) == 1 and not codes):
+        keycode(normalized)  # 提前确认主键可解析，失败就在这里报错
+    return codes, normalized
+
+
+def send_key(key):
+    codes, normalized = parse_key(key)
     pressed = []
     try:
-        for modifier in modifiers:
-            name = MODIFIER_KEYS.get(modifier.lower())
-            if name is None:
-                # 原实现是静默 continue，会让 "ctrl+shft+s" 这类拼写错误
-                # 悄悄退化成孤立的 "s"，行为诡异且极难排查。
-                raise RuntimeError("Unsupported modifier: " + modifier)
-            code = keycode(name)
+        for code in codes:
             Atspi.generate_keyboard_event(code, None, Atspi.KeySynthType.PRESS)
             pressed.append(code)
-        normalized = KEY_ALIASES.get(main.lower(), main)
-        # 单字符键只有在**无修饰键**时才能走 STRING。STRING 是"插入这段文本"
-        # 的语义，会绕过已经 PRESS 的修饰键状态，使 ctrl+a 退化成输入字面 'a'。
         if len(normalized) == 1 and not pressed:
             Atspi.generate_keyboard_event(0, normalized, Atspi.KeySynthType.STRING)
         else:
@@ -983,41 +1067,142 @@ def send_text(text):
 
 
 def find_editable_text(root):
-    def is_editable(node):
-        return has_editable_text_iface(node) and has_text_iface(node)
+    """挑出真正该接收文本的可编辑控件。
 
-    return find_first(root, is_editable)
+    不能只看 EditableText 接口存不存在就取树序第一个。gedit 这类应用里，
+    树序靠前的往往是隐藏的占位控件：它实现了 EditableText 接口，却没有
+    EDITABLE 状态。对它调 Atspi.EditableText.insert_text() **照样返回 True**，
+    但字符数不变——文本静默写丢，工具却报成功。
+
+    因此这里同时要求 EDITABLE 状态，并按 FOCUSED > SHOWING > 其它排序，
+    优先写进用户当前正在编辑的控件。
+    """
+    candidates = []
+    for node in iter_all(root):
+        if not (has_editable_text_iface(node) and has_text_iface(node)):
+            continue
+        if not state_contains(node, Atspi.StateType.EDITABLE):
+            continue
+        if state_contains(node, Atspi.StateType.FOCUSED):
+            rank = 2
+        elif state_contains(node, Atspi.StateType.SHOWING):
+            rank = 1
+        else:
+            rank = 0
+        candidates.append((rank, node))
+    if not candidates:
+        return None
+    # 只按 rank 排序：Accessible 之间不可比较，key 保证不会去比第二个元素。
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    return candidates[0][1]
 
 
-def insert_text(root, text):
+def read_all_text(text_iface):
+    """读出控件当前的全部文本；读不到返回 None（用来区分"空"和"读不到"）。"""
+    if text_iface is None:
+        return None
+    count = safe(lambda: Atspi.Text.get_character_count(text_iface))
+    if count is None:
+        return None
+    count = int(count)
+    if count <= 0:
+        return ""
+    return safe(lambda: Atspi.Text.get_text(text_iface, 0, count))
+
+
+def text_insertion_point(text_iface):
+    """决定文本该插到哪里，返回 (offset, selection)。
+
+    优先级：非空选区起点 > caret > 末尾追加。selection 非空时调用方要先把它
+    删掉——真的在键盘上打字会覆盖选中内容，`type_text` 应该保持一致。
+
+    只有读不到 caret 时才退回末尾追加（部分控件不实现 caret 查询）。
+    """
+    count = safe(lambda: Atspi.Text.get_character_count(text_iface))
+    count = int(count) if count is not None else 0
+
+    selections = int(safe(lambda: Atspi.Text.get_n_selections(text_iface), 0) or 0)
+    for index in range(max(selections, 0)):
+        span = safe(lambda index=index: Atspi.Text.get_selection(text_iface, index))
+        if span is None:
+            continue
+        start = int(safe(lambda: span.start_offset, 0) or 0)
+        end = int(safe(lambda: span.end_offset, 0) or 0)
+        if end > start:
+            return start, (start, end)
+
+    caret = safe(lambda: Atspi.Text.get_caret_offset(text_iface))
+    if caret is not None and 0 <= int(caret) <= count:
+        return int(caret), None
+    return count, None
+
+
+def insert_text_detail(root, text):
+    """通过 AT-SPI 直写文本，返回 (是否落地, 写前字符数, 写后字符数)。
+
+    调用方需要这三个值来如实报告"写进去了、并且确认过"，而不是只说一句成功。
+    """
     node = find_editable_text(root)
     if node is None:
-        return False
+        return False, 0, 0
     editable = safe(node.get_editable_text_iface)
     text_iface = safe(node.get_text_iface)
     if editable is None or text_iface is None:
-        return False
-    offset = int(safe(lambda: Atspi.Text.get_character_count(text_iface), 0) or 0)
-    return bool(
+        return False, 0, 0
+    payload = str(text)
+    if not payload:
+        count = int(safe(lambda: Atspi.Text.get_character_count(text_iface), 0) or 0)
+        return True, count, count
+
+    offset, selection = text_insertion_point(text_iface)
+    if selection is not None:
         safe(
-            lambda: Atspi.EditableText.insert_text(
-                editable, offset, str(text), len(str(text))
-            ),
-            False,
+            lambda: Atspi.EditableText.delete_text(editable, selection[0], selection[1])
         )
-    )
+
+    # 删掉选区会改变字符数，增长判定的基准必须在删除之后再读一次。
+    before = safe(lambda: Atspi.Text.get_character_count(text_iface))
+    before = int(before) if before is not None else 0
+    offset = max(0, min(offset, before))
+
+    if not safe(
+        lambda: Atspi.EditableText.insert_text(editable, offset, payload, len(payload)),
+        False,
+    ):
+        return False, before, before
+    # insert_text 的返回值不可信：对错误的控件也会返回 True。回读字符数确认
+    # 文本真的落地了，否则返回 False 让调用方走合成兜底，而不是假装成功。
+    after = safe(lambda: Atspi.Text.get_character_count(text_iface))
+    if after is None:
+        return False, before, before
+    return int(after) > before, before, int(after)
+
+
+def insert_text(root, text):
+    written, _, _ = insert_text_detail(root, text)
+    return written
 
 
 def set_element_value(node, value):
     if node is not None and has_editable_text_iface(node):
         editable = safe(node.get_editable_text_iface)
         if editable is not None:
-            return bool(
-                safe(
-                    lambda: Atspi.EditableText.set_text_contents(editable, str(value)),
-                    False,
-                )
-            )
+            payload = str(value)
+            text_iface = safe(node.get_text_iface)
+            before = read_all_text(text_iface)
+            if not safe(
+                lambda: Atspi.EditableText.set_text_contents(editable, payload),
+                False,
+            ):
+                return False
+            # set_text_contents 和 insert_text 一样，对写不进去的控件同样返回
+            # True。只要还能读回来就回读确认：内容变成目标值，或者至少发生了
+            # 变化（部分控件会规范化输入），都算写进去了；纹丝不动且不等于目标
+            # 值，就是没写进去。
+            after = read_all_text(text_iface)
+            if after is None:
+                return True
+            return after == payload or after != before
     value_iface = safe(node.get_value_iface) if node is not None else None
     if value_iface is not None:
         try:
@@ -1056,6 +1241,12 @@ def scroll_element(direction, pages):
         time.sleep(0.04)
 
 
+UNVERIFIED_SYNTHESIS = (
+    "Delivery to the intended target was not verified: AT-SPI input synthesis is "
+    "global and reports success as soon as the event is queued."
+)
+
+
 def perform_operation(operation):
     tool = operation.get("tool")
     if tool == "list_apps":
@@ -1076,6 +1267,9 @@ def perform_operation(operation):
     bounds = operation.get("windowBounds") or extents(window)
     element_record = operation.get("element")
     element = find_element(app, element_record)
+    # 每个动作都要说清楚实际走了哪条路径、结果有没有被校验过。返回一棵新的
+    # accessibility tree 看着像执行确认，其实只是快照，不能当成动作生效的证据。
+    notes = []
 
     if tool == "click":
         click_method = (operation.get("click_method") or "auto").lower()
@@ -1090,6 +1284,7 @@ def perform_operation(operation):
                 raise RuntimeError(
                     "click_method 'accessibility' could not click the requested element"
                 )
+            notes.append("Invoked the element's AT-SPI accessibility action.")
         elif click_method == "app_post":
             raise RuntimeError("click_method 'app_post' is not supported on Linux")
         elif click_method == "sky_click":
@@ -1101,53 +1296,106 @@ def perform_operation(operation):
                 operation.get("x"),
                 operation.get("y"),
             )
+            require_window_focus(window, "click")
             send_mouse_click(
                 x, y, operation.get("mouse_button", "left"), operation.get("click_count", 1)
+            )
+            notes.append(
+                "Synthesized a coordinate click at ({:.0f}, {:.0f}) after bringing the "
+                "window to the foreground. {}".format(x, y, UNVERIFIED_SYNTHESIS)
             )
         elif click_method == "auto":
             handled = False
             if element is not None and operation.get("mouse_button", "left") == "left":
                 handled = do_action_by_index(element, preferred_action_index(element))
-            if not handled:
+            if handled:
+                notes.append("Invoked the element's AT-SPI accessibility action.")
+            else:
                 x, y = screen_point(
                     bounds,
                     element_record,
                     operation.get("x"),
                     operation.get("y"),
                 )
+                require_window_focus(window, "click")
                 send_mouse_click(
                     x,
                     y,
                     operation.get("mouse_button", "left"),
                     operation.get("click_count", 1),
                 )
+                notes.append(
+                    "No usable AT-SPI action was available, so this fell back to a "
+                    "coordinate click at ({:.0f}, {:.0f}) after bringing the window to "
+                    "the foreground. {}".format(x, y, UNVERIFIED_SYNTHESIS)
+                )
         else:
             raise RuntimeError("Invalid click_method '{}'".format(click_method))
     elif tool == "perform_secondary_action":
         invoke_secondary_action(element, operation.get("action", ""))
+        notes.append(
+            "Invoked the '{}' AT-SPI action.".format(operation.get("action", ""))
+        )
     elif tool == "scroll":
+        require_window_focus(window, "scroll")
         scroll_element(operation.get("direction", "down"), operation.get("pages", 1))
+        notes.append(
+            "Scrolled by synthesizing page keys after bringing the window to the "
+            "foreground. {}".format(UNVERIFIED_SYNTHESIS)
+        )
     elif tool == "drag":
         from_x, from_y = screen_point(
             bounds, None, operation.get("from_x"), operation.get("from_y")
         )
         to_x, to_y = screen_point(bounds, None, operation.get("to_x"), operation.get("to_y"))
+        require_window_focus(window, "drag")
         send_drag(from_x, from_y, to_x, to_y)
+        notes.append(
+            "Synthesized a coordinate drag after bringing the window to the "
+            "foreground. {}".format(UNVERIFIED_SYNTHESIS)
+        )
     elif tool == "type_text":
-        if not insert_text(window, operation.get("text", "")):
+        # AT-SPI 直写不依赖窗口焦点，优先走；只有退化到全局合成时才需要夺焦点。
+        written, before_chars, after_chars = insert_text_detail(
+            window, operation.get("text", "")
+        )
+        if written:
+            notes.append(
+                "Wrote the text through the AT-SPI editable-text API and confirmed it "
+                "landed ({} -> {} characters).".format(before_chars, after_chars)
+            )
+        else:
+            require_window_focus(window, "type_text")
             send_text(operation.get("text", ""))
+            notes.append(
+                "The AT-SPI editable-text write did not land, so this fell back to "
+                "global key synthesis after bringing the window to the foreground. "
+                "{}".format(UNVERIFIED_SYNTHESIS)
+            )
     elif tool == "press_key":
+        # 先解析再夺焦点：拼错的按键不该先把用户的窗口抢过来才报错。
+        parse_key(operation.get("key", ""))
+        require_window_focus(window, "press_key")
         send_key(operation.get("key", ""))
+        notes.append(
+            "Synthesized '{}' after bringing the window to the foreground. {}".format(
+                operation.get("key", ""), UNVERIFIED_SYNTHESIS
+            )
+        )
     elif tool == "set_value":
         if element is None:
             raise RuntimeError("unknown element_index")
         if not set_element_value(element, operation.get("value", "")):
             raise RuntimeError("Cannot set a value for an element that is not settable")
+        notes.append("Set the value through the AT-SPI API and confirmed it applied.")
     else:
         raise RuntimeError('unsupportedTool("{}")'.format(tool))
 
     time.sleep(0.12)
-    return {"ok": True, "snapshot": build_snapshot(operation.get("app", ""))}
+    response = {"ok": True, "snapshot": build_snapshot(operation.get("app", ""))}
+    if notes:
+        response["notes"] = notes
+    return response
 
 
 def main():

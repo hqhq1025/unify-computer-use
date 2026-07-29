@@ -1,0 +1,759 @@
+#!/usr/bin/env python3
+"""runtime.py 的单元测试。
+
+只依赖标准库 unittest，用假的 AT-SPI 节点驱动，不需要桌面会话或 a11y 总线，
+因此可以直接进 CI。真实桌面上的端到端验证见
+`scripts/verify-linux-input-chain.py`。
+
+覆盖的是两类曾经静默失败的路径：
+1. 选错可编辑控件 —— 写进隐藏占位控件，insert_text 返回 True 但文本丢失。
+2. 全局输入合成 —— XTEST 落到当前焦点窗口，与 app 参数无关。
+"""
+
+import os
+import sys
+import unittest
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import runtime  # noqa: E402
+
+STATE = runtime.Atspi.StateType
+
+
+class FakeStateSet:
+    def __init__(self, states):
+        self._states = set(states)
+
+    def contains(self, state):
+        return state in self._states
+
+
+class FakeSpan:
+    def __init__(self, start, end):
+        self.start_offset = start
+        self.end_offset = end
+
+
+class FakeTextIface:
+    """假的 Text/EditableText 接口。
+
+    `honest=False` 复现真实世界里的坑：insert_text 返回 True，字符数却不变。
+    `caret=None` 模拟不实现 caret 查询的控件。
+    """
+
+    def __init__(self, text="", honest=True, accept=True, caret=None, selection=None):
+        self.text = text
+        self.honest = honest
+        self.accept = accept
+        self.caret = caret
+        self.selection = selection
+        self.inserts = []
+        self.deletes = []
+        self.set_calls = []
+
+    def insert(self, offset, payload):
+        self.inserts.append((offset, payload))
+        if not self.accept:
+            return False
+        if self.honest:
+            self.text = self.text[:offset] + payload + self.text[offset:]
+        return True
+
+    def delete(self, start, end):
+        self.deletes.append((start, end))
+        if self.honest:
+            self.text = self.text[:start] + self.text[end:]
+        return True
+
+    def set_contents(self, payload):
+        self.set_calls.append(payload)
+        if not self.accept:
+            return False
+        if self.honest:
+            self.text = payload
+        return True
+
+
+class FakeExtents:
+    def __init__(self, x, y, width, height):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+
+
+class FakeComponent:
+    def __init__(self, window=None, grabs=False, extents=None):
+        self.window = window
+        self.grabs = grabs
+        self.extents = extents
+        self.grab_calls = 0
+
+    def grab_focus(self):
+        self.grab_calls += 1
+        if not self.grabs:
+            return False
+        if self.window is not None:
+            self.window.states.add(STATE.ACTIVE)
+        return True
+
+
+class FakeNode:
+    def __init__(
+        self,
+        states=(),
+        text=None,
+        editable=True,
+        children=(),
+        component=None,
+        extents=None,
+        value=None,
+    ):
+        self.states = set(states)
+        self._text = text
+        self._editable = editable
+        self.children = list(children)
+        self.component = component
+        self.extents = extents
+        self.value = value
+
+    # --- AT-SPI Accessible surface used by runtime.py ---
+    def get_state_set(self):
+        return FakeStateSet(self.states)
+
+    def get_child_count(self):
+        return len(self.children)
+
+    def get_child_at_index(self, index):
+        return self.children[index]
+
+    def get_text_iface(self):
+        return self._text
+
+    def get_editable_text_iface(self):
+        return self._text if (self._text is not None and self._editable) else None
+
+    def get_component_iface(self):
+        return self.component
+
+    def get_value_iface(self):
+        return self.value
+
+
+class FakeAtspiText:
+    @staticmethod
+    def get_character_count(iface):
+        return len(iface.text)
+
+    @staticmethod
+    def get_text(iface, start, end):
+        return iface.text[start:end]
+
+    @staticmethod
+    def get_caret_offset(iface):
+        if iface.caret is None:
+            raise RuntimeError("caret not supported")
+        return iface.caret
+
+    @staticmethod
+    def get_n_selections(iface):
+        return 1 if iface.selection else 0
+
+    @staticmethod
+    def get_selection(iface, index):
+        start, end = iface.selection
+        return FakeSpan(start, end)
+
+
+class FakeAtspiEditableText:
+    @staticmethod
+    def insert_text(iface, offset, payload, length):
+        return iface.insert(offset, payload)
+
+    @staticmethod
+    def delete_text(iface, start, end):
+        return iface.delete(start, end)
+
+    @staticmethod
+    def set_text_contents(iface, payload):
+        return iface.set_contents(payload)
+
+
+class FakeAtspiComponent:
+    @staticmethod
+    def grab_focus(component):
+        return component.grab_focus()
+
+    @staticmethod
+    def get_extents(component, coord_type):
+        return component.extents
+
+
+class FakeCoordType:
+    SCREEN = "screen"
+
+
+class FakeAtspi:
+    """保留真的 StateType 枚举，只替换会打到真实 a11y 总线的接口调用。"""
+
+    StateType = STATE
+    CoordType = FakeCoordType
+    Text = FakeAtspiText
+    EditableText = FakeAtspiEditableText
+    Component = FakeAtspiComponent
+
+
+class AtspiPatchedTestCase(unittest.TestCase):
+    def setUp(self):
+        self._real_atspi = runtime.Atspi
+        runtime.Atspi = FakeAtspi
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        runtime.Atspi = self._real_atspi
+
+
+class FindEditableTextTests(AtspiPatchedTestCase):
+    def test_skips_node_that_lacks_editable_state(self):
+        """回归：树序第一个带 EditableText 接口的节点可能是隐藏占位控件。
+
+        它没有 EDITABLE 状态，写进去会静默丢失，必须跳过。
+        """
+        placeholder = FakeNode(
+            states=(STATE.VISIBLE, STATE.ENABLED), text=FakeTextIface(honest=False)
+        )
+        real_editor = FakeNode(
+            states=(STATE.FOCUSED, STATE.EDITABLE, STATE.SHOWING),
+            text=FakeTextIface(),
+        )
+        window = FakeNode(children=(placeholder, real_editor))
+
+        self.assertIs(runtime.find_editable_text(window), real_editor)
+
+    def test_prefers_focused_over_merely_showing(self):
+        showing = FakeNode(states=(STATE.EDITABLE, STATE.SHOWING), text=FakeTextIface())
+        focused = FakeNode(
+            states=(STATE.EDITABLE, STATE.SHOWING, STATE.FOCUSED), text=FakeTextIface()
+        )
+        window = FakeNode(children=(showing, focused))
+
+        self.assertIs(runtime.find_editable_text(window), focused)
+
+    def test_prefers_showing_over_offscreen(self):
+        offscreen = FakeNode(states=(STATE.EDITABLE,), text=FakeTextIface())
+        showing = FakeNode(states=(STATE.EDITABLE, STATE.SHOWING), text=FakeTextIface())
+        window = FakeNode(children=(offscreen, showing))
+
+        self.assertIs(runtime.find_editable_text(window), showing)
+
+    def test_returns_none_when_no_node_has_editable_state(self):
+        window = FakeNode(
+            children=(
+                FakeNode(states=(STATE.VISIBLE,), text=FakeTextIface()),
+                FakeNode(states=(STATE.ENABLED,), text=FakeTextIface()),
+            )
+        )
+
+        self.assertIsNone(runtime.find_editable_text(window))
+
+    def test_ignores_nodes_without_editable_text_iface(self):
+        read_only = FakeNode(
+            states=(STATE.EDITABLE, STATE.FOCUSED),
+            text=FakeTextIface(),
+            editable=False,
+        )
+        editor = FakeNode(states=(STATE.EDITABLE,), text=FakeTextIface())
+        window = FakeNode(children=(read_only, editor))
+
+        self.assertIs(runtime.find_editable_text(window), editor)
+
+    def test_finds_editor_nested_deep_in_the_tree(self):
+        editor = FakeNode(
+            states=(STATE.EDITABLE, STATE.FOCUSED, STATE.SHOWING), text=FakeTextIface()
+        )
+        window = FakeNode(
+            children=(FakeNode(children=(FakeNode(children=(editor,)),)),)
+        )
+
+        self.assertIs(runtime.find_editable_text(window), editor)
+
+
+class InsertTextTests(AtspiPatchedTestCase):
+    def _window_with(self, iface):
+        return FakeNode(
+            children=(
+                FakeNode(
+                    states=(STATE.EDITABLE, STATE.FOCUSED, STATE.SHOWING), text=iface
+                ),
+            )
+        )
+
+    def test_rejects_buffer_that_reports_success_without_writing(self):
+        """回归：AT-SPI 对错误控件也会返回 True，必须回读字符数确认。"""
+        liar = FakeTextIface(honest=False)
+        window = self._window_with(liar)
+
+        self.assertFalse(runtime.insert_text(window, "hello"))
+        self.assertEqual(liar.inserts, [(0, "hello")], "应确实尝试过写入")
+
+    def test_accepts_buffer_that_actually_grows(self):
+        iface = FakeTextIface()
+        window = self._window_with(iface)
+
+        self.assertTrue(runtime.insert_text(window, "hello"))
+        self.assertEqual(iface.text, "hello")
+
+    def test_appends_at_end_of_existing_content(self):
+        iface = FakeTextIface(text="abc")
+        window = self._window_with(iface)
+
+        self.assertTrue(runtime.insert_text(window, "def"))
+        self.assertEqual(iface.text, "abcdef")
+
+    def test_returns_false_when_insert_itself_fails(self):
+        iface = FakeTextIface(accept=False)
+        window = self._window_with(iface)
+
+        self.assertFalse(runtime.insert_text(window, "hello"))
+
+    def test_empty_payload_is_a_successful_noop(self):
+        iface = FakeTextIface(text="abc")
+        window = self._window_with(iface)
+
+        self.assertTrue(runtime.insert_text(window, ""))
+        self.assertEqual(iface.inserts, [], "空文本不该产生写入调用")
+
+    def test_returns_false_when_no_editable_target_exists(self):
+        window = FakeNode(children=(FakeNode(states=(STATE.VISIBLE,)),))
+
+        self.assertFalse(runtime.insert_text(window, "hello"))
+
+
+class ExtentsTests(AtspiPatchedTestCase):
+    def _node(self, x, y, width, height):
+        return FakeNode(component=FakeComponent(extents=FakeExtents(x, y, width, height)))
+
+    def test_accepts_a_normal_on_screen_widget(self):
+        self.assertEqual(
+            runtime.extents(self._node(10, 20, 100, 40)),
+            runtime.frame(10, 20, 100, 40),
+        )
+
+    def test_accepts_negative_coordinates_from_a_second_monitor(self):
+        """左侧副屏上的窗口坐标是负数，这是合法的，不能一并过滤掉。"""
+        self.assertIsNotNone(runtime.extents(self._node(-1920, -100, 800, 600)))
+
+    def test_rejects_int_min_origin_used_for_unrendered_widgets(self):
+        """回归：未渲染控件返回 INT_MIN 原点但尺寸看着正常，只查尺寸拦不住。"""
+        self.assertIsNone(runtime.extents(self._node(-2147483648, -2147483648, 1, 1)))
+
+    def test_rejects_int_min_origin_on_either_axis(self):
+        self.assertIsNone(runtime.extents(self._node(-2147483648, 20, 100, 40)))
+        self.assertIsNone(runtime.extents(self._node(10, -2147483648, 100, 40)))
+
+    def test_still_rejects_absurd_sizes(self):
+        self.assertIsNone(runtime.extents(self._node(0, 0, 0, 40)))
+        self.assertIsNone(runtime.extents(self._node(0, 0, 100, 999999)))
+
+
+class TextInsertionPointTests(AtspiPatchedTestCase):
+    def test_uses_caret_offset(self):
+        iface = FakeTextIface(text="abcdef", caret=3)
+
+        self.assertEqual(runtime.text_insertion_point(iface), (3, None))
+
+    def test_prefers_a_non_empty_selection_over_the_caret(self):
+        iface = FakeTextIface(text="abcdef", caret=0, selection=(2, 5))
+
+        self.assertEqual(runtime.text_insertion_point(iface), (2, (2, 5)))
+
+    def test_ignores_a_collapsed_selection(self):
+        iface = FakeTextIface(text="abcdef", caret=4, selection=(2, 2))
+
+        self.assertEqual(runtime.text_insertion_point(iface), (4, None))
+
+    def test_falls_back_to_appending_when_caret_is_unavailable(self):
+        iface = FakeTextIface(text="abcdef", caret=None)
+
+        self.assertEqual(runtime.text_insertion_point(iface), (6, None))
+
+    def test_falls_back_to_appending_when_caret_is_out_of_range(self):
+        iface = FakeTextIface(text="abc", caret=99)
+
+        self.assertEqual(runtime.text_insertion_point(iface), (3, None))
+
+
+class CaretInsertionTests(AtspiPatchedTestCase):
+    def _window_with(self, iface):
+        return FakeNode(
+            children=(
+                FakeNode(
+                    states=(STATE.EDITABLE, STATE.FOCUSED, STATE.SHOWING), text=iface
+                ),
+            )
+        )
+
+    def test_inserts_at_the_caret_instead_of_the_end(self):
+        """回归：一直追加到末尾，等于无视用户/agent 刚刚放好的光标位置。"""
+        iface = FakeTextIface(text="hello world", caret=5)
+
+        self.assertTrue(runtime.insert_text(self._window_with(iface), " there"))
+        self.assertEqual(iface.text, "hello there world")
+
+    def test_replaces_a_selection_the_way_typing_does(self):
+        iface = FakeTextIface(text="hello world", caret=0, selection=(0, 5))
+
+        self.assertTrue(runtime.insert_text(self._window_with(iface), "goodbye"))
+        self.assertEqual(iface.deletes, [(0, 5)])
+        self.assertEqual(iface.text, "goodbye world")
+
+    def test_appends_when_the_control_has_no_caret(self):
+        iface = FakeTextIface(text="abc", caret=None)
+
+        self.assertTrue(runtime.insert_text(self._window_with(iface), "def"))
+        self.assertEqual(iface.text, "abcdef")
+
+    def test_detail_reports_character_counts(self):
+        iface = FakeTextIface(text="abc", caret=3)
+
+        self.assertEqual(
+            runtime.insert_text_detail(self._window_with(iface), "de"), (True, 3, 5)
+        )
+
+    def test_detail_reports_failure_without_growth(self):
+        iface = FakeTextIface(text="abc", caret=3, honest=False)
+
+        written, before, after = runtime.insert_text_detail(
+            self._window_with(iface), "de"
+        )
+        self.assertFalse(written)
+        self.assertEqual((before, after), (3, 3))
+
+
+class SetElementValueTests(AtspiPatchedTestCase):
+    def test_confirms_the_write_landed(self):
+        iface = FakeTextIface(text="old")
+        node = FakeNode(states=(STATE.EDITABLE,), text=iface)
+
+        self.assertTrue(runtime.set_element_value(node, "new"))
+        self.assertEqual(iface.text, "new")
+
+    def test_rejects_a_control_that_reports_success_without_changing(self):
+        """回归：set_text_contents 和 insert_text 一样会对错误控件返回 True。"""
+        iface = FakeTextIface(text="old", honest=False)
+        node = FakeNode(states=(STATE.EDITABLE,), text=iface)
+
+        self.assertFalse(runtime.set_element_value(node, "new"))
+
+    def test_accepts_a_control_that_normalizes_the_value(self):
+        """有的控件会规范化输入，只要确实变了就算写进去了。"""
+        iface = FakeTextIface(text="old")
+
+        def normalize(payload):
+            iface.set_calls.append(payload)
+            iface.text = payload.strip().upper()
+            return True
+
+        iface.set_contents = normalize
+        node = FakeNode(states=(STATE.EDITABLE,), text=iface)
+
+        self.assertTrue(runtime.set_element_value(node, " new "))
+        self.assertEqual(iface.text, "NEW")
+
+
+class ActionNotesTests(AtspiPatchedTestCase):
+    """动作必须如实说明走了哪条路径、结果有没有被确认。"""
+
+    def setUp(self):
+        super().setUp()
+        self.window = FakeNode(states=(STATE.ACTIVE,))
+        self._patch("resolve_app", lambda query: FakeNode())
+        self._patch("main_window", lambda app: (0, self.window))
+        self._patch("extents", lambda node: runtime.frame(0, 0, 100, 100))
+        self._patch("find_element", lambda app, record: None)
+        self._patch("build_snapshot", lambda *a, **k: {"text": ""})
+        self._patch("send_key", lambda key: None)
+        self._patch("send_text", lambda text: None)
+        self._patch("send_mouse_click", lambda *a: None)
+        self._patch("time", _NoSleep())
+
+    def _patch(self, name, value):
+        original = getattr(runtime, name)
+        setattr(runtime, name, value)
+        self.addCleanup(setattr, runtime, name, original)
+
+    def test_direct_write_is_reported_as_confirmed(self):
+        self._patch("insert_text_detail", lambda root, text: (True, 3, 8))
+
+        notes = runtime.perform_operation(
+            {"tool": "type_text", "app": "x", "text": "hello"}
+        )["notes"]
+
+        self.assertEqual(len(notes), 1)
+        self.assertIn("confirmed it landed (3 -> 8 characters)", notes[0])
+        self.assertNotIn("not verified", notes[0])
+
+    def test_synthesis_fallback_is_reported_as_unverified(self):
+        self._patch("insert_text_detail", lambda root, text: (False, 0, 0))
+
+        notes = runtime.perform_operation(
+            {"tool": "type_text", "app": "x", "text": "hello"}
+        )["notes"]
+
+        self.assertIn("fell back to", notes[0])
+        self.assertIn("was not verified", notes[0])
+
+    def test_press_key_is_always_reported_as_unverified(self):
+        notes = runtime.perform_operation(
+            {"tool": "press_key", "app": "x", "key": "ctrl+a"}
+        )["notes"]
+
+        self.assertIn("ctrl+a", notes[0])
+        self.assertIn("was not verified", notes[0])
+
+    def test_coordinate_click_is_reported_as_unverified(self):
+        notes = runtime.perform_operation(
+            {"tool": "click", "app": "x", "click_method": "global", "x": 5, "y": 7}
+        )["notes"]
+
+        self.assertIn("coordinate click", notes[0])
+        self.assertIn("was not verified", notes[0])
+
+    def test_accessibility_click_is_reported_as_a_semantic_action(self):
+        element = FakeNode()
+        self._patch("find_element", lambda app, record: element)
+        self._patch("preferred_action_index", lambda node: 0)
+        self._patch("do_action_by_index", lambda node, index: True)
+
+        notes = runtime.perform_operation(
+            {"tool": "click", "app": "x", "click_method": "auto", "x": 1, "y": 1}
+        )["notes"]
+
+        self.assertIn("AT-SPI accessibility action", notes[0])
+        self.assertNotIn("not verified", notes[0])
+
+    def test_auto_click_reports_the_coordinate_fallback(self):
+        element = FakeNode()
+        self._patch("find_element", lambda app, record: element)
+        self._patch("preferred_action_index", lambda node: None)
+        self._patch("do_action_by_index", lambda node, index: False)
+
+        notes = runtime.perform_operation(
+            {"tool": "click", "app": "x", "click_method": "auto", "x": 1, "y": 1}
+        )["notes"]
+
+        self.assertIn("No usable AT-SPI action", notes[0])
+        self.assertIn("was not verified", notes[0])
+
+
+class FocusWindowTests(AtspiPatchedTestCase):
+    def test_active_window_needs_no_grab(self):
+        component = FakeComponent(grabs=True)
+        window = FakeNode(
+            states=(STATE.ACTIVE,),
+            children=(FakeNode(states=(STATE.FOCUSABLE,), component=component),),
+        )
+
+        self.assertTrue(runtime.focus_window(window))
+        self.assertEqual(component.grab_calls, 0, "已激活的窗口不该再抓焦点")
+
+    def test_grabs_focusable_child_to_activate_window(self):
+        window = FakeNode()
+        component = FakeComponent(window=window, grabs=True)
+        window.children = [FakeNode(states=(STATE.FOCUSABLE,), component=component)]
+
+        self.assertTrue(runtime.focus_window(window))
+        self.assertEqual(component.grab_calls, 1)
+
+    def test_prefers_the_previously_focused_widget(self):
+        """窗口失活后，上次获得焦点的控件仍保留 FOCUSED 状态，应优先试它。"""
+        window = FakeNode()
+        plain = FakeComponent(window=window, grabs=True)
+        remembered = FakeComponent(window=window, grabs=True)
+        window.children = [
+            FakeNode(states=(STATE.FOCUSABLE,), component=plain),
+            FakeNode(states=(STATE.FOCUSABLE, STATE.FOCUSED), component=remembered),
+        ]
+
+        self.assertTrue(runtime.focus_window(window))
+        self.assertEqual(remembered.grab_calls, 1)
+        self.assertEqual(plain.grab_calls, 0)
+
+    def test_returns_false_when_nothing_can_take_focus(self):
+        component = FakeComponent(grabs=False)
+        window = FakeNode(
+            children=(FakeNode(states=(STATE.FOCUSABLE,), component=component),)
+        )
+
+        self.assertFalse(runtime.focus_window(window))
+
+    def test_skips_non_focusable_nodes(self):
+        component = FakeComponent(grabs=True)
+        window = FakeNode(children=(FakeNode(states=(STATE.VISIBLE,), component=component),))
+
+        self.assertFalse(runtime.focus_window(window))
+        self.assertEqual(component.grab_calls, 0)
+
+    def test_caps_the_number_of_grab_attempts(self):
+        """抓焦点会真的改变应用内焦点位置，不能把整棵树扫一遍。"""
+        components = [FakeComponent(grabs=False) for _ in range(20)]
+        window = FakeNode(
+            children=[
+                FakeNode(states=(STATE.FOCUSABLE,), component=c) for c in components
+            ]
+        )
+
+        self.assertFalse(runtime.focus_window(window))
+        attempted = sum(1 for c in components if c.grab_calls)
+        self.assertEqual(attempted, runtime.FOCUS_GRAB_CANDIDATES)
+
+    def test_none_window_is_not_focusable(self):
+        self.assertFalse(runtime.focus_window(None))
+
+
+class RequireWindowFocusTests(AtspiPatchedTestCase):
+    def test_passes_through_when_window_is_active(self):
+        window = FakeNode(states=(STATE.ACTIVE,))
+
+        runtime.require_window_focus(window, "press_key")  # 不应抛异常
+
+    def test_raises_instead_of_synthesizing_into_the_wrong_window(self):
+        component = FakeComponent(grabs=False)
+        window = FakeNode(
+            children=(FakeNode(states=(STATE.FOCUSABLE,), component=component),)
+        )
+
+        with self.assertRaises(RuntimeError) as ctx:
+            runtime.require_window_focus(window, "press_key")
+        message = str(ctx.exception)
+        self.assertIn("press_key", message)
+        self.assertIn("foreground", message)
+
+
+class PerformOperationGuardTests(AtspiPatchedTestCase):
+    """确认焦点守卫真的接在了调度路径上，防止以后被摘掉。"""
+
+    def setUp(self):
+        super().setUp()
+        self.window = FakeNode()
+        self.focus_calls = []
+        self.sent_keys = []
+        self.sent_text = []
+        self.clicks = []
+        self.drags = []
+
+        def fake_require(window, what):
+            self.focus_calls.append(what)
+
+        self._patch("resolve_app", lambda query: FakeNode())
+        self._patch("main_window", lambda app: (0, self.window))
+        self._patch("extents", lambda node: runtime.frame(0, 0, 100, 100))
+        self._patch("find_element", lambda app, record: None)
+        self._patch("build_snapshot", lambda *a, **k: {"text": ""})
+        self._patch("require_window_focus", fake_require)
+        self._patch("insert_text_detail", lambda root, text: (False, 0, 0))
+        self._patch("send_text", lambda text: self.sent_text.append(text))
+        self._patch("parse_key", lambda key: ([], key))
+        self._patch("send_key", lambda key: self.sent_keys.append(key))
+        self._patch(
+            "send_mouse_click", lambda x, y, b, c: self.clicks.append((x, y, b, c))
+        )
+        self._patch("send_drag", lambda *a: self.drags.append(a))
+        self._patch("time", _NoSleep())
+
+    def _patch(self, name, value):
+        original = getattr(runtime, name)
+        setattr(runtime, name, value)
+        self.addCleanup(setattr, runtime, name, original)
+
+    def test_press_key_requires_focus_first(self):
+        runtime.perform_operation({"tool": "press_key", "app": "x", "key": "ctrl+a"})
+
+        self.assertEqual(self.focus_calls, ["press_key"])
+        self.assertEqual(self.sent_keys, ["ctrl+a"])
+
+    def test_invalid_key_is_rejected_before_stealing_focus(self):
+        """夺焦点会打断用户，不该为一个拼错的按键先抢窗口再报错。"""
+
+        def refuse_parse(key):
+            raise RuntimeError("Unsupported modifier: shft")
+
+        self._patch("parse_key", refuse_parse)
+
+        with self.assertRaises(RuntimeError) as ctx:
+            runtime.perform_operation({"tool": "press_key", "app": "x", "key": "shft+s"})
+        self.assertIn("Unsupported modifier", str(ctx.exception))
+        self.assertEqual(self.focus_calls, [], "参数非法时不该动用户的窗口")
+        self.assertEqual(self.sent_keys, [])
+
+    def test_type_text_requires_focus_before_synthesis_fallback(self):
+        runtime.perform_operation({"tool": "type_text", "app": "x", "text": "hi"})
+
+        self.assertEqual(self.focus_calls, ["type_text"])
+        self.assertEqual(self.sent_text, ["hi"])
+
+    def test_type_text_skips_focus_when_direct_write_succeeds(self):
+        """AT-SPI 直写不需要焦点，不该无谓地抢用户的窗口。"""
+        self._patch("insert_text_detail", lambda root, text: (True, 0, 2))
+
+        runtime.perform_operation({"tool": "type_text", "app": "x", "text": "hi"})
+
+        self.assertEqual(self.focus_calls, [])
+        self.assertEqual(self.sent_text, [])
+
+    def test_global_click_requires_focus(self):
+        runtime.perform_operation(
+            {"tool": "click", "app": "x", "click_method": "global", "x": 5, "y": 5}
+        )
+
+        self.assertEqual(self.focus_calls, ["click"])
+        self.assertEqual(len(self.clicks), 1)
+
+    def test_drag_requires_focus(self):
+        runtime.perform_operation(
+            {
+                "tool": "drag",
+                "app": "x",
+                "from_x": 1,
+                "from_y": 2,
+                "to_x": 3,
+                "to_y": 4,
+            }
+        )
+
+        self.assertEqual(self.focus_calls, ["drag"])
+        self.assertEqual(len(self.drags), 1)
+
+    def test_scroll_requires_focus(self):
+        runtime.perform_operation(
+            {"tool": "scroll", "app": "x", "direction": "down", "pages": 1}
+        )
+
+        self.assertEqual(self.focus_calls, ["scroll"])
+
+    def test_failed_focus_aborts_before_any_synthesis(self):
+        def refuse(window, what):
+            raise RuntimeError("Refusing to synthesize {}".format(what))
+
+        self._patch("require_window_focus", refuse)
+
+        with self.assertRaises(RuntimeError):
+            runtime.perform_operation({"tool": "press_key", "app": "x", "key": "a"})
+        self.assertEqual(self.sent_keys, [], "夺焦点失败后不得再合成任何按键")
+
+
+class _NoSleep:
+    """让 perform_operation 里的固定 sleep 不拖慢测试。"""
+
+    @staticmethod
+    def sleep(_seconds):
+        return None
+
+    @staticmethod
+    def time():
+        return 0.0
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
