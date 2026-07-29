@@ -153,6 +153,29 @@ Linux runtime 是从 macOS 移植过来的，但大量逻辑没有跟上。与�
 注意：不是无脑照搬。AX 与 AT-SPI 的语义不同（例如 AT-SPI 没有进程定向输入投递），
 每条移植都要判断哪些是平台无关的产品判断（可搬），哪些是 macOS 特有的机制（不可搬）。
 
+### P0 并行 · 引导 agent 走 a11y 通道
+使用率不是只能被动度量的结果，**MCP 自身就是主要的引导手段**。
+OSWorld-MCP 报告的最高 Tool Invocation Rate 只有 33.3%，说明"工具可用"离"工具被用"
+差得很远，而这段距离主要由工具的自我描述和返回内容决定。
+
+可用的引导杠杆（按影响力排序）：
+
+1. **工具描述里写清优先级与代价差异**。已有先例：`click` 的描述现在写着
+   "PREFER element_index：它调用元素自身的 accessibility action，可靠且**不抢焦点**；
+   x/y 坐标点击会合成真实鼠标事件并**抢焦点**"。这类"两条路的真实差异"比单纯说
+   "推荐用 A"有效得多
+2. **`serverInstructions` 里给出选择规则**，而不只是罗列工具
+3. **动作返回的 `Note:` 行做即时纠偏**。当前已能区分"已确认的语义调用"和
+   "未确认的坐标合成"；应进一步在走了坐标兜底时明确提示"本次未使用元素定向，
+   若树中存在该元素请优先用 element_index"
+4. **让 a11y 通道在人体工学上更省事**：树里的 `element_index` 必须显眼、稳定、
+   可直接引用；坐标反而应该更"费劲"一点
+5. **不要在语义调用可用时把坐标并列呈现**——并列等于暗示两者等价
+
+引导效果由"语义调用 vs 坐标兜底"的比例度量，纳入 S3 报告口径。
+**注意区分两种低使用率**：agent 不想用（引导问题）与 agent 用了但失败后退化
+（能力问题）。两者修法相反，必须分开统计。
+
 ### P1 · 裁剪与呈现（先移植，再研究）
 - **先做对照移植**：上表里 `shouldSkipChild` / `isPlainGenericTextContainer` /
   `placeholderValue` / `isSiblingCounterText` 直接对应裁剪需求，macOS 已有验证过的判据
@@ -180,10 +203,24 @@ Linux runtime 是从 macOS 移植过来的，但大量逻辑没有跟上。与�
 - 用 **Xlib**，全仓库 wayland 仅 1 处提及。X11 确认，与我们的基线环境一致
 - a11y 树被序列化成带命名空间的 **XML**（`st:` 状态 / `cp:` 组件 / `val:` 值 / `act:` 动作等）
 
-**a11y-first 是官方一等公民**
+**a11y-first 是官方一等公民，但仅限观测**
 - 观测空间：`a11y_tree` / `screenshot` / `screenshot_a11y_tree` / `som`
 - 动作空间：`pyautogui` / `computer_13`
-- 也就是说"只给 a11y 树"本来就是官方支持的设定，不需要我们自己发明
+- **两个动作空间都只有坐标，没有元素定向入口**。`computer_13` 的 `CLICK` 参数是
+  `button` / `x` / `y` / `num_clicks`；全仓库搜 `element_id` / `do_action` /
+  `grab_focus` / `AtspiAction` 均 0 命中。唯一的 `ATAction`（`server/main.py:503`）
+  只是把动作名读出来写成 XML 属性，从不调用 `doAction()`
+- 结论：**OSWorld 里 a11y 只负责"看"，"做"仍然落到坐标**。
+  a11y 树的作用是把坐标来源从"看图猜"换成"从树里读"，但坐标 grounding 并未被消除
+
+### 这是本项目最重要的结构性差异
+
+本 MCP 的 `element_index` → AT-SPI `do_action()` 链路上**完全没有坐标**。
+这与 OSWorld 基线（坐标）和 OSWorld-MCP（per-app 语义工具）都不同，是第三个设计点。
+坐标 grounding 是 VLM-first 的主要错误来源，而 OSWorld 的 a11y 观测模式并没有消除它。
+
+**这个差异必须在评测里被单独体现**，否则容易被误读成"又一个 a11y agent"。
+建议在四元组之外单独统计：语义调用 vs 坐标兜底的比例。
 
 **官方已有裁剪启发式，与本计划的 H1/H3 完全一致**
 `mm_agents/accessibility_tree_wrap/heuristic_retrieve.py` 的 `judge_node()` 做两件事：
@@ -289,6 +326,7 @@ H1 有最强的数据支持，建议先做。H4 潜在收益最大，但依赖 P
 - [ ] P0：`click` / `press_key` 的效果判据
 - [ ] P0 并行：观测双轨拆分，a11y track 不带截图
 - [ ] P0 并行：对照 macOS 实现逐条补齐能力缺口（见缺口表）
+- [ ] P0 并行：引导 agent 走 a11y 通道（工具描述 / instructions / Note 纠偏）
 - [ ] P1：建立保留率 / 压缩率离线评测
 - [ ] P1：移植 shouldSkipChild / isPlainGenericTextContainer / placeholderValue
 - [ ] P1：验证 H1（可见性过滤）
@@ -315,6 +353,15 @@ H1 有最强的数据支持，建议先做。H4 潜在收益最大，但依赖 P
   Linux runtime 是 macOS 的移植且大量逻辑没跟上（13 项能力里 9 项缺失）。
   macOS 侧的判据已在真实应用上验证过，直接对照移植的风险远低于自己重新设计。
   仅对 macOS 没有回答的问题（增量观测、呈现形态、查询式接口）才做实验。
+- 2026-07-30：**a11y 使用率是可引导的，不只是被度量的**。
+  OSWorld-MCP 最高 TIR 仅 33.3%，说明"工具可用"到"工具被用"之间有很大落差，
+  而这段落差主要由工具描述、server instructions 和动作返回内容决定，
+  这些都在本 MCP 的控制范围内。故单列为一条 P0 并行工作。
+- 2026-07-30：**确认 OSWorld 的 a11y 仅用于观测，执行全部走坐标**。
+  两个动作空间都没有元素定向入口，`ATAction` 只被用来把动作名读进 XML。
+  因此本 MCP 的 `element_index` -> `do_action()` 是与 OSWorld 基线和
+  OSWorld-MCP 都不同的第三个设计点，且是唯一真正消除坐标 grounding 的路线。
+  这一差异必须在评测中单独体现。
 - 2026-07-30：确认目标环境为 **X11**。OSWorld 环境服务端使用 Xlib + pyatspi，
   全仓库仅 1 处提及 wayland。与本计划的基线环境一致，Wayland 适配不纳入范围。
 - 2026-07-30：**P1 的裁剪不再当作开放研究**。OSWorld 官方 `judge_node()` 已经在做
