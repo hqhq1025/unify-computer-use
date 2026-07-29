@@ -133,6 +133,28 @@ def state_contains(node, state):
 #       （上游注释原文：'FIXME: ... is a plain and simple madness'）
 HARD_CHILD_CAP = int(os.environ.get("OPEN_COMPUTER_USE_MAX_CHILDREN", "4096"))
 
+# 单个容器最多发起多少次 child_at()。与 HARD_CHILD_CAP 的区别：后者决定
+# "要不要枚举"，这个决定"最多枚举几个"，用于兜住不声明 MANAGES_DESCENDANTS
+# 却依然谎报子节点数的实现。
+MAX_CHILD_FANOUT = int(os.environ.get("OPEN_COMPUTER_USE_MAX_FANOUT", "512"))
+
+# find_first() 的节点预算。它被 focused_summary/selected_text 用于定位焦点，
+# 原实现无上限，谓词不匹配时会尝试走遍整棵树。
+FIND_FIRST_BUDGET = int(os.environ.get("OPEN_COMPUTER_USE_FIND_BUDGET", "4000"))
+
+# 未展开的菜单不递归其子项。实测默认配额 1200 下，LibreOffice 的菜单树会占掉
+# 100% 配额（一份完整菜单栏约 780 节点），表格单元格一个都进不来 —— 功能等于
+# 不存在。只对菜单类角色应用该规则：其它中间层容器（panel / scroll pane）在
+# LibreOffice 上普遍不设 SHOWING，一并过滤会把整棵树砍空。
+MENU_ROLES = {
+    "menu",
+    "menu bar",
+    "menu item",
+    "check menu item",
+    "radio menu item",
+    "popup menu",
+}
+
 
 def should_enumerate_children(node):
     """是否应该枚举该节点的子节点。
@@ -472,6 +494,21 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT, m
             ).rstrip()
         )
 
+        # 未展开的菜单：保留节点自身（它是 perform_secondary_action 的入口），
+        # 但不递归其子项。role 与 state 都走 libatspi 本地缓存，零 D-Bus 成本。
+        if (
+            depth > 0
+            and role.lower() in MENU_ROLES
+            and not state_contains(node, Atspi.StateType.SHOWING)
+        ):
+            pending = child_count(node)
+            if pending:
+                lines.append(
+                    ("\t" * (depth + 2))
+                    + "({} items collapsed; activate this menu to expand)".format(pending)
+                )
+            return
+
         if not should_enumerate_children(node):
             # 超大/自管理容器不能枚举，改用坐标寻址取当前视口内的单元格。
             rendered = render_visible_cells(
@@ -487,7 +524,15 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT, m
                 )
             return
 
-        for child_index in range(child_count(node)):
+        # 配额检查必须在 child_at() **之前**。visit() 开头虽然也查配额并立刻
+        # return，但 range(child_count) 这个循环本身不会停 —— 面对谎报十亿
+        # 子节点的容器，光是发起那些注定被丢弃的 child_at() 往返就要数十小时。
+        # 这是比 should_enumerate_children() 更底层的兜底：后者依赖容器正确
+        # 声明 MANAGES_DESCENDANTS，而这里不依赖任何声明。
+        fanout = min(child_count(node), MAX_CHILD_FANOUT)
+        for child_index in range(fanout):
+            if len(records) >= max_tree_nodes:
+                break
             child = child_at(node, child_index)
             visit(child, depth + 1, path + [child_index])
 
@@ -641,15 +686,31 @@ def list_apps_text():
     return "\n".join(lines)
 
 
-def find_first(root, predicate):
-    if root is None:
+def find_first(root, predicate, budget=None):
+    """深度优先找第一个匹配节点，带节点预算与 fanout 上限。
+
+    原实现两者皆无。它被 focused_summary() / selected_text() 用来定位 FOCUSED
+    节点，一旦谓词不匹配就会尝试走遍整棵树 —— 在 LibreOffice 上实测约
+    9000 节点/秒，推算需要一天以上。
+
+    目前它没出事纯属侥幸：Calc 的 root pane 自带 FOCUSED 位且恰好排在表格
+    节点之前。焦点一旦落到别处，这里就会挂死。
+
+    预算耗尽返回 None，与"未找到"语义一致，调用方无需改动。
+    """
+    if budget is None:
+        budget = [FIND_FIRST_BUDGET]
+    if root is None or budget[0] <= 0:
         return None
+    budget[0] -= 1
     if predicate(root):
         return root
     if not should_enumerate_children(root):
         return None
-    for index in range(child_count(root)):
-        found = find_first(child_at(root, index), predicate)
+    for index in range(min(child_count(root), MAX_CHILD_FANOUT)):
+        if budget[0] <= 0:
+            return None
+        found = find_first(child_at(root, index), predicate, budget)
         if found is not None:
             return found
     return None
@@ -664,7 +725,9 @@ def iter_all(root):
         items.append(node)
         if not should_enumerate_children(node):
             return
-        for index in range(child_count(node)):
+        for index in range(min(child_count(node), MAX_CHILD_FANOUT)):
+            if len(items) >= MAX_ELEMENTS:
+                return
             visit(child_at(node, index))
 
     visit(root)
