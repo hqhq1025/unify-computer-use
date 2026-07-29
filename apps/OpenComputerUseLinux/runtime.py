@@ -665,13 +665,23 @@ MODIFIER_KEYS = {
 }
 
 
-def keyval(name):
+def keycode(name):
+    """把键名解析成 X11 hardware keycode。
+
+    AT-SPI 的 PRESS / RELEASE / PRESSRELEASE 收的是 **hardware keycode**，
+    只有 SYM 收 keysym。此前这里传的是 keysym，而 keysym 远超 X 合法 keycode
+    范围 (8-255)，会被截断到低 8 位，于是发出完全不相干的键，例如
+    Return(65293)->13->"4"、space(32)->"o"、Escape(65307)->27->"r"、
+    Tab(65289)->9->Escape、Delete(65535)->255->XF86RFKill，
+    Control_L(65507)->227->XF86Finance（即修饰键从未真正按下）。
+    """
     if Gdk is not None:
         value = Gdk.keyval_from_name(name)
         if value:
-            return int(value)
-    if len(name) == 1:
-        return ord(name)
+            keymap = Gdk.Keymap.get_default()
+            found, entries = keymap.get_entries_for_keyval(value)
+            if found and entries:
+                return int(entries[0].keycode)
     raise RuntimeError("Unsupported key: " + name)
 
 
@@ -685,19 +695,24 @@ def send_key(key):
     for modifier in modifiers:
         name = MODIFIER_KEYS.get(modifier.lower())
         if name is None:
-            continue
-        value = keyval(name)
+            raise RuntimeError("Unsupported modifier: " + modifier)
+        value = keycode(name)
         Atspi.generate_keyboard_event(value, None, Atspi.KeySynthType.PRESS)
         pressed.append(value)
-    normalized = KEY_ALIASES.get(main.lower(), main)
-    if len(normalized) == 1:
-        Atspi.generate_keyboard_event(0, normalized, Atspi.KeySynthType.STRING)
-    else:
-        Atspi.generate_keyboard_event(
-            keyval(normalized), None, Atspi.KeySynthType.PRESSRELEASE
-        )
-    for value in reversed(pressed):
-        Atspi.generate_keyboard_event(value, None, Atspi.KeySynthType.RELEASE)
+    try:
+        normalized = KEY_ALIASES.get(main.lower(), main)
+        # 只有在没有修饰键时才能用 STRING。STRING 是"插入这段文本"语义，
+        # 会绕过已经 PRESS 的修饰键状态，让 ctrl+a 退化成输入字面的 'a'。
+        if len(normalized) == 1 and not pressed:
+            Atspi.generate_keyboard_event(0, normalized, Atspi.KeySynthType.STRING)
+        else:
+            Atspi.generate_keyboard_event(
+                keycode(normalized), None, Atspi.KeySynthType.PRESSRELEASE
+            )
+    finally:
+        # 放在 finally：主键解析失败时若不释放，修饰键会永久卡在按下状态。
+        for value in reversed(pressed):
+            Atspi.generate_keyboard_event(value, None, Atspi.KeySynthType.RELEASE)
 
 
 def send_text(text):
