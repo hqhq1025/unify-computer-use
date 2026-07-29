@@ -379,10 +379,22 @@ H1 有最强的数据支持，建议先做。H4 潜在收益最大，但依赖 P
 这条验证直接消除了本计划标记的最大浏览器风险（Playwright 自己 launch 导致
 OSWorld 验证器查不到任何东西、静默判 0 分）。
 
-**browser-use 在当前环境装不了**：它要求 Python `>=3.11,<4.0`，而环境是 3.10.12，
-且 Ubuntu 22.04 默认源没有 python3.11，机器上也没有 conda / pyenv / uv。
-需要先解决 Python 版本才能接入。注意 OSWorld 自身只要求 Python ≥3.10，
-所以这个约束来自 browser-use 而非 OSWorld。
+**browser-use 也已接入并通过同一套判据**（browser-use 0.13.7）。接口是
+`Browser(cdp_url=...)`，行为与 Playwright 一致：接管环境实例、窗口标题跟随导航变化、
+不另起浏览器、断开后环境实例存活。
+
+两个落地约束：
+
+1. **Python 版本**：browser-use 要求 `>=3.11,<4.0`，而环境是 3.10.12，
+   Ubuntu 22.04 默认源没有 python3.11。解决方式是用 `uv` 装一个用户级独立
+   Python（`~/.venvs/browseruse`，Python 3.12.13），不动系统 Python、无需 sudo、可逆。
+   注意这个约束来自 browser-use 而非 OSWorld（后者只要求 ≥3.10），
+   所以 browser-use 只能跑在宿主侧，不能假定 guest 里能装。
+2. **默认拦截 `file://` 导航**：browser-use 的 SecurityWatchdog 会阻止本地文件
+   导航并抛 `Navigation to file://... blocked by security policy`，且被拦后事件总线
+   会持续重试导致调用方挂起。**OSWorld 有相当一批任务涉及本地文件**
+   （下载后打开、处理桌面上的图片等），这条必须在接入前确认放行策略，
+   否则会以"超时"而非"被拒绝"的形式暴露，很难排查。
 
 ## OSWorld 实际需要的操作类型（2026-07-30 抽样官方任务）
 
@@ -444,7 +456,8 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 - [x] P0：修复"空壳 a11y 静默成功"（活应用只暴露窗口框时给出可执行诊断）
 - [x] 浏览器：验证 Playwright CDP attach 接管的是环境实例，脚本入库
 - [x] 抽样 OSWorld 8 个 domain 的真实任务，归纳所需操作类型
-- [ ] 浏览器：解决 Python 版本后接入 browser-use（需 >=3.11，当前 3.10.12）
+- [x] 浏览器：接入 browser-use 0.13.7 并通过同一套 attach 判据（用户级 uv venv，Python 3.12.13）
+- [ ] 浏览器：确认 browser-use 的 file:// 放行策略（OSWorld 有大量本地文件任务）
 - [ ] P0：按 OSWorld 操作类型表逐类实测，先打 LibreOffice 的菜单->对话框链路
 - [ ] P0：9 个应用 × 7 个动作的系统性排查，产出失败面清单
 - [ ] P0：`click` / `press_key` 的效果判据

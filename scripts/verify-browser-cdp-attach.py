@@ -18,18 +18,81 @@ agent 在里面做得再对，验证器查的仍是环境那个 Chrome，看到�
 杀干净或使用独立 --user-data-dir。
 
 用法:
-  scripts/verify-browser-cdp-attach.py                       # 默认 127.0.0.1:9222
+  scripts/verify-browser-cdp-attach.py                       # 只验 Playwright
+  scripts/verify-browser-cdp-attach.py --browser-use-python ~/.venvs/browseruse/bin/python
   scripts/verify-browser-cdp-attach.py --cdp http://127.0.0.1:9222
+
+browser-use 需要 Python >=3.11，通常和仓库其它脚本不在同一个解释器里，所以用
+`--browser-use-python` 指过去，脚本会用该解释器跑同一套判据。它默认会拦截
+file:// 导航（SecurityWatchdog），因此这部分探针走本地 HTTP 服务而非本地文件。
 """
 
 import argparse
+import http.server
 import os
+import socketserver
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 CHROME_PROC_PATTERN = "[/]opt/google/chrome/chrome"
+
+BROWSER_USE_SNIPPET = r'''
+import asyncio, subprocess, sys
+
+BASE = sys.argv[1]
+CDP = sys.argv[2]
+
+def procs():
+    return int(subprocess.run("ps -eo args | grep -c '{pattern}'",
+               shell=True, capture_output=True, text=True).stdout.strip() or 0)
+
+def titles():
+    out = subprocess.run(["wmctrl","-l"], capture_output=True, text=True).stdout
+    return [l.split(None,3)[-1] for l in out.splitlines() if "Chrome" in l]
+
+async def run():
+    from browser_use import Browser
+    fails = []
+    before = procs()
+    browser = Browser(cdp_url=CDP)
+    await browser.start()
+    print("  PASS  browser-use 连上 CDP")
+    for page, expect in (("one.html","OCU BU Probe One"), ("two.html","OCU BU Probe Two")):
+        await browser.navigate_to(BASE + "/" + page)
+        await asyncio.sleep(2.5)
+        t = titles()
+        if any(expect in x for x in t):
+            print("  PASS  browser-use 导航后环境实例窗口标题变为 %r" % expect)
+        else:
+            fails.append("browser-use 窗口标题未变: %s" % t)
+            print("  FAIL  browser-use 窗口标题未变: %s" % t)
+    during = procs()
+    if during <= before + 3:
+        print("  PASS  browser-use 未另起浏览器实例（%d -> %d）" % (before, during))
+    else:
+        fails.append("browser-use 进程暴涨 %d->%d" % (before, during))
+        print("  FAIL  browser-use 进程暴涨 %d -> %d" % (before, during))
+    await browser.stop()
+    await asyncio.sleep(2)
+    if procs() > 0:
+        print("  PASS  browser-use 断开后环境实例仍存活")
+    else:
+        fails.append("browser-use 断开把环境 Chrome 关掉了")
+        print("  FAIL  browser-use 断开把环境 Chrome 关掉了")
+    return fails
+
+async def main():
+    try:
+        fails = await asyncio.wait_for(run(), timeout=150)
+    except asyncio.TimeoutError:
+        print("  FAIL  browser-use 检查超时"); return 1
+    return 1 if fails else 0
+
+raise SystemExit(asyncio.run(main()))
+'''.replace("{pattern}", CHROME_PROC_PATTERN)
 
 
 def chrome_procs():
@@ -61,9 +124,63 @@ def write_page(path, title, body):
         )
 
 
+def serve_probe_pages():
+    """起一个临时 HTTP 服务放探针页面。
+
+    browser-use 默认拦截 file:// 导航，所以探针不能用本地文件。
+    """
+    root = tempfile.mkdtemp(prefix="ocu-bu-pages-")
+    for name, title in (("one.html", "OCU BU Probe One"), ("two.html", "OCU BU Probe Two")):
+        with open(os.path.join(root, name), "w", encoding="utf-8") as handle:
+            handle.write("<html><head><title>{}</title></head><body><h1>{}</h1>"
+                         "</body></html>".format(title, name))
+
+    handler = type(
+        "Quiet", (http.server.SimpleHTTPRequestHandler,),
+        {"log_message": lambda *a, **k: None,
+         "__init__": lambda self, *a, **k: http.server.SimpleHTTPRequestHandler.__init__(
+             self, *a, directory=root, **k)},
+    )
+    server = socketserver.TCPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server, "http://127.0.0.1:{}".format(server.server_address[1])
+
+
+def check_browser_use(python_path, cdp):
+    """用指定解释器跑同一套判据验证 browser-use 的 attach 行为。"""
+    if not os.path.exists(python_path):
+        print("  SKIP  browser-use：解释器不存在 {}".format(python_path))
+        return []
+    server, base = serve_probe_pages()
+    try:
+        print("\n--- browser-use（解释器 {}）---".format(python_path))
+        result = subprocess.run(
+            [python_path, "-c", BROWSER_USE_SNIPPET, base, cdp],
+            capture_output=True, text=True, timeout=300,
+        )
+        for line in result.stdout.splitlines():
+            if line.strip().startswith(("PASS", "FAIL", "  PASS", "  FAIL")):
+                print(line)
+        if result.returncode != 0:
+            tail = [l for l in result.stderr.splitlines() if l.strip()][-2:]
+            if tail:
+                print("  (stderr) " + " | ".join(tail))
+            return ["browser-use attach 检查未通过"]
+        return []
+    except subprocess.TimeoutExpired:
+        print("  FAIL  browser-use 检查超时")
+        return ["browser-use 检查超时"]
+    finally:
+        server.shutdown()
+
+
 def main():
-    parser = argparse.ArgumentParser(description="验证 Playwright 接管的是环境里的 Chrome")
+    parser = argparse.ArgumentParser(description="验证浏览器自动化工具接管的是环境里的 Chrome")
     parser.add_argument("--cdp", default="http://127.0.0.1:9222", help="CDP 端点")
+    parser.add_argument(
+        "--browser-use-python", default=None,
+        help="带 browser-use 的 Python 解释器路径（需 >=3.11）。不给则跳过该检查",
+    )
     args = parser.parse_args()
 
     try:
@@ -143,13 +260,16 @@ def main():
         failures.append("断开 CDP 把环境里的 Chrome 一起关掉了")
         print("  FAIL  断开 CDP 把环境里的 Chrome 一起关掉了")
 
+    if args.browser_use_python:
+        failures.extend(check_browser_use(args.browser_use_python, args.cdp))
+
     print()
     if failures:
         print("失败 {} 项：".format(len(failures)))
         for item in failures:
             print("  -", item)
         return 1
-    print("全部通过：Playwright 走的是 attach，操作的是环境实例本身")
+    print("全部通过：接管的是环境实例本身，不是新起的浏览器")
     return 0
 
 
