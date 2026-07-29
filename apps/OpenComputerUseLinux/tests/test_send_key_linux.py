@@ -68,8 +68,10 @@ def snapshot():
 fails = []
 
 # ---- 用例 1: ctrl+a 应当产生真实选区 ----
-call('[{"tool":"get_app_state","args":{"app":"soffice","max_tree_nodes":10}},'
-     '{"tool":"type_text","args":{"app":"soffice","text":"HELLOWXYZ"}}]')
+# 预置文本刻意走 xdotool 而不是 OCU 的 type_text：后者当前会作用于树里
+# **第一个**可编辑节点而非焦点节点（见 find_editable_text），目标不确定，
+# 会让本测试变成 flaky。本测试只负责验证 press_key，不该依赖另一个待修功能。
+subprocess.run(["xdotool", "type", "--delay", "40", "HELLOWXYZ"], check=False)
 time.sleep(2)
 call('[{"tool":"get_app_state","args":{"app":"soffice","max_tree_nodes":10}},'
      '{"tool":"press_key","args":{"app":"soffice","key":"ctrl+a"}}]')
@@ -82,6 +84,10 @@ if not sels:
     fails.append("ctrl+a 没有产生任何选区")
 
 # ---- 用例 2: Return 应当真的换行（段落数 +1），而不是插入 '4' ----
+# 先取消上一用例留下的全选，否则 Return 会替换选中内容而不是插入换行，
+# 段落数不增反而可能减少 —— 那是用例间耦合导致的假阴性，不是 press_key 的问题。
+subprocess.run(["xdotool", "key", "End"], check=False)
+time.sleep(1)
 before = len(writer_text_iface())
 call('[{"tool":"get_app_state","args":{"app":"soffice","max_tree_nodes":10}},'
      '{"tool":"press_key","args":{"app":"soffice","key":"Return"}}]')
