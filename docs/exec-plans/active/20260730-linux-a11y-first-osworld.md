@@ -365,6 +365,51 @@ H1 有最强的数据支持，建议先做。H4 潜在收益最大，但依赖 P
 当前这四项都已由 agent 给了默认值并写在决策记录里，标注为"可随时推翻"。
 
 
+## 浏览器控制平面的落地状态（2026-07-30 实测）
+
+**Playwright CDP attach 已验证通过**，脚本沉淀在 `scripts/verify-browser-cdp-attach.py`。
+验证的不是"Playwright 能跑通"，而是从外部独立证明操作的就是环境实例：
+
+- 接管后能看到环境实例的 context / page
+- 通过 Playwright 导航后，**环境实例的窗口标题跟着变**（用 `wmctrl` 独立观测，
+  不采信 Playwright 自己的返回值）
+- 全程 Chrome 进程数 11 → 11 → 11，没有第二个浏览器被拉起
+- 断开 CDP 后环境实例仍存活
+
+这条验证直接消除了本计划标记的最大浏览器风险（Playwright 自己 launch 导致
+OSWorld 验证器查不到任何东西、静默判 0 分）。
+
+**browser-use 在当前环境装不了**：它要求 Python `>=3.11,<4.0`，而环境是 3.10.12，
+且 Ubuntu 22.04 默认源没有 python3.11，机器上也没有 conda / pyenv / uv。
+需要先解决 Python 版本才能接入。注意 OSWorld 自身只要求 Python ≥3.10，
+所以这个约束来自 browser-use 而非 OSWorld。
+
+## OSWorld 实际需要的操作类型（2026-07-30 抽样官方任务）
+
+抽取 8 个 domain 各 4 条真实 instruction 后的归纳：
+
+| domain | 代表任务 | 主要操作类型 |
+|---|---|---|
+| libreoffice_writer | 首两段改双倍行距；把 H2O 的 2 改成下标；页脚加页码 | **菜单 → 对话框 → 控件设置** |
+| libreoffice_calc | 空单元格向上填充；新建 Sheet2 并算年度百分比变化；插入柱状图 | 单元格编辑 + 菜单 + 对话框 |
+| libreoffice_impress | 文本框改色；各幻灯片文本对齐方式不同；按内容改背景色 | 选中对象 + 菜单 + 对话框 |
+| vlc | 关闭启动画面 cone 图标；阻止播放结束自动关闭 | 偏好设置对话框 + 复选框 |
+| os | 终端尺寸持久化；递归复制 .jpg；调最大音量；按修改时间压缩文件 | **大部分可用 shell 完成** |
+| thunderbird | 消息过滤器；深色模式；添加 outlook 账号；设置纯文本签名 | 多步对话框 + 表单填写 |
+| gimp | 转 CMYK；转索引色；背景透明；批量调亮度 | 菜单 → 对话框 |
+| vs_code | 从 vsix 安装扩展；全文替换；设置换行列宽 | 命令面板 + 设置界面 |
+
+**关键归纳：主导操作类型是「菜单导航 + 对话框交互」，而不是自由点击。**
+这对 a11y 路线是好消息——菜单项和对话框控件恰恰是 AT-SPI 语义动作暴露得最好的部分，
+`element_index` -> `do_action()` 天然适配；反而是自由画布类操作（GIMP 的部分任务）
+才需要坐标。
+
+`os` 这一类里相当一部分用 shell 完成又快又稳，这支持"Claude Code 自带 shell"
+作为效率杠杆的判断，但是否符合 benchmark 精神由人判断（见决策记录）。
+
+**下一步**：按这张表逐类在本机实测——先打 LibreOffice 的「菜单 → 对话框」链路，
+因为它同时是任务密度最高和最能验证语义动作能力的一类。
+
 ## 风险
 
 - 风险：裁剪丢失任务关键元素，成功率下降而不自知
@@ -384,6 +429,7 @@ H1 有最强的数据支持，建议先做。H4 潜在收益最大，但依赖 P
   - `(cd apps/OpenComputerUseLinux && go test ./... && python3 -m unittest runtime_test)`
   - `scripts/verify-linux-input-chain.py --app <app>`
   - `scripts/a11y-readiness-probe.py`（应用 a11y 就绪度与观测成本）
+  - `scripts/verify-browser-cdp-attach.py`（确认 Playwright 接管的是环境实例）
 - 手工检查：
   - 首批 OSWorld 子集的逐任务轨迹回放
 - 观测检查：
@@ -396,6 +442,10 @@ H1 有最强的数据支持，建议先做。H4 潜在收益最大，但依赖 P
 - [x] `scripts/a11y-readiness-probe.py` 收进仓库
 - [x] P0：查证僵尸 AT-SPI 注册——不存在，原诊断错误，已在里程碑中撤销
 - [x] P0：修复"空壳 a11y 静默成功"（活应用只暴露窗口框时给出可执行诊断）
+- [x] 浏览器：验证 Playwright CDP attach 接管的是环境实例，脚本入库
+- [x] 抽样 OSWorld 8 个 domain 的真实任务，归纳所需操作类型
+- [ ] 浏览器：解决 Python 版本后接入 browser-use（需 >=3.11，当前 3.10.12）
+- [ ] P0：按 OSWorld 操作类型表逐类实测，先打 LibreOffice 的菜单->对话框链路
 - [ ] P0：9 个应用 × 7 个动作的系统性排查，产出失败面清单
 - [ ] P0：`click` / `press_key` 的效果判据
 - [ ] P0 并行：观测双轨拆分，a11y track 不带截图
