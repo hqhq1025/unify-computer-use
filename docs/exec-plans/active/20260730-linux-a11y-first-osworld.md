@@ -859,9 +859,27 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 
 ### OSWorld 接入
 
-**#25 评估在 OSWorld-MCP 之上改造 vs 直接接 OSWorld**　依赖：#1–#6 基本完成
-> 注意 OSWorld-MCP 最后提交于 2026-05-13，落后 OSWorld 主线约两个月。
-- 验收：给出选型结论与理由，写进决策记录
+**#25 评估在 OSWorld-MCP 之上改造 vs 直接接 OSWorld** ✅ 已完成　依赖：#1–#6 基本完成
+> **结论：在 OSWorld-MCP 之上改造。** 理由不是"省事"，而是它的接线方式恰好通用。
+>
+> 查阅 `mcp/osworld_mcp_client.py`（103 行）后确认：它用的是
+> **`fastmcp.Client` + 标准 `mcpServers` 配置**，与 Claude Desktop / Claude Code
+> 的配置同构，并且**已经同时接了 stdio 型的第三方 server**
+> （`@modelcontextprotocol/server-filesystem`、`mcp-server-git`）——
+> 接入外部 MCP 是它的既定用法，不是我们要去改造的地方。
+>
+> **实测验证**（不只是读代码）：用它同款客户端栈直连我们的二进制，
+> `list_tools()` 返回 10 个工具，`call_tool("get_app_state")` 正常返回
+> 687 token 的裁剪后树。**我们这边零代码改动。**
+>
+> 相比直接接 OSWorld 的优势：OSWorld 官方动作空间只有 pyautogui / computer_13
+> 两种坐标动作，没有 MCP 接入点，从零接等于自己实现一遍 agent 循环与工具注入；
+> 而 OSWorld-MCP 已经把这套做完并发表（ICLR 2026）。
+>
+> 两个要注意的：
+> 1. OSWorld-MCP 最后提交于 2026-05-13，落后 OSWorld 主线约两个半月，合并时要处理版本差
+> 2. 它自带 per-app 语义工具（158 个），我们是通用 a11y 接口——并存还是替换需单独决定，
+>    这直接影响四元组里"a11y 通道使用率"的口径
 
 **#26 harness 跑通并产出四元组基线**　依赖：#25
 - 验收：LibreOffice 子集上产出 成功率 / 平均步数 / 平均 token / a11y 通道使用率
