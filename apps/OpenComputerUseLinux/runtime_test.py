@@ -566,8 +566,11 @@ class ActionNotesTests(AtspiPatchedTestCase):
         )["notes"]
 
         self.assertEqual(len(notes), 1)
-        self.assertIn("confirmed it landed (3 -> 8 characters)", notes[0])
+        self.assertIn("confirm it landed (3 -> 8 characters)", notes[0])
         self.assertNotIn("not verified", notes[0])
+        # 必须说清确认的边界：确认的是控件变了，不是应用采纳了。
+        # 对话框普遍把控件状态与文档状态分开，只在 OK/Apply 时才提交。
+        self.assertIn("may still require OK/Apply", notes[0])
 
     def test_synthesis_fallback_is_reported_as_unverified(self):
         self._patch("insert_text_detail", lambda root, text: (False, 0, 0))

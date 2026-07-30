@@ -19,6 +19,24 @@ func TestToolDefinitionCount(t *testing.T) {
 	}
 }
 
+func TestConfirmationNotesStateTheirLimit(t *testing.T) {
+	// "confirmed it applied" 是过度承诺：回读确认的是控件的值变了，
+	// 不是应用采纳了这个值。实测中把行距 combo 写成 "Double" 会回读成功，
+	// 但文档的 line-height 纹丝不动——对话框把控件状态与文档状态分开，
+	// 只在 OK/Apply 时提交。
+	for _, fragment := range []string{
+		"CONTROL changed, not that the application adopted the value",
+		"require OK/Apply before the value takes effect",
+	} {
+		if !strings.Contains(linuxRuntimeScript, fragment) {
+			t.Fatalf("confirmation notes must state what they do NOT prove: missing %q", fragment)
+		}
+	}
+	if strings.Contains(linuxRuntimeScript, "confirmed it applied.") {
+		t.Fatal("the old over-claiming wording must not come back")
+	}
+}
+
 func TestDecisionRelevantStatesAreRendered(t *testing.T) {
 	// 禁用、选中、展开、勾选这几类状态此前完全不在树里。agent 因此会对着
 	// 禁用控件反复点击，也看不出下拉/菜单到底展开没有。
@@ -509,7 +527,7 @@ func TestLinuxRuntimeReportsExecutionPath(t *testing.T) {
 	}
 	for _, note := range []string{
 		"Invoked the element's AT-SPI accessibility action.",
-		"Wrote the text through the AT-SPI editable-text API and confirmed it ",
+		"Wrote the text through the AT-SPI editable-text API and read it back ",
 		"fell back to ",
 	} {
 		if !strings.Contains(linuxRuntimeScript, note) {

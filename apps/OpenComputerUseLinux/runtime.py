@@ -1604,8 +1604,12 @@ def perform_operation(operation):
         if written:
             notes.append(
                 SEMANTIC
-                + "Wrote the text through the AT-SPI editable-text API and confirmed it "
-                "landed ({} -> {} characters).".format(before_chars, after_chars)
+                + "Wrote the text through the AT-SPI editable-text API and read it back "
+                "to confirm it landed ({} -> {} characters). This confirms the control "
+                "changed; if the control belongs to a dialog, the application may still "
+                "require OK/Apply before the value takes effect.".format(
+                    before_chars, after_chars
+                )
             )
         else:
             require_window_focus(window, "type_text")
@@ -1632,7 +1636,15 @@ def perform_operation(operation):
             raise RuntimeError("unknown element_index")
         if not set_element_value(element, operation.get("value", "")):
             raise RuntimeError("Cannot set a value for an element that is not settable")
-        notes.append(SEMANTIC + "Set the value through the AT-SPI API and confirmed it applied.")
+        notes.append(
+            SEMANTIC
+            + "Wrote the value through the AT-SPI API and read it back to confirm the "
+            "control now holds it. Note the limit of that check: it confirms the "
+            "CONTROL changed, not that the application adopted the value. Dialogs "
+            "commonly keep control state separate from document state and only commit "
+            "on OK/Apply — verify the actual effect (document content, a re-read of "
+            "the relevant element) rather than trusting this line."
+        )
     else:
         raise RuntimeError('unsupportedTool("{}")'.format(tool))
 
