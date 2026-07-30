@@ -690,9 +690,15 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
       **已进一步定位**：目录里只有 `Inbox`（388 字节的 mbox），
       **没有 `Inbox.msf`**——Thunderbird 根本没有解析这个 mbox，
       所以邮件列表面板也不存在于树里（树里只有文件夹树 `50 tree`）。
-      **不标完成。** 下次起点：让 Thunderbird 生成索引——
-      「右键 Inbox → Properties → Repair Folder」，
-      或确认 mbox 的 `From ` 分隔行格式被它接受。
+      **不标完成。** 试过的路与结果：
+      - `perform_secondary_action(action="menu")` 在 `tree item Inbox` 上
+        **isError=True**——该节点不暴露 `menu` 动作。
+      - 元素锚定 `global` + `mouse_button:"right"` 合成了右键，
+        但**没有任何菜单窗口出现**（`wmctrl` 确认）——是菜单没打开，
+        **不是菜单对 a11y 隐形**，这个区分要紧，不能靠猜。
+      下次起点：换个落点再试右键（树项的 Frame 可能不是可右击区域），
+      或绕开 GUI——直接确认 mbox 的 `From ` 分隔行格式是否被 Thunderbird 接受，
+      因为 `.msf` **从未生成**说明它根本没解析这个文件。
     - **尝试过的解法与结果**：想不联网建一个本地账户来解锁这 10 个任务。
       `AppMenu → Account Settings` 能打开（语义可达），里面有
       `push button Account Actions`，但点击后未展开预期菜单。
