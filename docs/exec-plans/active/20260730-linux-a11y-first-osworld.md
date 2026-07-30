@@ -702,6 +702,9 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
       **`X-Mozilla-Status` 假设已证伪**：补上 `X-Mozilla-Status: 0001` /
       `X-Mozilla-Status2: 00000000` 两个头、重启、并在新实例里两条通道各点一次
       Inbox——`.msf` 仍然不生成，邮件仍不出现。
+      **删 `folderCache.json` 强制重扫也无效**（第五次尝试）。
+      至此试过并否定的有：裸 mbox、加 `X-Mozilla-Status` 头、语义点击 Inbox、
+      坐标点击 Inbox、删文件夹缓存——**"手工造 mbox"这条路已充分证伪**。
       **下次起点（搜索空间已缩到很小）**：不要再手写 mbox。
       用 Thunderbird 自己产生一封真消息（新建消息 → 保存为草稿，
       或 `Local Folders → 右键 → New Folder` 后拖入），
