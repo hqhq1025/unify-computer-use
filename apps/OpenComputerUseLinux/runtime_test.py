@@ -1491,6 +1491,82 @@ class EmptyCellOmissionTests(AtspiPatchedTestCase):
         self.assertLess(skip, build, "跳过判断必须在 record_for 之前")
 
 
+class ElectronActionNamesTests(AtspiPatchedTestCase):
+    """Chromium/Electron 用自己的一套动作名，两个方向都会出错。"""
+
+    def make(self, actions):
+        class Node(_TreeNode):
+            def get_action_iface(self):
+                return object() if actions else None
+
+            def get_n_actions(self):
+                return len(actions)
+
+            def get_action_name(self, index):
+                return actions[index]
+
+            def get_action_description(self, index):
+                return ""
+
+        return Node(role="section", x=1, y=1, w=5, h=5)
+
+    def test_do_default_is_the_click_entry(self):
+        """回归：VS Code 19 个节点的动作表是 ('doDefault', 'showContextMenu')。
+
+        `doDefault` 就是 Chromium 的默认动作。不认这个名字，这些元素既拿不到
+        `[has-click-action]`，`click_method:"accessibility"` 也会直接失败——
+        整个 Electron 系应用在语义通道上等于不可点。
+        """
+        node = self.make(["doDefault", "showContextMenu"])
+        names, has_click = runtime.node_actions(node)
+
+        self.assertTrue(has_click)
+        self.assertIsNotNone(runtime.preferred_action_index(node))
+        self.assertNotIn("doDefault", names,
+                         "它就是 click 本身，不该再列进 More actions")
+
+    def test_click_ancestor_is_not_this_element_s_click(self):
+        """回归：`clickAncestor` 含 click，会被子串兜底匹中——但它点的是**祖先**。
+
+        VS Code 实测有 14 个节点是 ('clickAncestor', 'showContextMenu')。
+        把它当成本元素的点击入口，agent 会以为点中了目标而实际点在别处，
+        且从返回值和树里都看不出来——这是最坏的一类失败。
+        """
+        node = self.make(["clickAncestor", "showContextMenu"])
+        _, has_click = runtime.node_actions(node)
+
+        self.assertFalse(has_click)
+        self.assertIsNone(runtime.preferred_action_index(node))
+
+    def test_plain_click_still_works(self):
+        node = self.make(["click", "showContextMenu"])
+        _, has_click = runtime.node_actions(node)
+
+        self.assertTrue(has_click)
+        self.assertIsNotNone(runtime.preferred_action_index(node))
+
+    def test_covered_set_has_a_single_source_of_truth(self):
+        """判据只许有一份。抄成两处必然分歧——本轮加 doDefault 时就漏了副本。"""
+        source = open(runtime.__file__, encoding="utf-8").read()
+
+        self.assertEqual(source.count('"default.activate",'), 1,
+                         "CLICK_COVERED_ACTIONS 不应存在副本")
+
+
+class ObjectReplacementTests(AtspiPatchedTestCase):
+    def test_object_replacement_placeholder_is_stripped(self):
+        """回归：Chromium 用 U+FFFC 给嵌入对象占位，渲染出来是 `Value: ￼￼￼`。
+
+        它零信息量，更糟的是**看起来像内容**——agent 会以为这个控件已经有值。
+        VS Code 欢迎页实测 186 个占位符散布在 115 行里。
+        """
+        self.assertEqual(runtime.limit_text("￼"), "")
+        self.assertEqual(runtime.limit_text("a￼￼b"), "ab")
+
+    def test_real_text_is_untouched(self):
+        self.assertEqual(runtime.limit_text("Save As…"), "Save As…")
+
+
 class _NoSleep:
     """让 perform_operation 里的固定 sleep 不拖慢测试。"""
 

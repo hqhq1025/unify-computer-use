@@ -138,8 +138,16 @@ def node_name(node):
     return str(safe(node.get_name, "") or "")
 
 
+# Chromium/Electron 在文本里用 U+FFFC（对象替换符）给嵌入对象占位。
+# 它对 agent 零信息量，却会渲染成 `Value: ￼￼￼` 这样的乱码。
+# VS Code 欢迎页实测：186 个占位符散布在 115 行里，纯占位的 Value 段
+# 合计约 247 token——不多，但它更严重的问题是**看起来像内容**：
+# 一个 `Value: ￼` 会让 agent 以为这个控件有值。
+OBJECT_REPLACEMENT = "\ufffc"
+
+
 def limit_text(value, text_limit=DEFAULT_TEXT_LIMIT):
-    text = str(value or "")
+    text = str(value or "").replace(OBJECT_REPLACEMENT, "")
     if text_limit is None:
         return text
     if len(text) > text_limit:
@@ -203,7 +211,20 @@ CLICK_COVERED_ACTIONS = {
     "select",
     "toggle",
     "open",
+    # Chromium/Electron 的默认动作名。VS Code 实测：19 个节点的动作表是
+    # ('doDefault', 'showContextMenu')——`doDefault` 就是它们的点击入口。
+    # 不认这个名字的话，这些元素既拿不到 [has-click-action] 标记，
+    # click_method "accessibility" 也会直接失败，整个 Electron 系应用
+    # 在语义通道上等于不可点。
+    "dodefault",
 }
+
+# 名字里含 click/press/activate，但**作用对象不是这个元素本身**的动作。
+# 必须显式排除：`preferred_action_index()` 的兜底是子串匹配，
+# `clickAncestor` 会被它匹中，于是 agent 以为点中了目标，
+# 实际点的是祖先节点——而且从返回值和树里都看不出来。
+# VS Code 实测有 14 个节点的动作表是 ('clickAncestor', 'showContextMenu')。
+NON_SELF_ACTIONS = {"clickancestor"}
 
 # 未展开的菜单不递归其子项。实测默认配额 1200 下，LibreOffice 的菜单树会占掉
 # 100% 配额（一份完整菜单栏约 780 节点），表格单元格一个都进不来 —— 功能等于
@@ -436,7 +457,8 @@ def node_actions(node):
         # 与 preferred_action_index() 用同一套判据：精确命中，或含
         # activate/click/press 的兜底。两者必须一致，否则标记会撒谎。
         if lower in CLICK_COVERED_ACTIONS or (
-            "activate" in lower or "click" in lower or "press" in lower
+            lower not in NON_SELF_ACTIONS
+            and ("activate" in lower or "click" in lower or "press" in lower)
         ):
             has_click_entry = True
         if not label or label in names:
@@ -1229,16 +1251,11 @@ def find_element(app, record):
 
 
 def preferred_action_index(node):
-    preferred_exact = {
-        "click",
-        "press",
-        "activate",
-        "default.activate",
-        "invoke",
-        "select",
-        "toggle",
-        "open",
-    }
+    # 直接用 CLICK_COVERED_ACTIONS，不再维护一份副本。
+    # 两份集合是同一件事的两面（一个决定调用哪个动作、一个决定不要重复展示它），
+    # 抄成两处必然分歧：本轮加 `doDefault` 时就漏了这一份，
+    # 结果 VS Code 的 19 个节点仍然点不动。
+    preferred_exact = CLICK_COVERED_ACTIONS
     if safe(node.get_action_iface) is None:
         return None
     count = int(safe(node.get_n_actions, 0) or 0)
@@ -1249,6 +1266,8 @@ def preferred_action_index(node):
         lower = (name or description).lower()
         if lower in preferred_exact:
             return index
+        if lower in NON_SELF_ACTIONS:
+            continue
         if fallback is None and (
             "activate" in lower or "click" in lower or "press" in lower
         ):
