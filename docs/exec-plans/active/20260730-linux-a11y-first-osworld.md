@@ -691,9 +691,17 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
     「Open Media」对话框，URL 输入框接受 `type_text`（树里读回
     `text Value: file:///tmp/tone.wav`，确认落进去了）。
     但**未能确认播放真的开始**——点 Play 后对话框未关闭、进度仍是 `--:--`。
-    这一步我没有在有限预算内查清，**不标完成**。
-    排查线索：VLC 的 combo box 以当前值作为 name，容易与协议下拉混淆；
-    我第一次就把路径打进了 `combo box Network Protocol`。
+    **根因已查明**：Play 点下去后弹出 `Errors` 窗口，内容是
+    `VLC is unable to open the MRL 'v4l2://'`——`v4l2://` 是**视频采集设备**协议，
+    说明「Open Media」对话框当时停在 **Capture Device 标签页**上，
+    我的 URL 打进了另一个标签页的字段。**不是工具缺陷，是我没先切标签页。**
+  - **顺带两个对 harness 有用的观察**：
+    1. `push button Play` **没有 `[has-click-action]`**，动作只有
+       `ShowMenu, SetFocus`——它是带下拉的分离按钮，语义通道无从下手，
+       `auto` 如实回落坐标并成功。这是"标记诚实"的一次正向验证。
+    2. VLC 的 combo box **以当前值作为 name**，极易与协议下拉混淆；
+       我第一次就把路径打进了 `combo box Network Protocol`。
+  - 下一步很明确：先选中 Network 标签页，再填 URL，然后 Play。
   - 仍待做：播放控制（5 个）、以及调研点名的 Simple/All 单选按钮
     （`Toggle` 后 CHECKED 翻转但面板不切换——属"状态变了行为没变"那一类，
     通用判据接不住）。
