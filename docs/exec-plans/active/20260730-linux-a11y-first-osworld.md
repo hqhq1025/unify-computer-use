@@ -645,6 +645,17 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
   通道分布：菜单/对话框/OK 走 semantic，下拉项走 auto 自动识别后的坐标点击，
   全选与保存走键盘。这条链路横跨 Calc/Impress/Writer ≥37 个任务。
   仍待做：Calc 的单元格与区域选择、Impress 的画布对象。
+- **GIMP 🔶 三项最高频操作已通关**（2026-07-30，GTK/GAIL）：
+  - **菜单导航（17/17 任务）✅ + 模态对话框填参数（12/17）✅**：
+    Colors → Brightness-Contrast → 设 Brightness=80 → OK，全程语义通道。
+    **像素级验收**：画布采样 21875 个像素，21871 个发生变化（99%）。
+  - **匿名 spin button 靠 description 消解**：该对话框两个 spin button
+    **完全没有名字**，只有 `Description: Brightness` / `Description: Contrast`
+    能区分。调研原本判定这里"需一次截图消解歧义"，本轮的 description 渲染
+    直接把它解决在树里了。
+  - **图层面板（5/17）✅**：`activate` 撒谎（返回 True 但活动图层不变），
+    由本轮的自动回落接住，状态栏 `TopLayer` → `Background` 验证。
+  - 仍待做：工具选择（3 个任务）、画布直接操作（3 个，调研判定必须依赖视觉）。
 - **VLC 🔶 菜单与首选项已通关**（2026-07-30，Qt）：
   - **判分器级验收**：Tools → Preferences → 勾选 → Save，
     `~/.config/vlc/vlcrc` 由 `#qt-pause-minimized=0` 变为 `qt-pause-minimized=1`。
