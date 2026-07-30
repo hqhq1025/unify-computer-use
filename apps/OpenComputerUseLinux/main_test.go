@@ -804,3 +804,28 @@ func TestTreeRenderingReadsActionTableOnce(t *testing.T) {
 		t.Fatal("record_for 应当一次读完动作表，两个字段共用")
 	}
 }
+
+// 纯合成类工具（键盘/滚动/拖拽）没有第二条通道可回落，所以对它们有价值的
+// 不是重试，而是把"送达"和"生效"分开讲——这两件事在这里确实能分开：
+// 合成前 require_window_focus 已确认窗口活动，夺不到焦点会硬失败。
+// 于是"什么都没变"的含义是**应用收到了但没反应**，同一个按键再按一次不会
+// 有不同结果；这与 click 那种"可能压根没送到"是不同的处置。
+func TestSynthesisOnlyToolsSeparateDeliveryFromEffect(t *testing.T) {
+	for _, tool := range []string{"press_key", "scroll", "drag"} {
+		if !deliveryWasVerified(linuxRequest{Tool: tool}) {
+			t.Fatalf("%s 走 require_window_focus，送达是可确认的", tool)
+		}
+	}
+	// click 可能走语义通道，压根没经过焦点确认，不能声称送达已验证。
+	if deliveryWasVerified(linuxRequest{Tool: "click"}) {
+		t.Fatal("click 可能走语义通道，不得声称送达已验证")
+	}
+	if !strings.Contains(serverInstructions, "element-targeted") {
+		t.Fatal("instructions 应当仍然引导优先走元素定向")
+	}
+	// 两条 Note 会并排出现，措辞必须分清层级：合成通道声明的是"送达**目标控件**
+	// 未经验证"，这条声明的是"送达**本窗口**已验证"。不写清层级会读成自相矛盾。
+	if !strings.Contains(linuxRuntimeScript, "Delivery to the intended target was not verified") {
+		t.Fatal("合成通道仍应声明目标控件级别的不确定性")
+	}
+}

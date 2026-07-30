@@ -508,6 +508,19 @@ func (s *service) setValue(app, elementIndex, value string) toolCallResult {
 	return s.actionResult(app, linuxRequest{Tool: "set_value", App: app, Element: record, Value: value})
 }
 
+// deliveryWasVerified：这次动作在合成之前是否确认过目标窗口处于活动状态。
+//
+// 只有纯合成类工具才成立。它们走 require_window_focus，夺不到焦点就硬失败，
+// 绝不把输入送去别的窗口——所以一旦执行到了这里，就说明输入确实到了这个应用。
+// click 不在此列：它可能走的是语义通道，压根没经过焦点确认。
+func deliveryWasVerified(request linuxRequest) bool {
+	switch request.Tool {
+	case "press_key", "scroll", "drag":
+		return true
+	}
+	return false
+}
+
 // usedSemanticPath 判断这次动作实际走的是不是语义调用。
 // 运行时给每条 Note 打了通道标签，这里只认标签，不猜。
 func usedSemanticPath(notes []string) bool {
@@ -579,6 +592,18 @@ func (s *service) actionResult(app string, request linuxRequest) toolCallResult 
 				notes = append(notes,
 					"The semantic action reported success but nothing observably changed, and the coordinate retry could not run. Treat the action as unconfirmed.")
 			}
+		} else if deliveryWasVerified(request) {
+			// 键盘/滚动/拖拽只有合成这一条通道，没有第二条可回落，所以对它们
+			// 有价值的不是重试，而是**把"送达"和"生效"分开讲**。
+			//
+			// 这两件事在这里是能分开的：合成之前 require_window_focus 已经确认
+			// 目标窗口处于活动状态，否则会直接硬失败而不是把输入送去别处。
+			// 因此"什么都没变"在这里的含义是**应用收到了但没有反应**，
+			// 而不是 click 那种"动作可能压根没送到"。
+			//
+			// 这个区别直接决定 agent 下一步该干什么：同一个按键再按一次不会有
+			// 不同结果，该换路子；而不是像 click 那样值得换通道重试。
+			notes = append(notes, "This app's window was verified focused before synthesis, so the input reached this window (which widget inside it received the input is still unverified) — yet nothing observably changed: window title, accessibility tree, focus and selection are identical. Treat this as delivered-but-ignored: repeating the same input will not help; either the input is a no-op here, or the focus sits on a different widget than you assumed.")
 		} else {
 			notes = append(notes, "Nothing observable changed: the window title, accessibility tree, focus and selection are identical to the state before this action. Treat the action as unconfirmed rather than successful.")
 		}
