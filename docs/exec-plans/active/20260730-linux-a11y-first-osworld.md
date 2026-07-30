@@ -617,6 +617,13 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 - 顺序：Nautilus ✅ → LibreOffice Writer/Calc → VS Code → VLC → GIMP → Thunderbird
 - 每个应用的验收：至少完整走通 2 个真实任务级链路，全程外部真值验收；
   过程中发现的缺陷当场修掉并补前失败后通过的回归测试
+- **LibreOffice Writer ✅ 头号阻塞已通关**（2026-07-30）：
+  「全选 → 格式 → 段落 → 行距下拉 → Double → 确定 → 保存」全程走 MCP，
+  **判分器级验收**：保存后的 `content.xml` 出现 `line-height="200%"`
+  （初始无 line-height，即默认单倍）。
+  通道分布：菜单/对话框/OK 走 semantic，下拉项走 auto 自动识别后的坐标点击，
+  全选与保存走键盘。这条链路横跨 Calc/Impress/Writer ≥37 个任务。
+  仍待做：Calc 的单元格与区域选择、Impress 的画布对象。
 - **Nautilus ✅ 已完成**（2026-07-30）：读状态 / 右键菜单 / 重命名 / 新建文件夹 /
   模态对话框 / 侧边栏导航六项走通，重命名与新建经文件系统验收、导航经 wmctrl 验收。
   期间修掉 5 个缺陷（侧边栏不可见、缩进错乱、description 未渲染、
