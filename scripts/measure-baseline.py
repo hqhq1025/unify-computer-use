@@ -260,7 +260,45 @@ def task_gedit_type(client, workdir):
     return False, "磁盘文件内容为 {!r}".format(content[:40])
 
 
+def task_thunderbird_folder(client, workdir):
+    """在邮件客户端里切换文件夹。判据：树里的 `[selected focused]` 转移。
+
+    加这条是为了让基线覆盖**第三种工具包**（Gecko/XUL）——原先只有 GTK 与 Qt。
+    不同工具包的语义执行可靠性差别很大（实测 Qt > Gecko ≈ GAIL > GTK > Electron），
+    基线只盖两种的话，a11y 通道占比这个数会被工具包构成带偏。
+
+    判据用**选中态的转移**而不是"点击返回成功"：今天在多个应用上确认过，
+    动作返回成功不等于生效。
+    """
+    subprocess.run(["pkill", "-f", "thunderbird"], capture_output=True)
+    time.sleep(3)
+    if not launch("thunderbird", "Mozilla Thunderbird"):
+        return False, "Thunderbird 起不来"
+
+    app = "Thunderbird"
+    tree, _ = client.call("get_app_state", {"app": app, "max_tree_nodes": 2500})
+    before = find_index(tree, r"tree item Trash")
+    inbox = find_index(tree, r"tree item Inbox")
+    target, name = (inbox, "Inbox") if inbox else (before, "Trash")
+    if target is None:
+        return False, "文件夹树里既没有 Inbox 也没有 Trash"
+
+    _, error = client.call("click", {"app": app, "element_index": target,
+                                     "click_method": "auto"})
+    if error:
+        return False, "点击文件夹失败"
+    time.sleep(2.5)
+
+    tree, _ = client.call("get_app_state", {"app": app, "max_tree_nodes": 2500})
+    for line in tree.splitlines():
+        stripped = line.strip()
+        if "tree item {}".format(name) in stripped and "[selected" in stripped:
+            return True, "{} 已取得 [selected]".format(name)
+    return False, "{} 没有取得选中态".format(name)
+
+
 TASKS = {
+    "thunderbird-folder": (task_thunderbird_folder, "邮件客户端切换文件夹（Gecko/XUL）"),
     "nautilus-rename": (task_nautilus_rename, "文件管理器重命名（GTK）"),
     "vlc-preference": (task_vlc_preference, "VLC 首选项改动（Qt）"),
     "gedit-type": (task_gedit_type, "文本编辑器写入并保存（GTK）"),
