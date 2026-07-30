@@ -444,6 +444,21 @@ NOTABLE_STATES = (
 )
 
 
+def placeholder_text(node, text_limit=DEFAULT_TEXT_LIMIT):
+    """取控件的占位提示文本（AT-SPI 的 `placeholder-text` 对象属性）。
+
+    对齐 macOS 的 `placeholderValue`。必须和真实内容分开渲染：占位文本长得
+    像内容但其实是空的，混在一起 agent 会以为输入框已经有值、跳过输入，
+    或者把提示语当成数据读走。
+    """
+    attributes = safe(node.get_attributes) or {}
+    for key in ("placeholder-text", "placeholder"):
+        value = attributes.get(key)
+        if value:
+            return limit_text(str(value), text_limit=text_limit)
+    return ""
+
+
 def state_segment(node):
     """把值得关注的状态渲染成紧凑标记，如 `[disabled checked]`。
 
@@ -478,6 +493,7 @@ def record_for(node, index, path, window_bounds, text_limit=DEFAULT_TEXT_LIMIT):
         "frame": bounds,
         "actions": action_names(node),
         "states": state_segment(node),
+        "placeholder": placeholder_text(node, text_limit=text_limit),
     }
 
 
@@ -668,6 +684,10 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
             safe_value = record["value"].replace("\r", "\\r").replace("\n", "\\n")
             value_segment = " Value: " + safe_value
         state_seg = record.get("states", "")
+        placeholder_seg = ""
+        if record.get("placeholder") and record["placeholder"] != title:
+            # 单独标注，不要混进 Value——它是提示不是内容，控件其实是空的
+            placeholder_seg = " Placeholder: " + record["placeholder"]
         actions_segment = ""
         if record["actions"]:
             actions_segment = " More actions: " + ", ".join(record["actions"])
@@ -682,8 +702,9 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
             )
         lines.append(
             ("\t" * (depth + 1))
-            + "{} {} {}{}{}{}{}".format(
-                index, role, title, state_seg, value_segment, actions_segment, frame_segment
+            + "{} {} {}{}{}{}{}{}".format(
+                index, role, title, state_seg, value_segment, placeholder_seg,
+                actions_segment, frame_segment
             ).rstrip()
         )
 

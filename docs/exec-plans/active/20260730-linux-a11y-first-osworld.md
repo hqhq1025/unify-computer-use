@@ -600,8 +600,30 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 - 验收：a11y track 返回**不含 image block**；截图有独立入口；
   gedit 单次观测从 2922 token（1908 文本 + 1014 截图）降到约 1900
 
-**#5 对照 macOS 补齐 9 项能力缺口**　依赖：无
-- 验收：缺口表里 9 个"缺失"项逐条有结论——**已移植** 或 **判定不可搬 + 理由**，不留空
+**#5 对照 macOS 补齐 9 项能力缺口** ✅ 已完成　依赖：无
+> 缺口表里的每一项都有结论，不留空。结论分三类：**已移植**、**已用等价方案覆盖**、
+> **判定不搬 + 理由**。
+
+| macOS 能力 | 结论 | 说明 |
+|---|---|---|
+| `placeholderValue` | **已移植** | 本轮实装。AT-SPI 有对应的 `placeholder-text` 对象属性，实测在 gedit 上取到 `Search highlight mode…`。渲染为独立的 `Placeholder:` 段，**不混进 `Value`**——占位文本长得像内容但控件其实是空的，混在一起 agent 会以为已有值而跳过输入，或把提示语当数据读走 |
+| `shouldSkipChild` | **已用等价方案覆盖** | #9 的裁剪（角色白名单 + 可见性）达到同一目的，且是 OSWorld 官方同源判据，实测 22% 压缩 / 100% 保留 |
+| `isPlainGenericTextContainer` | **已用等价方案覆盖** | 同上。裁剪会丢掉无名的纯结构容器，但**保留有名节点**——名字是 agent 的定位依据（这条是踩过坑才加的，见 #9 的盲区记录） |
+| `isUsableWindowElement` | **已用等价方案覆盖** | `main_window()` 的「可见模态 > ACTIVE > SHOWING」排序，加 `extents()` 过滤 INT_MIN 哨兵坐标 |
+| `recoverVisibleWindow` | **已用等价方案覆盖，但机制不同** | macOS 可以 unminimize + AXRaise；AT-SPI 没有等价 API。实现为 `focus_window()`：对窗口内 FOCUSABLE 子控件 `grab_focus`（frame 自身的 grab_focus 在 GTK 上恒返回 False） |
+| `preferredFocusedElement` | **已用等价方案覆盖，但机制不同** | macOS 读 `kAXFocusedUIElement`；AT-SPI 无此属性，改为按 `FOCUSED` > `SHOWING` 排序挑可编辑控件 |
+| `shouldSuppressChildren` | **已覆盖** | `MANAGES_DESCENDANTS` 分支 + `HARD_CHILD_CAP`，另加菜单折叠（#14，实测折掉 726 项） |
+| `meaningfulActions` | **已移植** | 对应 `CLICK_COVERED_ACTIONS` |
+| `outlineRowSummary` / `flattenedRowTexts` | **部分覆盖** | 表格的坐标寻址已实现（`render_visible_cells`，带 Frame 和真实角色）；**行摘要未做**。当前表格按单元格逐个渲染，行级摘要属于进一步压缩，等有实际瓶颈再说 |
+| `enableBestEffortAccessibilityModes` | **判定不可搬** | macOS 能在运行时设 AX 属性打开应用的 a11y；Linux 上这是**启动参数**（Chromium/Electron 的 `--force-renderer-accessibility`），进程起来之后无法开启。已改为沉淀成环境配置清单（#22），由环境搭建阶段负责 |
+| `isSiblingCounterText` / `isStandaloneTimeRangeText` | **判定暂不搬** | 它们是 macOS「generic text container 压缩」的一部分，匹配 `3 / 10`、`12:00-13:00` 这类噪音串，主要受益场景是 **Web/WebView 深树**。本项目的浏览器走 Playwright 独立平面，不经 AT-SPI；原生应用里这类模式罕见。等出现实测噪音再补 |
+| `markdownLinkText` | **判定暂不搬** | 依赖 `kAXURLAttribute` 渲染链接。同上，链接密集的场景是浏览器，而浏览器不走本 runtime |
+
+**一条方法论上的收获**：逐条对照的价值不在于"照搬得越多越好"。12 项里真正照搬的只有 2 项，
+6 项是用平台等价方案达成同一目的，4 项判定不搬。**照搬 macOS 的机制反而会出错**——
+`kAXFocusedWindowAttribute`、`kAXFocusedUIElement`、运行时开启 a11y 这三样在 AT-SPI 上
+都不存在，硬搬只会写出永远返回空的代码。对照的真正用途是**拿到它已经验证过的产品判断**
+（什么该显示、什么该隐藏、什么算"可用窗口"），机制则必须按平台重新设计。
 
 **#6 引导 agent 走 a11y 通道** ✅ 已完成　依赖：#4
 > 三处引导已就位，且比例可被机器统计：
