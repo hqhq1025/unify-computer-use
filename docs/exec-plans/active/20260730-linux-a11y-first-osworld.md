@@ -696,9 +696,13 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
       - 元素锚定 `global` + `mouse_button:"right"` 合成了右键，
         但**没有任何菜单窗口出现**（`wmctrl` 确认）——是菜单没打开，
         **不是菜单对 a11y 隐形**，这个区分要紧，不能靠猜。
-      下次起点：换个落点再试右键（树项的 Frame 可能不是可右击区域），
-      或绕开 GUI——直接确认 mbox 的 `From ` 分隔行格式是否被 Thunderbird 接受，
-      因为 `.msf` **从未生成**说明它根本没解析这个文件。
+      **已排除点击通道**：语义选中（`[selected focused]` 正确转移）与元素锚定
+      `global` 坐标点击**都试过**，`.msf` 始终没有生成。
+      所以问题不在"文件夹没被真正打开"，**在 mbox 文件本身没被解析**。
+      下次起点（已缩小到一个具体假设）：Thunderbird 的 mbox 需要
+      `X-Mozilla-Status` / `X-Mozilla-Status2` 头，我写的两封邮件没有；
+      补上再试，或干脆用 Thunderbird 自己「新建消息 → 保存为草稿」生成一封，
+      再照它的格式反推。
     - **尝试过的解法与结果**：想不联网建一个本地账户来解锁这 10 个任务。
       `AppMenu → Account Settings` 能打开（语义可达），里面有
       `push button Account Actions`，但点击后未展开预期菜单。
