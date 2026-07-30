@@ -4,6 +4,7 @@ import base64
 import json
 import math
 import os
+import re
 import sys
 import time
 import traceback
@@ -545,6 +546,32 @@ NOTABLE_STATES = (
 )
 
 
+def plain_text_from_rich_text(value):
+    """把 Qt 的富文本 tooltip 还原成纯文本。
+
+    Qt 会把 tooltip 存成一整段 HTML，带 `<head>` 里的 CSS。VLC 首选项实测：
+    19 段这样的 HTML 合计 9149 字符，占整次观测的 **56%**，而其中真正的信息
+    往往只有一句话。不处理的话，`Description:` 段会把整个观测预算吃掉。
+
+    判据卡在 `<html>` 开头——这是 Qt 富文本的标志。**不对普通文本做剥离**：
+    真实内容里完全可能出现尖括号（代码、模板、数学表达式），
+    对它们动手会篡改 agent 读到的数据。
+    """
+    text = str(value or "")
+    if not text.lstrip().lower().startswith("<html"):
+        return text
+    # `<head>` 里全是 CSS，剥完标签会漏成 `p, li { white-space: pre-wrap; }`，
+    # 所以整块丢掉而不是逐个剥标签。
+    text = re.sub(r"(?is)<head>.*?</head>", " ", text)
+    text = re.sub(r"(?is)<style.*?</style>", " ", text)
+    text = re.sub(r"(?i)<br\s*/?>", " ", text)
+    text = re.sub(r"(?s)<[^>]+>", "", text)
+    for entity, char in (("&amp;", "&"), ("&lt;", "<"), ("&gt;", ">"),
+                         ("&quot;", '"'), ("&nbsp;", " ")):
+        text = text.replace(entity, char)
+    return " ".join(text.split())
+
+
 def node_description(node, text_limit=DEFAULT_TEXT_LIMIT):
     """取控件的描述文本（AT-SPI `get_description`，GTK 通常填的是 tooltip）。
 
@@ -562,7 +589,8 @@ def node_description(node, text_limit=DEFAULT_TEXT_LIMIT):
     裁剪保留率都按 `role + name` 匹配），改写它会让同一个元素在不同版本里
     对不上号。
     """
-    return limit_text(str(safe(node.get_description, "") or ""), text_limit=text_limit)
+    raw = str(safe(node.get_description, "") or "")
+    return limit_text(plain_text_from_rich_text(raw), text_limit=text_limit)
 
 
 def placeholder_text(node, text_limit=DEFAULT_TEXT_LIMIT):

@@ -1621,6 +1621,40 @@ class FocusDiagnosticTests(AtspiPatchedTestCase):
         self.assertIn("Refusing to synthesize", str(caught.exception))
 
 
+class QtRichTextTests(AtspiPatchedTestCase):
+    def test_qt_tooltip_html_is_reduced_to_its_message(self):
+        """回归：Qt 把 tooltip 存成整段 HTML，CSS 也在里面。
+
+        VLC 首选项实测 19 段这样的 HTML 合计 9149 字符，占整次观测的 56%，
+        而真正的信息往往只有一句话。不处理的话 `Description:` 会把观测预算吃光。
+        """
+        blob = (
+            '<html><head><meta name="qrichtext" content="1" />'
+            '<style type="text/css"> p, li { white-space: pre-wrap; } </style>'
+            '</head><body><p>Show a controller in fullscreen mode</p></body></html>'
+        )
+
+        self.assertEqual(
+            runtime.plain_text_from_rich_text(blob),
+            "Show a controller in fullscreen mode",
+        )
+
+    def test_br_becomes_a_separator_not_a_join(self):
+        blob = "<html><body><p>one<br/>two</p></body></html>"
+
+        self.assertEqual(runtime.plain_text_from_rich_text(blob), "one two")
+
+    def test_plain_text_with_angle_brackets_is_untouched(self):
+        """不对普通文本动手：真实内容里完全可能有尖括号（代码、模板、数学式），
+        剥它们等于篡改 agent 读到的数据。"""
+        for text in ("a < b and c > d", "List<String> items", "if x<3: pass"):
+            self.assertEqual(runtime.plain_text_from_rich_text(text), text)
+
+    def test_empty_and_none_are_safe(self):
+        self.assertEqual(runtime.plain_text_from_rich_text(None), "")
+        self.assertEqual(runtime.plain_text_from_rich_text(""), "")
+
+
 class _NoSleep:
     """让 perform_operation 里的固定 sleep 不拖慢测试。"""
 

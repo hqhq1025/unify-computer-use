@@ -645,6 +645,20 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
   通道分布：菜单/对话框/OK 走 semantic，下拉项走 auto 自动识别后的坐标点击，
   全选与保存走键盘。这条链路横跨 Calc/Impress/Writer ≥37 个任务。
   仍待做：Calc 的单元格与区域选择、Impress 的画布对象。
+- **VLC 🔶 菜单与首选项已通关**（2026-07-30，Qt）：
+  - **判分器级验收**：Tools → Preferences → 勾选 → Save，
+    `~/.config/vlc/vlcrc` 由 `#qt-pause-minimized=0` 变为 `qt-pause-minimized=1`。
+    **整条链路全部走语义通道**，一次坐标都没用——Qt 是四个工具包里语义执行
+    最可靠的。
+  - **Qt 的一个优势**：菜单项**不必先展开菜单**就能语义调用。子菜单项在菜单
+    关闭时上报负坐标（`x: -70`），坐标点击必然失效，但 `do_action` 直接生效。
+    这与 GTK 相反（Nautilus 的 `menu` 动作是假的，必须合成右键）。
+  - **Qt 富文本 tooltip 已剥离**：Qt 把 tooltip 存成整段 HTML（含 `<head>` 里的
+    CSS）。首选项对话框实测 19 段合计 9149 字符，占整次观测 **56%**。
+    剥离后 4041 → 2261 token（-44%），描述变成干净的一句话。
+    判据卡在 `<html>` 开头，不对普通文本动手——真实内容里可能有尖括号。
+  - 仍待做：文件路径输入（6 个任务）、播放控制（5 个）、
+    以及调研点名的 Simple/All 单选按钮（`Toggle` 后 CHECKED 翻转但面板不切换）。
 - **VS Code ✅ 高频操作已通关**（2026-07-30，Electron/Chromium）：
   - **树是出来的**，不是空壳（`toolkit-accessibility` 本机已为 true）。
     欢迎页 9517 → 8393 token（修完动作名与 U+FFFC 之后）。
