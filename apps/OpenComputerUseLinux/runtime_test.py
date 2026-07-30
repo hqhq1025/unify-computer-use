@@ -465,6 +465,78 @@ class SetElementValueTests(AtspiPatchedTestCase):
         self.assertEqual(iface.text, "NEW")
 
 
+class ChannelTaggingTests(AtspiPatchedTestCase):
+    """回归：每条动作 note 必须带通道标签，否则"语义 vs 坐标"的比例无法统计。
+
+    这个比例是 plan 里 S3 报告口径的第四项，也是区分"agent 不想用 a11y"
+    与"用了但失败后退化"的唯一依据——两者修法相反。
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.window = FakeNode(states=(STATE.ACTIVE,))
+        for name, value in (
+            ("resolve_app", lambda q: FakeNode()),
+            ("main_window", lambda a: (0, self.window)),
+            ("extents", lambda n: runtime.frame(0, 0, 100, 100)),
+            ("find_element", lambda a, r: None),
+            ("build_snapshot", lambda *a, **k: {"text": ""}),
+            ("require_window_focus", lambda w, what: None),
+            ("parse_key", lambda k: ([], k)),
+            ("send_key", lambda k: None),
+            ("send_text", lambda t: None),
+            ("send_mouse_click", lambda *a: None),
+            ("send_drag", lambda *a: None),
+            ("scroll_element", lambda d, p: None),
+            ("time", _NoSleep()),
+        ):
+            original = getattr(runtime, name)
+            setattr(runtime, name, value)
+            self.addCleanup(setattr, runtime, name, original)
+
+    def _notes(self, op):
+        return runtime.perform_operation(op).get("notes", [])
+
+    def test_semantic_and_synthesis_are_distinguishable(self):
+        original = runtime.insert_text_detail
+        runtime.insert_text_detail = lambda root, text: (True, 0, 2)
+        self.addCleanup(setattr, runtime, "insert_text_detail", original)
+
+        semantic = self._notes({"tool": "type_text", "app": "x", "text": "hi"})
+        self.assertTrue(semantic[0].startswith("[semantic] "))
+
+        runtime.insert_text_detail = lambda root, text: (False, 0, 0)
+        synthesis = self._notes({"tool": "type_text", "app": "x", "text": "hi"})
+        self.assertTrue(synthesis[0].startswith("[synthesis] "))
+
+    def test_every_action_path_carries_a_channel_tag(self):
+        original = runtime.insert_text_detail
+        runtime.insert_text_detail = lambda root, text: (False, 0, 0)
+        self.addCleanup(setattr, runtime, "insert_text_detail", original)
+
+        for op in (
+            {"tool": "press_key", "app": "x", "key": "a"},
+            {"tool": "type_text", "app": "x", "text": "hi"},
+            {"tool": "scroll", "app": "x", "direction": "down", "pages": 1},
+            {"tool": "drag", "app": "x", "from_x": 1, "from_y": 2, "to_x": 3, "to_y": 4},
+            {"tool": "click", "app": "x", "click_method": "global", "x": 5, "y": 7},
+        ):
+            notes = self._notes(op)
+            self.assertTrue(notes, "{} 没有产生 note".format(op["tool"]))
+            self.assertTrue(
+                notes[0].startswith(("[semantic] ", "[synthesis] ")),
+                "{} 的 note 缺少通道标签: {}".format(op["tool"], notes[0][:60]),
+            )
+
+    def test_coordinate_click_nudges_toward_element_index(self):
+        """走了坐标兜底就要即时纠偏，否则 agent 不知道有更好的路。"""
+        notes = self._notes(
+            {"tool": "click", "app": "x", "click_method": "global", "x": 5, "y": 7}
+        )
+
+        self.assertIn("prefer click(element_index=...)", notes[0])
+
+
 class ActionNotesTests(AtspiPatchedTestCase):
     """动作必须如实说明走了哪条路径、结果有没有被确认。"""
 

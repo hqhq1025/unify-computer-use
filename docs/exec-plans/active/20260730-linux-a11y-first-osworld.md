@@ -567,9 +567,19 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 **#5 对照 macOS 补齐 9 项能力缺口**　依赖：无
 - 验收：缺口表里 9 个"缺失"项逐条有结论——**已移植** 或 **判定不可搬 + 理由**，不留空
 
-**#6 引导 agent 走 a11y 通道**　依赖：#4
-- 验收：工具描述 / `serverInstructions` / 动作 Note 三处更新；
-  有"语义调用 vs 坐标兜底"的计数机制，且能区分"不想用"与"用了失败后退化"
+**#6 引导 agent 走 a11y 通道** ✅ 已完成　依赖：#4
+> 三处引导已就位，且比例可被机器统计：
+> - **工具描述**：`click` 写明"PREFER element_index：可靠、不抢焦点"；
+>   `get_screenshot` 写明"ONLY when the accessibility tree is insufficient"
+> - **`serverInstructions`**：明确两条观测通道**不对等**，并写清切轨条件
+>   与"不要为了看一眼就要截图"
+> - **动作 Note 即时纠偏**：走坐标兜底时附加
+>   "prefer click(element_index=...) — it is verified, cheaper, and does not steal focus"
+>
+> **通道标签**：每条动作 note 现在以 `[semantic]` 或 `[synthesis]` 开头。
+> 这让"语义调用 vs 坐标兜底"的比例可以直接从 note 统计出来——它是 S3 报告口径
+> 的第四项，也是区分"agent 不想用 a11y"（引导问题）与"用了但失败后退化"
+> （能力问题）的唯一依据，两者修法相反。
 
 ### 裁剪与呈现
 

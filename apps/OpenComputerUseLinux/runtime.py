@@ -1284,9 +1284,23 @@ def scroll_element(direction, pages):
         time.sleep(0.04)
 
 
+# 动作走的是哪条通道。加前缀有两个目的：
+# 1. 让"语义调用 vs 坐标兜底"的比例可以被机器统计——这是 plan 里 S3 报告口径的
+#    第四项，也是区分"agent 不想用 a11y"与"用了但失败后退化"的唯一依据。
+# 2. 让 agent 一眼看出自己刚才走的是主通道还是兜底通道。
+SEMANTIC = "[semantic] "
+SYNTHESIS = "[synthesis] "
+
 UNVERIFIED_SYNTHESIS = (
     "Delivery to the intended target was not verified: AT-SPI input synthesis is "
     "global and reports success as soon as the event is queued."
+)
+
+# 走了坐标兜底时的即时纠偏。只在元素定向本可用时才有意义，所以由调用方决定是否附加。
+PREFER_ELEMENT_INDEX = (
+    " This did not use element-targeted invocation. If the target appears in the "
+    "accessibility tree, prefer click(element_index=...) — it is verified, cheaper, "
+    "and does not steal focus."
 )
 
 
@@ -1370,7 +1384,7 @@ def perform_operation(operation):
                 raise RuntimeError(
                     "click_method 'accessibility' could not click the requested element"
                 )
-            notes.append("Invoked the element's AT-SPI accessibility action.")
+            notes.append(SEMANTIC + "Invoked the element's AT-SPI accessibility action.")
         elif click_method == "app_post":
             raise RuntimeError("click_method 'app_post' is not supported on Linux")
         elif click_method == "sky_click":
@@ -1387,8 +1401,11 @@ def perform_operation(operation):
                 x, y, operation.get("mouse_button", "left"), operation.get("click_count", 1)
             )
             notes.append(
-                "Synthesized a coordinate click at ({:.0f}, {:.0f}) after bringing the "
-                "window to the foreground. {}".format(x, y, UNVERIFIED_SYNTHESIS)
+                SYNTHESIS
+                + "Synthesized a coordinate click at ({:.0f}, {:.0f}) after bringing the "
+                "window to the foreground. {}{}".format(
+                    x, y, UNVERIFIED_SYNTHESIS, PREFER_ELEMENT_INDEX
+                )
             )
         elif click_method == "auto":
             handled = False
@@ -1411,7 +1428,8 @@ def perform_operation(operation):
                     operation.get("click_count", 1),
                 )
                 notes.append(
-                    "No usable AT-SPI action was available, so this fell back to a "
+                    SYNTHESIS
+                    + "No usable AT-SPI action was available, so this fell back to a "
                     "coordinate click at ({:.0f}, {:.0f}) after bringing the window to "
                     "the foreground. {}".format(x, y, UNVERIFIED_SYNTHESIS)
                 )
@@ -1420,13 +1438,14 @@ def perform_operation(operation):
     elif tool == "perform_secondary_action":
         invoke_secondary_action(element, operation.get("action", ""))
         notes.append(
-            "Invoked the '{}' AT-SPI action.".format(operation.get("action", ""))
+            SEMANTIC + "Invoked the '{}' AT-SPI action.".format(operation.get("action", ""))
         )
     elif tool == "scroll":
         require_window_focus(window, "scroll")
         scroll_element(operation.get("direction", "down"), operation.get("pages", 1))
         notes.append(
-            "Scrolled by synthesizing page keys after bringing the window to the "
+            SYNTHESIS
+            + "Scrolled by synthesizing page keys after bringing the window to the "
             "foreground. {}".format(UNVERIFIED_SYNTHESIS)
         )
     elif tool == "drag":
@@ -1437,7 +1456,8 @@ def perform_operation(operation):
         require_window_focus(window, "drag")
         send_drag(from_x, from_y, to_x, to_y)
         notes.append(
-            "Synthesized a coordinate drag after bringing the window to the "
+            SYNTHESIS
+            + "Synthesized a coordinate drag after bringing the window to the "
             "foreground. {}".format(UNVERIFIED_SYNTHESIS)
         )
     elif tool == "type_text":
@@ -1447,14 +1467,16 @@ def perform_operation(operation):
         )
         if written:
             notes.append(
-                "Wrote the text through the AT-SPI editable-text API and confirmed it "
+                SEMANTIC
+                + "Wrote the text through the AT-SPI editable-text API and confirmed it "
                 "landed ({} -> {} characters).".format(before_chars, after_chars)
             )
         else:
             require_window_focus(window, "type_text")
             send_text(operation.get("text", ""))
             notes.append(
-                "The AT-SPI editable-text write did not land, so this fell back to "
+                SYNTHESIS
+                + "The AT-SPI editable-text write did not land, so this fell back to "
                 "global key synthesis after bringing the window to the foreground. "
                 "{}".format(UNVERIFIED_SYNTHESIS)
             )
@@ -1464,7 +1486,8 @@ def perform_operation(operation):
         require_window_focus(window, "press_key")
         send_key(operation.get("key", ""))
         notes.append(
-            "Synthesized '{}' after bringing the window to the foreground. {}".format(
+            SYNTHESIS
+            + "Synthesized '{}' after bringing the window to the foreground. {}".format(
                 operation.get("key", ""), UNVERIFIED_SYNTHESIS
             )
         )
@@ -1473,7 +1496,7 @@ def perform_operation(operation):
             raise RuntimeError("unknown element_index")
         if not set_element_value(element, operation.get("value", "")):
             raise RuntimeError("Cannot set a value for an element that is not settable")
-        notes.append("Set the value through the AT-SPI API and confirmed it applied.")
+        notes.append(SEMANTIC + "Set the value through the AT-SPI API and confirmed it applied.")
     else:
         raise RuntimeError('unsupportedTool("{}")'.format(tool))
 
