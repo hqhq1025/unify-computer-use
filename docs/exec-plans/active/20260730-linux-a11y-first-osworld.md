@@ -705,11 +705,13 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
       **删 `folderCache.json` 强制重扫也无效**（第五次尝试）。
       至此试过并否定的有：裸 mbox、加 `X-Mozilla-Status` 头、语义点击 Inbox、
       坐标点击 Inbox、删文件夹缓存——**"手工造 mbox"这条路已充分证伪**。
-      **下次起点（搜索空间已缩到很小）**：不要再手写 mbox。
-      用 Thunderbird 自己产生一封真消息（新建消息 → 保存为草稿，
-      或 `Local Folders → 右键 → New Folder` 后拖入），
-      再拿它生成的文件反推格式差异。手写 mbox 这条路本轮已花掉三次尝试，
-      性价比不高。
+      **"让 Thunderbird 自己生成"也走不通**：`ctrl+N` 撰写窗口打不开——
+      Local Folders（`type=none`）**没有身份标识**，无法撰写。
+      **这与消息过滤器是同一个根因**，两处独立证据互相印证：
+      Local Folders 只提供文件夹树，凡是需要**收件/发件身份**的功能都不可用。
+      **最终结论**：邮件列表与消息过滤器这 5 个任务需要一个**真正的收件账户**
+      （POP/IMAP）。属**环境限制**，与 a11y 或本 MCP 无关。
+      下次起点：本地起一个 dovecot，或直接用 OSWorld 自带的 Thunderbird 账户配置。
     - **尝试过的解法与结果**：想不联网建一个本地账户来解锁这 10 个任务。
       `AppMenu → Account Settings` 能打开（语义可达），里面有
       `push button Account Actions`，但点击后未展开预期菜单。
