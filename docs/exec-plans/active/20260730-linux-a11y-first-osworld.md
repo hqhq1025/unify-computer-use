@@ -462,6 +462,48 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 - [x] 抽样 OSWorld 8 个 domain 的真实任务，归纳所需操作类型
 - [x] 接入 Playwright + browser-use，验证均为 attach 而非 launch → `scripts/verify-browser-cdp-attach.py`
 
+## 实测发现：LibreOffice「菜单 → 对话框」链路（2026-07-30，待办 #1）
+
+在 Writer 上对 `格式 → 段落 → 行距 → 双倍` 全链路实测，每步用 AT-SPI 真值独立判定。
+
+**能走通的（全部纯 `element_index` 语义调用，零坐标）**
+
+| 环节 | 结果 |
+|---|---|
+| `menu Format` → 展开 | 通 |
+| `menu item Paragraph...` → 打开对话框 | 通 |
+| 对话框可见 | 通（**需先修模态窗口优先，见 history**）|
+| `spin button` 的 `set_value` | 通，且回读确认生效 |
+| `push button OK` 语义点击 | 通 |
+
+**走不通的：对话框里的 combo box（行距选择器）**
+
+四条路径全部失败：
+
+1. `do_action("press")` 返回 `True`，但下拉不展开、无新顶层窗口、`menu` 子节点仍为 0
+2. `Selection` 接口存在，但 `menu` 是懒加载的，展开前没有任何可选项
+3. 写它旁边的 `text` 兄弟节点：`set_value` 返回成功**且回读确认值已变成 "Double"**，
+   但文档的 `line-height` 仍是 `100%`
+4. 写完再 `press_key Return`：对话框关闭了，`line-height` 依然 `100%`
+
+**由此暴露的一个验证盲区**：第 3 条里 `set_value` 的"回读确认已生效"是**诚实但不充分**的——
+它确认的是**控件的值变了**，不是**应用真的采纳了这个值**。对于会把控件值和文档状态分开的
+应用（对话框类几乎都是这样），需要更强的判据。
+
+**可用的 ground truth**：`Atspi.Text.get_default_attributes(text_iface)` 返回
+`line-height` 等段落级属性，可直接判定格式类任务是否真的生效。
+注意 `Atspi.Text.get_attributes()` 在此版本不存在，`Accessible.get_attributes()`
+只给 `level` / `heading-level`，都不能用。
+
+**同批发现的其它问题**
+
+- **命名歧义**：子串匹配 `Format` 会同时命中 `menu Format`、`check menu item Formatting Marks`、
+  `menu Formatting Mark`、`menu item Clone Formatting`。必须角色 + 精确名才能可靠定位，
+  agent 面临同样的消歧成本
+- **菜单展开状态不可见**：点开菜单后 `EXPANDED` 状态为空，只能靠重读树发现多了菜单项
+- **对话框控件普遍无名**：行距 combo 在树里就是 `32 combo box`，没有名字也没有当前值，
+  只能靠父节点 `panel Line Spacing` 推断
+
 ## 待办清单（完整，不分阶段）
 
 一份完整的剩余工作。**没有阶段划分**——除标注了依赖的项外都可以并行推进。
@@ -473,6 +515,16 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 > OSWorld 的主导操作类型，任务密度最高，也最能验证语义动作的真实能力。
 - 验收：用 `element_index` 语义调用走通 `格式 → 段落 → 行距 → 双倍`，
   并用 AT-SPI 真值确认行距**真的改了**；失败点列成清单
+
+**#1b combo box / 下拉选择的可用路径**　依赖：无
+> #1 实测发现 combo box 四条路径全不通，而下拉选择在 OSWorld 对话框里极其常见。
+- 验收：找到至少一条可靠路径（键盘序列 / Selection 接口 / 其它），
+  并用 `line-height` 类 ground truth 确认应用真的采纳了值；找不到则明确记录为
+  必须走 VLM 的操作类型
+
+**#1c 区分"控件值变了"与"应用采纳了"**　依赖：无
+> `set_value` 目前回读控件值即判成功，但对话框类应用会把控件值与文档状态分开。
+- 验收：给出更强的判据，或在 Note 里明确标注该确认的边界
 
 **#2 9 应用 × 7 动作系统性排查**　依赖：#1
 - 验收：产出 9×7 失败面矩阵，每格 PASS/FAIL 且附 AT-SPI 真值证据
