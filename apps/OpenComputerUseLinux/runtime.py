@@ -458,6 +458,26 @@ NOTABLE_STATES = (
 )
 
 
+def node_description(node, text_limit=DEFAULT_TEXT_LIMIT):
+    """取控件的描述文本（AT-SPI `get_description`，GTK 通常填的是 tooltip）。
+
+    实测 Nautilus：工具栏上 `Go back` / `Go forward` / `Search` / `Show list`
+    四个按钮**名字全是空的**，唯一的可读标识就在 description 里；而三个
+    `toggle button Menu` 名字完全相同，只有 description（`Show operations` /
+    `View options`）能区分。不渲染这一项，返回/前进这类文件管理器核心操作
+    在树里就只是 `push button`，agent 除了按像素坐标猜没有别的办法——
+    a11y 优先的整条路径在这里断掉。
+
+    GTK 的惯例与 macOS 相反：macOS 把可读标签放 AXTitle，GTK 常常只填
+    tooltip。所以这不是"移植时漏了"，是 Linux 侧必须多读一处。
+
+    与 name 分开渲染而不是顶替它：name 是元素身份的一部分（轨迹回放、
+    裁剪保留率都按 `role + name` 匹配），改写它会让同一个元素在不同版本里
+    对不上号。
+    """
+    return limit_text(str(safe(node.get_description, "") or ""), text_limit=text_limit)
+
+
 def placeholder_text(node, text_limit=DEFAULT_TEXT_LIMIT):
     """取控件的占位提示文本（AT-SPI 的 `placeholder-text` 对象属性）。
 
@@ -516,6 +536,7 @@ def record_for(node, index, path, window_bounds, text_limit=DEFAULT_TEXT_LIMIT):
         "frame": bounds,
         "actions": action_names(node),
         "states": state_segment(node),
+        "description": node_description(node, text_limit=text_limit),
         "placeholder": placeholder_text(node, text_limit=text_limit),
     }
 
@@ -660,8 +681,13 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
     pressure_at = max(1, int(max_tree_nodes * BUDGET_PRESSURE_RATIO))
 
     def is_structural_filler(record):
-        """无名、无动作、无值的纯容器。对 agent 没有可操作价值。"""
-        return not (record["name"] or record["actions"] or record["value"])
+        """无名、无描述、无动作、无值的纯容器。对 agent 没有可操作价值。"""
+        return not (
+            record["name"]
+            or record["description"]
+            or record["actions"]
+            or record["value"]
+        )
 
     def visit(node, depth, path, render_depth=0):
         """depth 用于遍历预算，render_depth 用于缩进。
@@ -689,7 +715,9 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
             # 目标元素虽然还在树里，却**没法被指认**——整条对话框链路当场断掉。
             # 保留率指标只看"目标在不在"，看不到这一层，是它的盲区。
             keeps = record["frame"] is not None and (
-                is_interactive_role(role_name) or bool(record["name"])
+                is_interactive_role(role_name)
+                or bool(record["name"])
+                or bool(record["description"])
             )
             if not keeps:
                 dropped["count"] += 1
@@ -717,6 +745,11 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
             safe_value = record["value"].replace("\r", "\\r").replace("\n", "\\n")
             value_segment = " Value: " + safe_value
         state_seg = record.get("states", "")
+        description_seg = ""
+        if record.get("description") and record["description"] != title:
+            # 单独标注，不并进 name：name 是元素身份的一部分（轨迹按 role+name
+            # 匹配）。GTK 把可读标签放在这里的情况很常见，尤其是纯图标按钮。
+            description_seg = " Description: " + record["description"]
         placeholder_seg = ""
         if record.get("placeholder") and record["placeholder"] != title:
             # 单独标注，不要混进 Value——它是提示不是内容，控件其实是空的
@@ -735,9 +768,9 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
             )
         lines.append(
             ("\t" * (render_depth + 1))
-            + "{} {} {}{}{}{}{}{}".format(
-                index, role, title, state_seg, value_segment, placeholder_seg,
-                actions_segment, frame_segment
+            + "{} {} {}{}{}{}{}{}{}".format(
+                index, role, title, state_seg, value_segment, description_seg,
+                placeholder_seg, actions_segment, frame_segment
             ).rstrip()
         )
 
@@ -1026,18 +1059,54 @@ def same_frame(record_frame, node_frame):
     return True
 
 
+def record_still_matches(node, record, window_bounds):
+    """按路径解析出来的节点，是否还是快照里那个元素。
+
+    `runtimeId` 是一条子节点下标路径，**位置性**的：树一变，同一条路径就指向
+    另一个控件。实测 Nautilus：拿着右键菜单打开时的快照（`9 menu item Rename…`），
+    在菜单关掉之后再用 index 9，路径解析到的是工具栏的
+    `toggle button Menu (View options)`——于是"重命名"变成了"切换视图选项"，
+    而且一路 isError=False，从记录上完全看不出来。
+
+    静默操作错误的控件是最坏的失败模式：不可检测，且可能是破坏性的
+    （同一份菜单里紧挨着就是 `Move to Trash`）。宁可解析失败让调用方重新取状态。
+
+    判据按快照里**实际有的**标识逐级收紧，不无中生有：
+    - 有 automationId：必须相等（最强，工具包给的稳定 id）
+    - 有 name：role + name 必须相等
+    - 都没有：role 必须相等，且屏幕位置没变（无名控件只能靠位置指认）
+    """
+    if node is None:
+        return False
+    target_id = str(record.get("automationId") or "")
+    if target_id:
+        return accessible_id(node) == target_id
+    target_role = str(record.get("controlType") or "")
+    if target_role and node_role(node) != target_role:
+        return False
+    target_name = str(record.get("name") or "")
+    if target_name:
+        return node_name(node) == target_name
+    if node_name(node):
+        # 快照里没名字、现在有名字，说明换了个元素
+        return False
+    if record.get("frame") is None:
+        return True
+    return same_frame(record.get("frame"), relative_frame(node, window_bounds))
+
+
 def find_element(app, record):
     if not record:
         return None
+    _, window = main_window(app)
+    window_bounds = extents(window)
     node = resolve_path(app, record.get("runtimeId") or [])
-    if node is not None:
+    if node is not None and record_still_matches(node, record, window_bounds):
         return node
 
-    _, window = main_window(app)
     target_name = str(record.get("name") or "")
     target_id = str(record.get("automationId") or "")
     target_role = str(record.get("controlType") or "")
-    window_bounds = extents(window)
     for candidate in iter_all(window):
         if target_id and accessible_id(candidate) == target_id:
             return candidate
@@ -1460,6 +1529,53 @@ def invoke_secondary_action(node, action):
     raise RuntimeError("{} is not a valid secondary action for element".format(action))
 
 
+# 调完开菜单的动作后等多久再判断菜单有没有真的弹出来。菜单是异步弹的，
+# 立刻去查必然查不到，会把能用的语义动作误判成失效并多合成一次右键。
+MENU_SETTLE_SECONDS = float(os.environ.get("OPEN_COMPUTER_USE_MENU_SETTLE", "0.6"))
+
+# 语义上等价于"打开右键菜单"的动作名。只有这一类动作才允许在语义调用无效时
+# 自动回落到合成右键：开菜单是幂等的，重复一次没有副作用。其它二级动作
+# （delete / cut / send-to-trash…）绝不能重试——动作可能已经生效只是观测不到，
+# 再来一次就是执行了两次。
+CONTEXT_MENU_ACTIONS = {
+    "menu",
+    "show menu",
+    "context menu",
+    "popup",
+    "show context menu",
+    "secondary",
+}
+
+
+def context_menu_visible(app):
+    """应用当前是否弹出了菜单。
+
+    两种形态都要认：
+    - X11 上 GTK/Qt 的右键菜单通常是**独立顶层窗口**（Nautilus 实测如此，
+      角色 `window`、无名字）；
+    - 也有实现把它挂成主窗口内的 popover/popup menu。
+
+    只查顶层窗口及其浅层子节点，代价固定，可以放在动作路径上。
+    """
+    if app is None:
+        return False
+    for index in range(min(child_count(app), MAX_CHILD_FANOUT)):
+        top = child_at(app, index)
+        if top is None or not state_contains(top, Atspi.StateType.SHOWING):
+            continue
+        if node_role(top) in MENU_ROLES:
+            return True
+        for depth_one in range(min(child_count(top), 32)):
+            near = child_at(top, depth_one)
+            if near is None:
+                continue
+            if node_role(near) in MENU_ROLES and state_contains(
+                near, Atspi.StateType.SHOWING
+            ):
+                return True
+    return False
+
+
 def scroll_element(direction, pages):
     key = "Page_Down"
     if direction == "up":
@@ -1627,10 +1743,27 @@ def perform_operation(operation):
         else:
             raise RuntimeError("Invalid click_method '{}'".format(click_method))
     elif tool == "perform_secondary_action":
-        invoke_secondary_action(element, operation.get("action", ""))
-        notes.append(
-            SEMANTIC + "Invoked the '{}' AT-SPI action.".format(operation.get("action", ""))
-        )
+        action = operation.get("action", "")
+        # 只有"开右键菜单"这类幂等动作才做校验+回落。做不到这一点的话，
+        # 一个已经生效但观测不到的破坏性动作会被重复执行。
+        opens_menu = str(action).lower() in CONTEXT_MENU_ACTIONS
+        had_menu = context_menu_visible(app) if opens_menu else False
+        invoke_secondary_action(element, action)
+        notes.append(SEMANTIC + "Invoked the '{}' AT-SPI action.".format(action))
+        if opens_menu and not had_menu:
+            time.sleep(MENU_SETTLE_SECONDS)
+            if not context_menu_visible(app):
+                # 实测 Nautilus：文件图标的 `menu` 动作**永远返回成功、永远不开
+                # 菜单**，与是否聚焦/选中无关。语义通道在这里是死路，只能合成。
+                x, y = screen_point(bounds, element_record, None, None)
+                require_window_focus(window, "perform_secondary_action")
+                send_mouse_click(x, y, "right", 1)
+                notes.append(
+                    SYNTHESIS
+                    + "The '{}' action reported success but no menu appeared, so this "
+                    "fell back to a synthesized right-click at ({:.0f}, {:.0f}). "
+                    "{}".format(action, x, y, UNVERIFIED_SYNTHESIS)
+                )
     elif tool == "scroll":
         require_window_focus(window, "scroll")
         scroll_element(operation.get("direction", "down"), operation.get("pages", 1))

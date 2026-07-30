@@ -1048,7 +1048,8 @@ class _TreeNode(FakeNode):
     """够渲染一棵树用的节点。FakeNode 只覆盖了 a11y 接口取值那部分，
     record_for() 还要 role / toolkit / accessible_id / attributes 等一整圈。"""
 
-    def __init__(self, role="panel", name="", x=0, y=0, w=10, h=10, kids=()):
+    def __init__(self, role="panel", name="", x=0, y=0, w=10, h=10, kids=(),
+                 description=""):
         super().__init__(
             states=(STATE.SHOWING, STATE.VISIBLE),
             children=kids,
@@ -1056,12 +1057,16 @@ class _TreeNode(FakeNode):
         )
         self.role = role
         self.title = name
+        self.description = description
 
     def get_role_name(self):
         return self.role
 
     def get_name(self):
         return self.title
+
+    def get_description(self):
+        return self.description
 
     def get_toolkit_name(self):
         return "gtk"
@@ -1130,6 +1135,157 @@ class RenderIndentationTests(AtspiPatchedTestCase):
         self.assertEqual(
             [self._indent(l) - self._indent(rendered[0]) for l in rendered], [0, 1, 2]
         )
+
+
+class NodeDescriptionTests(AtspiPatchedTestCase):
+    def _nodes(self, lines):
+        return [l for l in lines if l.strip() and l.strip()[0].isdigit()]
+
+    def test_unnamed_button_is_identified_by_its_description(self):
+        """回归：GTK 的纯图标按钮名字为空，唯一可读标识在 description 里。
+
+        实测 Nautilus 工具栏：`Go back` / `Go forward` / `Search` / `Show list`
+        四个按钮 name 全空。不渲染 description 的话，返回/前进这类文件管理器
+        核心操作在树里就只是一个无名 `push button`，agent 除了按像素坐标猜
+        没有别的办法——a11y 优先的路径在这里直接断掉。
+        """
+        back = _TreeNode(role="push button", description="Go back", x=1, y=1, w=5, h=5)
+        root = _TreeNode(role="frame", name="Files", w=100, h=100, kids=(back,))
+
+        _, lines = runtime.render_tree(root, None, [0], prune=True)
+
+        self.assertIn("Description: Go back", "\n".join(lines))
+
+    def test_description_disambiguates_identically_named_buttons(self):
+        """三个都叫 Menu 的 toggle button 只能靠 description 区分。"""
+        ops = _TreeNode(role="toggle button", name="Menu",
+                        description="Show operations", x=1, y=1, w=5, h=5)
+        view = _TreeNode(role="toggle button", name="Menu",
+                         description="View options", x=7, y=1, w=5, h=5)
+        root = _TreeNode(role="frame", name="Files", w=100, h=100, kids=(ops, view))
+
+        _, lines = runtime.render_tree(root, None, [0], prune=True)
+
+        rendered = self._nodes(lines)
+        self.assertIn("Show operations", rendered[1])
+        self.assertIn("View options", rendered[2])
+
+    def test_description_equal_to_name_is_not_repeated(self):
+        """description 与 name 相同时不重复渲染，白占 token。"""
+        node = _TreeNode(role="push button", name="Home", description="Home",
+                         x=1, y=1, w=5, h=5)
+        root = _TreeNode(role="frame", name="Files", w=100, h=100, kids=(node,))
+
+        _, lines = runtime.render_tree(root, None, [0], prune=True)
+
+        self.assertNotIn("Description:", "\n".join(lines))
+
+    def test_name_is_not_overwritten_by_description(self):
+        """description 不得顶替 name：轨迹回放与保留率评测都按 role+name 匹配，
+        改写 name 会让同一个元素在不同版本间对不上号。"""
+        back = _TreeNode(role="push button", description="Go back", x=1, y=1, w=5, h=5)
+        root = _TreeNode(role="frame", name="Files", w=100, h=100, kids=(back,))
+
+        records, _ = runtime.render_tree(root, None, [0], prune=True)
+
+        self.assertEqual(records[1]["name"], "")
+        self.assertEqual(records[1]["description"], "Go back")
+
+
+class StaleElementIndexTests(AtspiPatchedTestCase):
+    """`runtimeId` 是位置性路径，树一变就指向别的控件。"""
+
+    def record(self, role, name, frame=None, path=(0, 1)):
+        return {"runtimeId": list(path), "controlType": role, "name": name,
+                "automationId": "", "frame": frame}
+
+    def test_rejects_node_whose_role_and_name_changed(self):
+        """回归：陈旧下标解析到的是另一个控件时必须拒绝，不能照点不误。
+
+        实测 Nautilus：拿右键菜单打开时的快照（`menu item Rename…`），菜单关掉后
+        同一条路径指向工具栏的 `toggle button Menu`——"重命名"变成"切换视图选项"，
+        全程 isError=False。同一份菜单里紧挨着就是 `Move to Trash`，
+        静默点错是不可接受的失败模式。
+        """
+        other = _TreeNode(role="toggle button", name="Menu", x=715, y=23, w=26, h=46)
+
+        self.assertFalse(
+            runtime.record_still_matches(
+                other, self.record("menu item", "Rename…"), None
+            )
+        )
+
+    def test_accepts_unchanged_node(self):
+        same = _TreeNode(role="menu item", name="Rename…", x=7, y=189, w=304, h=25)
+
+        self.assertTrue(
+            runtime.record_still_matches(
+                same, self.record("menu item", "Rename…"), None
+            )
+        )
+
+    def test_unnamed_element_is_matched_by_position(self):
+        """对话框里大量控件没有名字，位置是唯一可用的身份线索。"""
+        node = _TreeNode(role="toggle button", x=10, y=20, w=30, h=40)
+        frame = {"x": 10, "y": 20, "width": 30, "height": 40}
+        moved = {"x": 400, "y": 20, "width": 30, "height": 40}
+
+        self.assertTrue(
+            runtime.record_still_matches(node, self.record("toggle button", "", frame), None)
+        )
+        self.assertFalse(
+            runtime.record_still_matches(node, self.record("toggle button", "", moved), None)
+        )
+
+    def test_named_node_does_not_satisfy_unnamed_record(self):
+        """快照里没名字、解析出来的有名字，说明换了元素。"""
+        named = _TreeNode(role="toggle button", name="Menu", x=10, y=20, w=30, h=40)
+        frame = {"x": 10, "y": 20, "width": 30, "height": 40}
+
+        self.assertFalse(
+            runtime.record_still_matches(named, self.record("toggle button", "", frame), None)
+        )
+
+    def test_accessible_id_wins_when_present(self):
+        """工具包给了稳定 id 时以它为准，名字或位置变化都不影响。"""
+
+        class WithID(_TreeNode):
+            def get_accessible_id(self):
+                return "save-button"
+
+        node = WithID(role="push button", name="Save As", x=99, y=99, w=1, h=1)
+        record = {"runtimeId": [0], "controlType": "push button", "name": "Save",
+                  "automationId": "save-button", "frame": None}
+
+        self.assertTrue(runtime.record_still_matches(node, record, None))
+
+
+    def test_find_element_refuses_stale_path_end_to_end(self):
+        """行为级回归：陈旧下标穿过 find_element 时不得解析成另一个控件。
+
+        这是上面那些判据真正要防住的东西——单测判据函数只能证明判据本身对，
+        证明不了调用方用上了它。
+        """
+        toolbar = _TreeNode(role="toggle button", name="Menu", x=715, y=23, w=26, h=46)
+        window = _TreeNode(role="frame", name="Files", w=900, h=600, kids=(toolbar,))
+        app = _TreeNode(role="application", name="Files", kids=(window,))
+
+        stale = {"runtimeId": [0, 0], "controlType": "menu item",
+                 "name": "Rename…", "automationId": "", "frame": None}
+
+        # 路径本身解析得到 toolbar，但它已经不是当初那个元素
+        self.assertIs(runtime.resolve_path(app, [0, 0]), toolbar)
+        self.assertIsNone(runtime.find_element(app, stale))
+
+    def test_find_element_still_resolves_valid_path(self):
+        item = _TreeNode(role="menu item", name="Rename…", x=7, y=189, w=304, h=25)
+        window = _TreeNode(role="frame", name="Files", w=900, h=600, kids=(item,))
+        app = _TreeNode(role="application", name="Files", kids=(window,))
+
+        record = {"runtimeId": [0, 0], "controlType": "menu item",
+                  "name": "Rename…", "automationId": "", "frame": None}
+
+        self.assertIs(runtime.find_element(app, record), item)
 
 
 class _NoSleep:

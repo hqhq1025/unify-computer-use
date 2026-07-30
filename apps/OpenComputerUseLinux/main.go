@@ -82,6 +82,7 @@ type elementRecord struct {
 	Frame                *frame   `json:"frame,omitempty"`
 	Actions              []string `json:"actions,omitempty"`
 	States               string   `json:"states,omitempty"`
+	Description          string   `json:"description,omitempty"`
 	Placeholder          string   `json:"placeholder,omitempty"`
 }
 
