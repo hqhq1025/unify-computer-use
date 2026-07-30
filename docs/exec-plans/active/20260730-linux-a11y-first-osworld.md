@@ -627,8 +627,20 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 （`runtimeId` 路径已在 element record 里，可作为基础）。当前用法之所以安全，
 是因为动作工具契约强制每次动作前重取 `get_app_state`，缓存不会过期。
 
-**#16 状态表达（选中 / 禁用 / 展开与否）**　依赖：无
-- 验收：这三类状态在树里可见，且不显著增加 token
+**#16 状态表达（选中 / 禁用 / 展开与否）** ✅ 已完成　依赖：无
+> 树里的元素行现在会带紧凑状态标记，例如：
+> ```
+> 38  page tab  [selected]
+> 48  text  [focused]
+> 79  radio button Documents [checked]
+> 135 push button Clear Highlight [disabled]
+> ```
+> 只渲染**非默认的一侧**：每个节点都标 `enabled` / `not-focused` 只会淹没信号，
+> 而 `disabled` / `checked` / `expanded` / `selected` / `focused` 才是决策依据。
+> `disabled` 尤其有用——此前 agent 会对着禁用控件反复点击而毫无察觉。
+>
+> 成本实测（gedit 241 节点）：11 个节点带标记（4%），
+> 总量 7633 → 7756 字符，**+31 token（1.6%）**，符合"不显著增加 token"的验收。
 
 **#17 截断策略** ✅ 已完成　依赖：无
 > 原实现是深度优先切断：`len(records) >= max_tree_nodes` 就 return，

@@ -81,6 +81,7 @@ type elementRecord struct {
 	NativeWindowHandle   int64    `json:"nativeWindowHandle,omitempty"`
 	Frame                *frame   `json:"frame,omitempty"`
 	Actions              []string `json:"actions,omitempty"`
+	States               string   `json:"states,omitempty"`
 }
 
 type appSnapshot struct {

@@ -19,6 +19,24 @@ func TestToolDefinitionCount(t *testing.T) {
 	}
 }
 
+func TestDecisionRelevantStatesAreRendered(t *testing.T) {
+	// 禁用、选中、展开、勾选这几类状态此前完全不在树里。agent 因此会对着
+	// 禁用控件反复点击，也看不出下拉/菜单到底展开没有。
+	for _, fragment := range []string{
+		"def state_segment(node):",
+		"NOTABLE_STATES",
+		`marks.append("disabled")`,
+	} {
+		if !strings.Contains(linuxRuntimeScript, fragment) {
+			t.Fatalf("tree must expose decision-relevant states: missing %q", fragment)
+		}
+	}
+	// 只渲染"非默认"的一侧：每个节点都标 enabled 会淹没信号。
+	if strings.Contains(linuxRuntimeScript, `("ENABLED", "enabled")`) {
+		t.Fatal("rendering the default side of every state would drown the signal")
+	}
+}
+
 func TestTruncationIsPrioritisedAndVisible(t *testing.T) {
 	// 深度优先截断等于按遍历顺序随机丢弃：先到的占满配额，后面的整片消失，
 	// 而且 agent 完全不知道树被砍过。

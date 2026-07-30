@@ -403,6 +403,35 @@ def parse_text_limit(value, fallback=DEFAULT_TEXT_LIMIT):
     return positive_int(value, fallback)
 
 
+# 对决策有用、但此前完全不在树里体现的状态。只渲染"非默认"的那一侧：
+# 每个节点都标 enabled/not-focused 只会淹没信号，而 disabled / checked /
+# expanded / selected / focused 才是 agent 需要据以决策的信息。
+NOTABLE_STATES = (
+    ("CHECKED", "checked"),
+    ("EXPANDED", "expanded"),
+    ("SELECTED", "selected"),
+    ("FOCUSED", "focused"),
+)
+
+
+def state_segment(node):
+    """把值得关注的状态渲染成紧凑标记，如 `[disabled checked]`。
+
+    禁用单独处理：它是"缺少 ENABLED"而不是"具备某状态"，而 agent 对着一个
+    禁用控件反复点击是很常见的浪费。
+    """
+    marks = []
+    if not state_contains(node, Atspi.StateType.ENABLED):
+        marks.append("disabled")
+    for name, label in NOTABLE_STATES:
+        state = getattr(Atspi.StateType, name, None)
+        if state is not None and state_contains(node, state):
+            marks.append(label)
+    if not marks:
+        return ""
+    return " [" + " ".join(marks) + "]"
+
+
 def record_for(node, index, path, window_bounds, text_limit=DEFAULT_TEXT_LIMIT):
     bounds = relative_frame(node, window_bounds)
     role = node_role(node)
@@ -418,6 +447,7 @@ def record_for(node, index, path, window_bounds, text_limit=DEFAULT_TEXT_LIMIT):
         "nativeWindowHandle": 0,
         "frame": bounds,
         "actions": action_names(node),
+        "states": state_segment(node),
     }
 
 
@@ -567,6 +597,7 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT, m
         if record["value"] and record["value"] != title:
             safe_value = record["value"].replace("\r", "\\r").replace("\n", "\\n")
             value_segment = " Value: " + safe_value
+        state_seg = record.get("states", "")
         actions_segment = ""
         if record["actions"]:
             actions_segment = " More actions: " + ", ".join(record["actions"])
@@ -581,8 +612,8 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT, m
             )
         lines.append(
             ("\t" * (depth + 1))
-            + "{} {} {}{}{}{}".format(
-                index, role, title, value_segment, actions_segment, frame_segment
+            + "{} {} {}{}{}{}{}".format(
+                index, role, title, state_seg, value_segment, actions_segment, frame_segment
             ).rstrip()
         )
 
