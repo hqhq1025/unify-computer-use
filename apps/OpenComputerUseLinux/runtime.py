@@ -1344,6 +1344,30 @@ def focus_window(window, timeout=1.0):
     return window_is_active(window)
 
 
+def active_accessible_window():
+    """跨所有应用找出当前上报 ACTIVE 的那个可访问窗口。
+
+    夺焦点失败时用来把"焦点到底在谁身上"讲清楚。找不到**同样是结论**，
+    而且是最重要的那个：说明持有输入焦点的东西根本不在无障碍树里。
+
+    实测 VS Code：改完 settings.json 后弹出原生对话框
+    「A setting has changed that requires a restart to take effect.」，
+    该对话框与 VS Code 同一进程、`_NET_WM_WINDOW_TYPE_DIALOG`、锁住整个应用，
+    **但 AT-SPI 里完全不存在**。此时 agent 看到的是一棵正常的树，
+    每个动作都被正确拒绝，却无从知道原因——a11y 通道在这里是瞎的。
+    """
+    # 整段都要能失败得安静。这是**诊断**代码：它的作用是把一条已经确定的
+    # 错误讲得更清楚，绝不能反过来把清晰的错误变成一个崩溃堆栈。
+    try:
+        for app in iter_apps():
+            for _, window in app_windows(app):
+                if state_contains(window, Atspi.StateType.ACTIVE):
+                    return node_name(app), node_name(window)
+    except Exception:
+        return None, None
+    return None, None
+
+
 def require_window_focus(window, what):
     """合成输入前强制确认目标窗口已激活。
 
@@ -1356,10 +1380,22 @@ def require_window_focus(window, what):
     """
     if focus_window(window):
         return
+    app_name, window_name = active_accessible_window()
+    if app_name is None:
+        culprit = (
+            " No window in the accessibility tree currently reports ACTIVE, so "
+            "input focus is held by something the tree cannot see — most often a "
+            "native dialog (Electron and some GTK apps do not expose theirs). "
+            "Call get_screenshot to find out what is on top and dismiss it."
+        )
+    else:
+        culprit = " Input focus is currently held by '{}' in '{}'.".format(
+            window_name or "(untitled window)", app_name
+        )
     raise RuntimeError(
         "Refusing to synthesize {}: could not bring the target window to the "
         "foreground. Input synthesis is global and would be delivered to "
-        "whichever window currently holds focus.".format(what)
+        "whichever window currently holds focus.{}".format(what, culprit)
     )
 
 

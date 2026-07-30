@@ -1567,6 +1567,60 @@ class ObjectReplacementTests(AtspiPatchedTestCase):
         self.assertEqual(runtime.limit_text("Save As…"), "Save As…")
 
 
+class FocusDiagnosticTests(AtspiPatchedTestCase):
+    def test_names_the_window_that_actually_holds_focus(self):
+        other = _TreeNode(role="frame", name="Terminal", w=100, h=100)
+        other.states.add(STATE.ACTIVE)
+        app = _TreeNode(role="application", name="gnome-terminal", kids=(other,))
+        original = runtime.iter_apps
+        runtime.iter_apps = lambda: [app]
+        self.addCleanup(setattr, runtime, "iter_apps", original)
+
+        target = _TreeNode(role="frame", name="Editor", w=100, h=100)
+        with self.assertRaises(RuntimeError) as caught:
+            runtime.require_window_focus(target, "press_key")
+
+        self.assertIn("Terminal", str(caught.exception))
+        self.assertIn("gnome-terminal", str(caught.exception))
+
+    def test_no_accessible_window_active_points_at_the_screenshot_channel(self):
+        """回归：焦点被无障碍树看不见的东西拿着时，必须说出来。
+
+        实测 VS Code：改完 settings.json 弹出原生对话框
+        「A setting has changed that requires a restart to take effect.」，
+        与 VS Code 同进程、锁住整个应用，**AT-SPI 里完全不存在**。
+        此时 agent 看到一棵正常的树、每个动作都被正确拒绝，却无从知道原因——
+        a11y 通道在这里是瞎的，只有截图能回答。
+        """
+        original = runtime.iter_apps
+        runtime.iter_apps = lambda: []
+        self.addCleanup(setattr, runtime, "iter_apps", original)
+
+        target = _TreeNode(role="frame", name="Editor", w=100, h=100)
+        with self.assertRaises(RuntimeError) as caught:
+            runtime.require_window_focus(target, "press_key")
+
+        message = str(caught.exception)
+        self.assertIn("cannot see", message)
+        self.assertIn("get_screenshot", message)
+
+    def test_diagnostic_never_turns_a_clear_error_into_a_crash(self):
+        """诊断代码枚举失败时必须安静退场，错误本身仍要抛出来。"""
+
+        def boom():
+            raise RuntimeError("a11y bus went away")
+
+        original = runtime.iter_apps
+        runtime.iter_apps = boom
+        self.addCleanup(setattr, runtime, "iter_apps", original)
+
+        target = _TreeNode(role="frame", name="Editor", w=100, h=100)
+        with self.assertRaises(RuntimeError) as caught:
+            runtime.require_window_focus(target, "press_key")
+
+        self.assertIn("Refusing to synthesize", str(caught.exception))
+
+
 class _NoSleep:
     """让 perform_operation 里的固定 sleep 不拖慢测试。"""
 
