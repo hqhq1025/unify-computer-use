@@ -669,8 +669,11 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
   - **消息过滤器（3 个任务）🔶 对话框已可达**：建了 Local Folders 之后，
     `AppMenu → Tools → Message Filters` 能打开对话框（窗口标题 `Message Filters`），
     `Run Now` / `New…` / `Edit…` / `Delete` 全部可寻址。
-    **未确认**：点 `New…` 是纯语义（0 次合成）但主窗口标题未变，
-    新建过滤器的子对话框没能确认打开——**不标完成**。
+    **未确认，两条通道都试过**：点 `New…` 走语义（0 次合成）与走元素锚定
+    `global`（坐标）**都没有打开子对话框**——`wmctrl` 确认全程只有
+    `Local Folders` 与 `Message Filters` 两个窗口，没有第三个。
+    **不标完成。** 下次的起点：对话框里有 `combo box Filters for:`，
+    很可能要先在它里面选定目标账户，`New…` 才有作用对象。
   - **原先的记录（保留，因为过程有价值）：**
     - 消息过滤器（3 个）：AppMenu → Tools → `push button Message Filters`
       在树里可寻址、点击也执行了，但**没有任何新窗口出现**——
