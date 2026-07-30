@@ -645,6 +645,27 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
   通道分布：菜单/对话框/OK 走 semantic，下拉项走 auto 自动识别后的坐标点击，
   全选与保存走键盘。这条链路横跨 Calc/Impress/Writer ≥37 个任务。
   仍待做：Calc 的单元格与区域选择、Impress 的画布对象。
+- **VS Code 🔶 观测通了，写入路径部分可用**（2026-07-30，Electron/Chromium）：
+  - **树是出来的**，不是空壳（`toolkit-accessibility` 本机已为 true）。
+    欢迎页 9517 → 8393 token（修完动作名与 U+FFFC 之后）。
+  - **修掉两个方向相反的动作名缺陷**（见当日 history）：`doDefault` 是
+    Chromium 的默认动作却不被识别（19 个节点因此不可点）；`clickAncestor`
+    含 "click" 被子串兜底匹中却**点的是祖先节点**（14 个节点，属静默点错对象）。
+  - **编辑器内容可读，与调研结论需要修正**：调研说「Monaco 无行级节点，
+    文本类任务只能纯键盘」。前半句对——没有逐行节点；但整份文档内容
+    **完整暴露**在 `entry` 节点的 Value 里（实测读到
+    `def add(a, b):\n    return a + b\n\nprint(add(2, 3))`）。
+    所以**读是语义可行的，只有写要回落键盘**。
+  - **命令面板可用**：`ctrl+shift+p` → `combo box input [expanded]`，
+    带 `Placeholder: Type the name of a command to run.`，
+    对它 `type_text(element_index=...)` 再回车，能打开
+    `Preferences: Open User Settings (JSON)`。
+  - **settings.json 确实被写入磁盘**（判分口径就是读这个文件），
+    但内容不精确——`ctrl+a` 没能全选，残留了原文尾部。
+  - **❌ 不要点 Monaco 编辑器的 entry 节点**：实测 `click` 之后 `[focused]`
+    标记消失，编辑器**失去**键盘焦点，后续按键全部落空。
+    可用的模式是：靠 VS Code 打开文件时自带的焦点，全程键盘，不要中途点击。
+  - 仍待做：文本替换的可靠做法（6 个文件对话框任务尚未测）。
 - **Nautilus ✅ 已完成**（2026-07-30）：读状态 / 右键菜单 / 重命名 / 新建文件夹 /
   模态对话框 / 侧边栏导航六项走通，重命名与新建经文件系统验收、导航经 wmctrl 验收。
   期间修掉 5 个缺陷（侧边栏不可见、缩进错乱、description 未渲染、
