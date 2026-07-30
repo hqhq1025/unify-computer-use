@@ -21,6 +21,7 @@
 import argparse
 import json
 import os
+import re
 import sys
 
 # OSWorld 官方 `judge_node()` 的角色白名单（mm_agents/accessibility_tree_wrap/
@@ -51,26 +52,35 @@ def parse_line(line):
         if position >= 0:
             body = body[:position]
     body = body.strip()
+    if CELL_PREFIX.match(body):
+        return int(index), "cell", CELL_PREFIX.sub("", body).strip(), has_frame
     # role 可能多词（check menu item / push button），name 是剩下的部分。
-    # 用已知角色词逐步吃掉前缀，吃不动就整体当 role。
     role, name = body, ""
-    for width in (3, 2, 1):
-        parts = body.split()
-        if len(parts) > width:
-            candidate = " ".join(parts[:width])
-            if candidate in KNOWN_ROLES:
-                role, name = candidate, " ".join(parts[width:])
-                break
+    parts = body.split()
+    if body in KNOWN_ROLES:
+        # 整行就是角色、没有名字。对话框里这种极多（无名的 toggle button /
+        # combo box）。不先判这一步的话会把 "toggle button" 拆成
+        # role="toggle" + name="button"，后续任何按角色的判据都会错。
+        role, name = body, ""
     else:
-        parts = body.split(None, 1)
-        if parts:
-            role = parts[0]
-            name = parts[1] if len(parts) > 1 else ""
+        for width in (3, 2, 1):
+            if len(parts) > width:
+                candidate = " ".join(parts[:width])
+                if candidate in KNOWN_ROLES:
+                    role, name = candidate, " ".join(parts[width:])
+                    break
+        else:
+            if parts:
+                role = parts[0]
+                name = parts[1] if len(parts) > 1 else ""
     try:
         return int(index), role, name, has_frame
     except ValueError:
         return None
 
+
+# `cell R3C0 Double` 是坐标寻址兜底的渲染形式，R/C 编号是位置而非名字。
+CELL_PREFIX = re.compile(r"^cell R\d+C\d+\s*")
 
 KNOWN_ROLES = {
     "check menu item", "radio menu item", "menu item", "push button", "toggle button",

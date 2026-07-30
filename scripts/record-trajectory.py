@@ -165,11 +165,37 @@ SCENARIOS = {
     },
     "writer-line-spacing": {
         "app": "soffice",
-        "desc": "LibreOffice Writer：格式 → 段落 → 行距下拉",
+        "desc": "LibreOffice Writer：格式 → 段落 → 行距下拉 → 选项 → 确定",
         "steps": [
             ("press_key", lambda e: {"key": "ctrl+a"}),
             ("click", lambda e: _by(e, "menu", "Format")),
             ("click", lambda e: _by(e, "menu item", "Paragraph...")),
+            # 行距 combo 的真实控件是 panel Line Spacing 下的 toggle button，
+            # 那个 combo box 节点是 INT_MIN 幻影（见 plan 的实测发现）
+            ("click", lambda e: _under(e, "panel Line Spacing", "toggle button")),
+            ("click", lambda e: _endswith(e, "Double")),
+            ("click", lambda e: _by(e, "push button", "OK")),
+        ],
+    },
+    "gedit-toolbar": {
+        "app": "gedit",
+        "desc": "gedit：依次点击工具栏上的几个按钮（全部元素定向）",
+        "steps": [
+            ("click", lambda e: _by(e, "toggle button", "Open")),
+            ("press_key", lambda e: {"key": "Escape"}),
+            ("click", lambda e: _by(e, "toggle button", "Menu")),
+            ("press_key", lambda e: {"key": "Escape"}),
+            ("click", lambda e: _by(e, "push button", "New")),
+        ],
+    },
+    "nautilus-browse": {
+        "app": "org.gnome.Nautilus",
+        "desc": "Nautilus：元素定向点击侧边栏与工具栏",
+        "steps": [
+            ("click", lambda e: _by(e, "push button", "Search")),
+            ("press_key", lambda e: {"key": "Escape"}),
+            ("click", lambda e: _by(e, "toggle button", "View options")),
+            ("press_key", lambda e: {"key": "Escape"}),
         ],
     },
 }
@@ -180,6 +206,30 @@ def _by(elements, role, name):
     if index is None:
         return None
     return {"element_index": str(index), "click_method": "accessibility"}
+
+
+def _endswith(elements, suffix):
+    """按名字后缀定位，用于下拉里的 `cell R3C0 Double` 这类渲染。"""
+    for index, body in sorted(elements.items()):
+        if body.endswith(suffix):
+            return {"element_index": str(index), "click_method": "accessibility"}
+    return None
+
+
+def _under(elements, container, role):
+    """定位某个命名容器之后出现的第一个指定角色节点。
+
+    对话框里大量控件没有名字（行距 combo 的 toggle button 就是），
+    只能靠"在哪个命名面板下面"来指认——这也是 agent 面临的真实消歧成本。
+    """
+    started = False
+    for index, body in sorted(elements.items()):
+        if body == container:
+            started = True
+            continue
+        if started and body.strip() == role:
+            return {"element_index": str(index), "click_method": "accessibility"}
+    return None
 
 
 def record(scenario_name, binary, out_path):

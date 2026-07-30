@@ -541,9 +541,25 @@ def render_visible_cells(
             # 返回 0.0，会让空白单元格看起来像是填了 0 —— 对"找出空单元格"
             # 这类任务是致命的误导。
             value = text_value(cell, text_limit=text_limit)
+            # 必须带上 Frame。这些单元格是**屏幕上真实可见**的（它们正是坐标
+            # 寻址取到的当前视口内容），漏掉 Frame 会让任何"只保留可见节点"的
+            # 裁剪把整个下拉/表格内容判成不可见并全部丢掉——实测中行距下拉的
+            # `cell R3C0 Double` 就是这么被三种裁剪策略同时丢掉的，
+            # 而它恰恰是任务必须点中的那个元素。
+            cell_frame = record.get("frame")
+            frame_segment = ""
+            if cell_frame is not None:
+                frame_segment = " Frame: {{x: {0}, y: {1}, width: {2}, height: {3}}}".format(
+                    round(cell_frame["x"]),
+                    round(cell_frame["y"]),
+                    round(cell_frame["width"]),
+                    round(cell_frame["height"]),
+                )
             lines.append(
                 ("\t" * (depth + 2))
-                + "{} cell R{}C{} {}".format(index, row, col, value).rstrip()
+                + "{} cell R{}C{} {}{}".format(
+                    index, row, col, value, frame_segment
+                ).rstrip()
             )
             count += 1
         if count >= budget:
