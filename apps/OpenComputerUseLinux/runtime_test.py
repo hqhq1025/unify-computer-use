@@ -977,6 +977,161 @@ class PerformOperationGuardTests(AtspiPatchedTestCase):
         self.assertEqual(self.sent_keys, [], "夺焦点失败后不得再合成任何按键")
 
 
+class _LyingNode(FakeNode):
+    """自报子节点数与真实子节点数不一致的节点。
+
+    这不是构造出来的假设：Calc 的 sheet 自报 21 亿个子节点（accessible range
+    是整张表），Nautilus 的侧边栏声明自管理却只有 12 个。守卫必须只看
+    **自报数**，因为真实数量恰恰是它不该去问的东西。
+    """
+
+    def __init__(self, reported, **kwargs):
+        super().__init__(**kwargs)
+        self.reported = reported
+
+    def get_child_count(self):
+        return self.reported
+
+
+class ShouldEnumerateChildrenTests(AtspiPatchedTestCase):
+    def test_nautilus_style_small_managed_container_is_enumerated(self):
+        """回归：声明 MANAGES_DESCENDANTS 但很小的容器必须照常枚举。
+
+        Nautilus 侧边栏（Recent/Home/Documents/…）声明了自管理，实际只有 12
+        个子节点，而且**不实现 Table 接口**——坐标寻址兜底必然失败。一律拒绝
+        枚举的旧实现让整个侧边栏对 agent 不可见：树里只留下一句
+        "contents not enumerated"，导航功能等于不存在。
+        """
+        sidebar = _LyingNode(12, states=(STATE.MANAGES_DESCENDANTS, STATE.SHOWING))
+
+        self.assertTrue(runtime.should_enumerate_children(sidebar))
+
+    def test_calc_style_sheet_is_still_refused(self):
+        """自报 21 亿的 Calc sheet 仍然不得枚举——放宽自管理不能把它放进来。
+
+        它被 HARD_CHILD_CAP 拦下，与 MANAGES_DESCENDANTS 无关，所以即使
+        自管理这条分支整个改掉，这道守卫也依然成立。
+        """
+        sheet = _LyingNode(2147483647, states=(STATE.MANAGES_DESCENDANTS, STATE.SHOWING))
+
+        self.assertFalse(runtime.should_enumerate_children(sheet))
+
+    def test_managed_container_above_cap_is_refused(self):
+        """自管理且自报数量超过阈值时，回到"按契约不枚举"。"""
+        big = _LyingNode(
+            runtime.MANAGED_ENUMERATE_CAP + 1, states=(STATE.MANAGES_DESCENDANTS,)
+        )
+
+        self.assertFalse(runtime.should_enumerate_children(big))
+
+    def test_managed_container_exactly_at_cap_is_enumerated(self):
+        """阈值取闭区间：恰好等于上限仍然枚举，避免边界上少一个元素。"""
+        edge = _LyingNode(
+            runtime.MANAGED_ENUMERATE_CAP, states=(STATE.MANAGES_DESCENDANTS,)
+        )
+
+        self.assertTrue(runtime.should_enumerate_children(edge))
+
+    def test_huge_container_without_managed_state_is_refused(self):
+        """不声明自管理却谎报海量子节点的实现，同样要被硬上限兜住。"""
+        liar = _LyingNode(runtime.HARD_CHILD_CAP + 1, states=(STATE.SHOWING,))
+
+        self.assertFalse(runtime.should_enumerate_children(liar))
+
+    def test_ordinary_container_is_enumerated(self):
+        ordinary = FakeNode(children=(FakeNode(), FakeNode()))
+
+        self.assertTrue(runtime.should_enumerate_children(ordinary))
+
+
+class _TreeNode(FakeNode):
+    """够渲染一棵树用的节点。FakeNode 只覆盖了 a11y 接口取值那部分，
+    record_for() 还要 role / toolkit / accessible_id / attributes 等一整圈。"""
+
+    def __init__(self, role="panel", name="", x=0, y=0, w=10, h=10, kids=()):
+        super().__init__(
+            states=(STATE.SHOWING, STATE.VISIBLE),
+            children=kids,
+            component=FakeComponent(extents=FakeExtents(x, y, w, h)),
+        )
+        self.role = role
+        self.title = name
+
+    def get_role_name(self):
+        return self.role
+
+    def get_name(self):
+        return self.title
+
+    def get_toolkit_name(self):
+        return "gtk"
+
+    def get_accessible_id(self):
+        return ""
+
+    def get_action_iface(self):
+        return None
+
+    def get_n_actions(self):
+        return 0
+
+    def get_table_iface(self):
+        return None
+
+    def get_attributes(self):
+        return {}
+
+    def get_process_id(self):
+        return 1
+
+
+class RenderIndentationTests(AtspiPatchedTestCase):
+    def _indent(self, line):
+        return len(line) - len(line.lstrip("\t"))
+
+    def _nodes(self, lines):
+        """只取节点行。末尾可能跟一句"N node(s) omitted"提示，它不是节点。"""
+        return [l for l in lines if l.strip() and l.strip()[0].isdigit()]
+
+    def test_pruned_container_does_not_advance_child_indentation(self):
+        """回归：被裁掉的中间容器不得推进子节点的缩进。
+
+        裁剪只丢容器自己那一行、仍然递归子节点。早先子节点沿用遍历深度做缩进，
+        于是每被裁掉一层，缩进就凭空多一格——实测 Nautilus 上从第 1 层直接
+        跳到第 6 层，中间全是空档，读起来像一棵断掉的树，agent 无法据此判断
+        父子关系（"这个按钮属于哪个面板"正是消歧无名控件的唯一线索）。
+        """
+        # filler 无名、无动作 → 会被裁剪；button 有名字 → 会被保留
+        leaf = _TreeNode(role="push button", name="Save", x=1, y=1, w=5, h=5)
+        middle = _TreeNode(role="filler", x=0, y=0, w=8, h=8, kids=(leaf,))
+        root = _TreeNode(role="frame", name="Doc", w=100, h=100, kids=(middle,))
+
+        _, lines = runtime.render_tree(root, None, [0], prune=True)
+
+        rendered = self._nodes(lines)
+        self.assertEqual(len(rendered), 2, "中间的 filler 应被裁掉：{}".format(rendered))
+        self.assertIn("frame Doc", rendered[0])
+        self.assertIn("push button Save", rendered[1])
+        self.assertEqual(
+            self._indent(rendered[1]) - self._indent(rendered[0]), 1,
+            "被裁的 filler 不该在缩进上留下空档：{}".format(rendered),
+        )
+
+    def test_unpruned_tree_keeps_one_level_per_node(self):
+        """不裁剪时缩进仍与真实层级一一对应，别为了修裁剪把正常路径改坏。"""
+        leaf = _TreeNode(role="push button", name="Save", x=1, y=1, w=5, h=5)
+        middle = _TreeNode(role="filler", x=0, y=0, w=8, h=8, kids=(leaf,))
+        root = _TreeNode(role="frame", name="Doc", w=100, h=100, kids=(middle,))
+
+        _, lines = runtime.render_tree(root, None, [0], prune=False)
+
+        rendered = self._nodes(lines)
+        self.assertEqual(len(rendered), 3)
+        self.assertEqual(
+            [self._indent(l) - self._indent(rendered[0]) for l in rendered], [0, 1, 2]
+        )
+
+
 class _NoSleep:
     """让 perform_operation 里的固定 sleep 不拖慢测试。"""
 

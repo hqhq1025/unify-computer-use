@@ -179,6 +179,14 @@ HARD_CHILD_CAP = int(os.environ.get("OPEN_COMPUTER_USE_MAX_CHILDREN", "4096"))
 # 却依然谎报子节点数的实现。
 MAX_CHILD_FANOUT = int(os.environ.get("OPEN_COMPUTER_USE_MAX_FANOUT", "512"))
 
+# 声明了 MANAGES_DESCENDANTS 但自报子节点数不超过这个值时，仍然直接枚举。
+# 该状态是"我可能很大，别硬枚举"的提示，不是"我一定很大"的事实：
+# Nautilus 的侧边栏就声明了它，却只有 12 个子节点，而且**不实现 Table 接口**，
+# 于是坐标寻址兜底必然失败——结果整个侧边栏对 agent 不可见。
+# 真正的危险案例（Calc 的 sheet 自报 21 亿）会被 HARD_CHILD_CAP 拦住，
+# 不依赖这个阈值。
+MANAGED_ENUMERATE_CAP = int(os.environ.get("OPEN_COMPUTER_USE_MANAGED_CAP", "256"))
+
 # find_first() 的节点预算。它被 focused_summary/selected_text 用于定位焦点，
 # 原实现无上限，谓词不匹配时会尝试走遍整棵树。
 FIND_FIRST_BUDGET = int(os.environ.get("OPEN_COMPUTER_USE_FIND_BUDGET", "4000"))
@@ -224,9 +232,15 @@ def should_enumerate_children(node):
        或 Component.get_accessible_at_point() 做点命中，而不是枚举。
     2. child_count 硬上限 —— 兜住任何谎报子节点数的实现。
     """
-    if state_contains(node, Atspi.StateType.MANAGES_DESCENDANTS):
+    count = child_count(node)
+    if count > HARD_CHILD_CAP:
         return False
-    return child_count(node) <= HARD_CHILD_CAP
+    if state_contains(node, Atspi.StateType.MANAGES_DESCENDANTS):
+        # 自管理声明是关于**规模**的提示。自报数量很小时它与声明自相矛盾，
+        # 此时按数量走：枚举 12 个子节点既安全又是拿到内容的唯一办法
+        # （这类容器往往不实现 Table，坐标寻址兜底根本用不上）。
+        return count <= MANAGED_ENUMERATE_CAP
+    return True
 
 
 def extents(node):
@@ -649,7 +663,14 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
         """无名、无动作、无值的纯容器。对 agent 没有可操作价值。"""
         return not (record["name"] or record["actions"] or record["value"])
 
-    def visit(node, depth, path):
+    def visit(node, depth, path, render_depth=0):
+        """depth 用于遍历预算，render_depth 用于缩进。
+
+        两者必须分开：被裁掉的节点仍会递归子节点，若沿用 depth 做缩进，
+        子节点会带着父节点的层级出现，树里就凭空多出空档——实测 Nautilus 上
+        缩进会从第 1 层直接跳到第 6 层，读起来像断掉的树。
+        render_depth 只在节点**真的被渲染**时才加一。
+        """
         if len(records) >= max_tree_nodes or depth > max_tree_depth or node is None:
             if node is not None and len(records) >= max_tree_nodes:
                 dropped["count"] += 1
@@ -673,7 +694,9 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
             if not keeps:
                 dropped["count"] += 1
                 for child_index in range(min(child_count(node), MAX_CHILD_FANOUT)):
-                    visit(child_at(node, child_index), depth + 1, path + [child_index])
+                    # 本节点没渲染，render_depth 不推进，子节点顶替它的位置
+                    visit(child_at(node, child_index), depth + 1,
+                          path + [child_index], render_depth)
                 return
 
         # 预算吃紧时优先保住有名字/有动作/有值的节点。丢容器只丢它自己这一行，
@@ -681,7 +704,8 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
         if len(records) >= pressure_at and is_structural_filler(record) and depth > 0:
             dropped["count"] += 1
             for child_index in range(min(child_count(node), MAX_CHILD_FANOUT)):
-                visit(child_at(node, child_index), depth + 1, path + [child_index])
+                visit(child_at(node, child_index), depth + 1,
+                      path + [child_index], render_depth)
             return
 
         records.append(record)
@@ -710,7 +734,7 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
                 round(f["height"]),
             )
         lines.append(
-            ("\t" * (depth + 1))
+            ("\t" * (render_depth + 1))
             + "{} {} {}{}{}{}{}{}".format(
                 index, role, title, state_seg, value_segment, placeholder_seg,
                 actions_segment, frame_segment
@@ -727,7 +751,7 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
             pending = child_count(node)
             if pending:
                 lines.append(
-                    ("\t" * (depth + 2))
+                    ("\t" * (render_depth + 2))
                     + "({} items collapsed; activate this menu to expand)".format(pending)
                 )
             return
@@ -735,13 +759,13 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
         if not should_enumerate_children(node):
             # 超大/自管理容器不能枚举，改用坐标寻址取当前视口内的单元格。
             rendered = render_visible_cells(
-                node, depth, path, window_bounds, records, lines,
+                node, render_depth, path, window_bounds, records, lines,
                 text_limit=text_limit, max_tree_nodes=max_tree_nodes,
             )
             if rendered == 0:
                 # 寻址也失败时显式说明，避免模型以为这里本来就是空的。
                 lines.append(
-                    ("\t" * (depth + 2))
+                    ("\t" * (render_depth + 2))
                     + "(contents not enumerated: {} manages its own descendants "
                       "and cell addressing failed)".format(role)
                 )
@@ -757,7 +781,8 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
             if len(records) >= max_tree_nodes:
                 break
             child = child_at(node, child_index)
-            visit(child, depth + 1, path + [child_index])
+            # 本节点渲染出来了，子节点缩进推进一级
+            visit(child, depth + 1, path + [child_index], render_depth + 1)
 
     visit(root, 0, root_path)
     if dropped["count"]:
