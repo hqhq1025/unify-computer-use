@@ -52,7 +52,7 @@ SETTLE_POLL_SECONDS = 0.02
 # - **验证**：实测把 Impress 的标题从 0.76cm 拖到 15.00cm 之后，
 #   a11y 树里该元素的 `Frame` **一点没变**，只有状态栏文本变了。
 #   树接不住拖拽的效果，所以事后必须有一张图。
-SCREENSHOT_REQUIRED_TOOLS = {"drag"}
+SCREENSHOT_REQUIRED_TOOLS = {"drag_xy", "click_xy"}
 
 
 def a11y_screenshots_enabled():
@@ -1477,7 +1477,23 @@ def screen_point(window_bounds, element=None, x=None, y=None):
             )
     if x is None or y is None or window_bounds is None:
         raise RuntimeError("coordinate action requires window bounds and x/y")
-    return window_bounds["x"] + float(x), window_bounds["y"] + float(y)
+    # 裸坐标**夹紧在窗口矩形内**。
+    #
+    # 这替换掉了原来的 OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS 闸门。
+    # 那道闸门防的是"把指针甩到屏幕上任意一点"，做法是**整个禁掉**无锚点的坐标
+    # 点击——代价是 GUI 通道变成默认不可用，而实测有多处 AT-SPI 动作返回成功却
+    # 不生效，此时坐标是唯一出路。
+    #
+    # 夹紧是更强的保证：它把风险从"可能打到别的应用"直接降为"最多打到本窗口的
+    # 边缘"，同时**不牺牲任何能力**。GUI 通道是一条声明过的一等通道，
+    # 不该靠环境变量才能用。
+    left, top = window_bounds["x"], window_bounds["y"]
+    right = left + max(window_bounds["width"] - 1, 0)
+    bottom = top + max(window_bounds["height"] - 1, 0)
+    return (
+        min(max(left + float(x), left), right),
+        min(max(top + float(y), top), bottom),
+    )
 
 
 def mouse_button_events(button):
@@ -1950,12 +1966,88 @@ def scroll_element(direction, pages):
         time.sleep(0.04)
 
 
-# 动作走的是哪条通道。加前缀有两个目的：
-# 1. 让"语义调用 vs 坐标兜底"的比例可以被机器统计——这是 plan 里 S3 报告口径的
-#    第四项，也是区分"agent 不想用 a11y"与"用了但失败后退化"的唯一依据。
-# 2. 让 agent 一眼看出自己刚才走的是主通道还是兜底通道。
+# 每条动作 Note 都带**两个正交的标签**，因为这是两件不同的事，
+# 混成一个会同时丢掉两边的信息。
+#
+# 【寻址轴】目标是**怎么定位到的**——决定了该拿什么去验证它：
+#   [a11y]      通过无障碍树的 element_index 定位
+#   [gui]       通过屏幕坐标定位，树完全没有参与
+#   [keyboard]  通过当前输入焦点定位，两条通道都没参与
+#
+# 【执行轴】定位好之后**用什么把动作发出去**：
+#   [semantic]   AT-SPI 语义动作 / 可编辑文本 API
+#   [synthesis]  XTEST 全局合成
+#
+# 两个轴会交叉。最要紧的一格是 `[a11y][synthesis]`：**用树给的坐标去合成点击**
+# ——寻址是 a11y 的，执行是合成的。以前只有执行轴一个标签，这一格会被记成
+# 纯合成，于是"agent 压根没用 a11y"和"用了但语义动作失效后回落"就分不开了。
+A11Y_CHANNEL = "[a11y]"
+GUI_CHANNEL = "[gui]"
+KEY_CHANNEL = "[keyboard]"
 SEMANTIC = "[semantic] "
 SYNTHESIS = "[synthesis] "
+
+
+# 坐标命中测试最多往下钻几层。AT-SPI 的 get_accessible_at_point 每次只返回
+# **直接子节点**，要拿到叶子必须自己递归。给个上限，别在环形结构上转不出来。
+HIT_TEST_MAX_DEPTH = 25
+
+
+def element_at_point(window, x, y):
+    """报出屏幕坐标 (x, y) 上的可访问元素。**只是提示，不是保证。**
+
+    裸坐标点击目前是个纯盲点：工具打完就走，说不出打到了什么。有了这个
+    至少能把"你以为点的"和"实际落在哪"对上一次。
+
+    但准确率**因工具包而异**，实测（递归到叶子，拿元素自身中心点回测）：
+        gedit(GTK) 11/11   Nautilus(GTK) 19/25
+        LibreOffice(VCL) 12/25   VLC(Qt) 2/25
+    VCL 与 Qt 上经常只解析到容器层。所以这条信息必须**明确标成提示**发出去，
+    不能让 agent 拿它当"我点中了正确的东西"的证据——那会用一个新的谎
+    去替换旧的沉默。
+    """
+    node = window
+    for _ in range(HIT_TEST_MAX_DEPTH):
+        component = safe(node.get_component_iface)
+        if component is None:
+            break
+        child = safe(
+            lambda: Atspi.Component.get_accessible_at_point(
+                component, int(round(x)), int(round(y)), Atspi.CoordType.SCREEN
+            )
+        )
+        if child is None:
+            break
+        node = child
+    if node is window:
+        return None
+    return node
+
+
+def describe_hit(window, x, y):
+    """把命中结果写成一句可以直接拼进 Note 的话；测不出来就返回空串。"""
+    node = safe(lambda: element_at_point(window, x, y))
+    if node is None:
+        return (
+            " Hit test could not identify any element under that point, so this click "
+            "is unverified: it may have landed on nothing, or on something this "
+            "toolkit does not expose."
+        )
+    role = node_role(node)
+    name = node_name(node)
+    label = "{} {!r}".format(role, name) if name else role
+    return (
+        " Hit test says the element under that point is {} — treat this as a HINT, not "
+        "proof: AT-SPI hit testing resolves only to a container on some toolkits "
+        "(measured accurate 11/11 on GTK gedit but 12/25 on LibreOffice). If it names "
+        "something other than your intended target, re-read the tree before "
+        "continuing.".format(label)
+    )
+
+
+def addressing_channel(element_record):
+    """这次动作的目标是靠树定位的，还是靠裸坐标定位的。"""
+    return A11Y_CHANNEL if element_record else GUI_CHANNEL
 
 UNVERIFIED_SYNTHESIS = (
     "Delivery to the intended target was not verified: AT-SPI input synthesis is "
@@ -2091,7 +2183,25 @@ def perform_operation(operation):
     # accessibility tree 看着像执行确认，其实只是快照，不能当成动作生效的证据。
     notes = []
 
-    if tool == "click":
+    if tool == "click_xy":
+        # GUI 通道：纯坐标，树完全没有参与定位。
+        x, y = screen_point(bounds, None, operation.get("x"), operation.get("y"))
+        require_window_focus(window, "click_xy")
+        send_mouse_click(
+            x, y, operation.get("mouse_button", "left"), operation.get("click_count", 1)
+        )
+        notes.append(
+            GUI_CHANNEL
+            + SYNTHESIS
+            + "Synthesized a coordinate click at ({:.0f}, {:.0f}) in window-relative "
+            "pixels — the same coordinate space as the attached screenshot and as the "
+            "Frame values in the tree. {}{}".format(
+                operation.get("x"), operation.get("y"),
+                UNVERIFIED_SYNTHESIS,
+                describe_hit(window, x, y),
+            )
+        )
+    elif tool == "click":
         click_method = (operation.get("click_method") or "auto").lower()
         if click_method == "accessibility":
             if element is None:
@@ -2105,7 +2215,8 @@ def perform_operation(operation):
                     "click_method 'accessibility' could not click the requested element"
                 )
             notes.append(
-                SEMANTIC
+                A11Y_CHANNEL
+                + SEMANTIC
                 + "Invoked the element's AT-SPI accessibility action. "
                 + UNVERIFIED_SEMANTIC
             )
@@ -2125,7 +2236,8 @@ def perform_operation(operation):
                 x, y, operation.get("mouse_button", "left"), operation.get("click_count", 1)
             )
             notes.append(
-                SYNTHESIS
+                addressing_channel(element_record)
+                + SYNTHESIS
                 + "Synthesized a coordinate click at ({:.0f}, {:.0f}) after bringing the "
                 "window to the foreground. {}{}".format(
                     x,
@@ -2147,10 +2259,11 @@ def perform_operation(operation):
                 handled = do_action_by_index(element, preferred_action_index(element))
             if handled:
                 notes.append(
-                SEMANTIC
-                + "Invoked the element's AT-SPI accessibility action. "
-                + UNVERIFIED_SEMANTIC
-            )
+                    A11Y_CHANNEL
+                    + SEMANTIC
+                    + "Invoked the element's AT-SPI accessibility action. "
+                    + UNVERIFIED_SEMANTIC
+                )
             else:
                 x, y = screen_point(
                     bounds,
@@ -2181,7 +2294,12 @@ def perform_operation(operation):
                         "coordinate click at ({:.0f}, {:.0f}) after bringing the window "
                         "to the foreground. ".format(x, y)
                     )
-                notes.append(SYNTHESIS + reason + UNVERIFIED_SYNTHESIS)
+                notes.append(
+                    addressing_channel(element_record)
+                    + SYNTHESIS
+                    + reason
+                    + UNVERIFIED_SYNTHESIS
+                )
         else:
             raise RuntimeError("Invalid click_method '{}'".format(click_method))
     elif tool == "invoke_element_action":
@@ -2192,7 +2310,8 @@ def perform_operation(operation):
         had_menu = context_menu_visible(app) if opens_menu else False
         invoke_secondary_action(element, action)
         notes.append(
-            SEMANTIC
+            A11Y_CHANNEL
+            + SEMANTIC
             + "Invoked the '{}' AT-SPI action. ".format(action)
             + UNVERIFIED_SEMANTIC
         )
@@ -2205,7 +2324,8 @@ def perform_operation(operation):
                 require_window_focus(window, "invoke_element_action")
                 send_mouse_click(x, y, "right", 1)
                 notes.append(
-                    SYNTHESIS
+                    A11Y_CHANNEL
+                    + SYNTHESIS
                     + "The '{}' action reported success but no menu appeared, so this "
                     "fell back to a synthesized right-click at ({:.0f}, {:.0f}). "
                     "{}".format(action, x, y, UNVERIFIED_SYNTHESIS)
@@ -2214,19 +2334,24 @@ def perform_operation(operation):
         require_window_focus(window, "scroll")
         scroll_element(operation.get("direction", "down"), operation.get("pages", 1))
         notes.append(
-            SYNTHESIS
+            KEY_CHANNEL
+            + SYNTHESIS
             + "Scrolled by synthesizing page keys after bringing the window to the "
-            "foreground. {}".format(UNVERIFIED_SYNTHESIS)
+            "foreground. NOTE: element_index did NOT target this scroll — the keys go "
+            "to whatever widget currently holds focus inside the window. If the wrong "
+            "region scrolled, focus that region first (click it) and scroll again. "
+            "{}".format(UNVERIFIED_SYNTHESIS)
         )
-    elif tool == "drag":
+    elif tool == "drag_xy":
         from_x, from_y = screen_point(
             bounds, None, operation.get("from_x"), operation.get("from_y")
         )
         to_x, to_y = screen_point(bounds, None, operation.get("to_x"), operation.get("to_y"))
-        require_window_focus(window, "drag")
+        require_window_focus(window, "drag_xy")
         send_drag(from_x, from_y, to_x, to_y)
         notes.append(
-            SYNTHESIS
+            GUI_CHANNEL
+            + SYNTHESIS
             + "Synthesized a coordinate drag after bringing the window to the "
             "foreground. {} A screenshot is attached because the accessibility "
             "tree does not reflect drag results: measured on LibreOffice Impress, "
@@ -2241,7 +2366,8 @@ def perform_operation(operation):
         )
         if written:
             notes.append(
-                SEMANTIC
+                A11Y_CHANNEL
+                + SEMANTIC
                 + "Wrote the text through the AT-SPI editable-text API and read it back "
                 "to confirm it landed ({} -> {} characters). This confirms the control "
                 "changed; if the control belongs to a dialog, the application may still "
@@ -2253,7 +2379,8 @@ def perform_operation(operation):
             require_window_focus(window, "type_text")
             send_text(operation.get("text", ""))
             notes.append(
-                SYNTHESIS
+                KEY_CHANNEL
+                + SYNTHESIS
                 + "The AT-SPI editable-text write did not land, so this fell back to "
                 "global key synthesis after bringing the window to the foreground. "
                 "{}".format(UNVERIFIED_SYNTHESIS)
@@ -2264,7 +2391,8 @@ def perform_operation(operation):
         require_window_focus(window, "press_key")
         send_key(operation.get("key", ""))
         notes.append(
-            SYNTHESIS
+            KEY_CHANNEL
+            + SYNTHESIS
             + "Synthesized '{}' after bringing the window to the foreground. {}".format(
                 operation.get("key", ""), UNVERIFIED_SYNTHESIS
             )
@@ -2275,7 +2403,8 @@ def perform_operation(operation):
         if not set_element_value(element, operation.get("value", "")):
             raise RuntimeError("Cannot set a value for an element that is not settable")
         notes.append(
-            SEMANTIC
+            A11Y_CHANNEL
+            + SEMANTIC
             + "Wrote the value through the AT-SPI API and read it back to confirm the "
             "control now holds it. Note the limit of that check: it confirms the "
             "CONTROL changed, not that the application adopted the value. Dialogs "

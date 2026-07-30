@@ -11,11 +11,17 @@ import (
 )
 
 func TestToolDefinitionCount(t *testing.T) {
-	// 9 个与 macOS / Windows 对齐的工具，外加 Linux 特有的 get_screenshot。
-	// 后者是 VLM 轨道的显式入口——a11y 轨（get_app_state 与所有动作工具）一律不带图，
-	// 否则每次调用都在同时付两条轨道的钱。
-	if got := len(toolDefinitions()); got != 10 {
-		t.Fatalf("toolDefinitions() count = %d, want 10", got)
+	// 与官方 schema 的差异都是刻意的，逐条记在这里：
+	//   +get_screenshot        只要图不要树的入口（Linux 特有）
+	//   +click_xy              坐标点击独立成工具，让通道从名字上可见
+	//   perform_secondary_action -> invoke_element_action（#27，用户拍板）
+	//   drag -> drag_xy        它没有元素形式，名字该说出来
+	if got := len(toolDefinitions()); got != 11 {
+		t.Fatalf("toolDefinitions() count = %d, want 11", got)
+	}
+	// 通道必须能从工具名上看出来，而不是只写在描述里。
+	for _, name := range []string{"click_xy", "drag_xy"} {
+		findToolDefinition(t, name)
 	}
 }
 
@@ -155,8 +161,8 @@ func TestObservationChannelsAreComplementary(t *testing.T) {
 	if !strings.Contains(linuxRuntimeScript, "def a11y_screenshots_enabled():") {
 		t.Fatal("截图策略必须集中在一个可开关的判据里，供 #29 做 A/B")
 	}
-	if !strings.Contains(linuxRuntimeScript, `SCREENSHOT_REQUIRED_TOOLS = {"drag"}`) {
-		t.Fatal("drag 的截图不可关：它没有元素锚定，效果也不进树")
+	if !strings.Contains(linuxRuntimeScript, `SCREENSHOT_REQUIRED_TOOLS = {"drag_xy", "click_xy"}`) {
+		t.Fatal("GUI 通道的截图不可关：它们不锚定元素，效果也未必进树")
 	}
 }
 
@@ -194,35 +200,45 @@ func TestClickMethodSchemaAndParser(t *testing.T) {
 }
 
 func TestLinuxClickMethodSafetyAndPlatformSupport(t *testing.T) {
-	x, y := 10.0, 20.0
 	service := newService()
 
-	result := service.click("Text Editor", "", &x, &y, 1, "left", "app_post")
+	result := service.click("Text Editor", "7", nil, nil, 1, "left", "app_post")
 	if !result.IsError || result.Content[0].Text != "click_method 'app_post' is not supported on Linux" {
 		t.Fatalf("app_post click result = %#v", result)
 	}
 
-	result = service.click("Text Editor", "", &x, &y, 1, "left", "sky_click")
+	result = service.click("Text Editor", "7", nil, nil, 1, "left", "sky_click")
 	if !result.IsError || result.Content[0].Text != "click_method 'sky_click' is not supported on Linux" {
 		t.Fatalf("sky_click result = %#v", result)
 	}
 
-	t.Setenv("OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS", "")
-	result = service.click("Text Editor", "", &x, &y, 1, "left", "global")
-	if !result.IsError || !strings.Contains(result.Content[0].Text, "requires OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1") {
-		t.Fatalf("unauthorized global click result = %#v", result)
+	// click 不再接受 x/y——坐标点击是另一条通道，另一个工具。
+	x, y := 10.0, 20.0
+	result = service.click("Text Editor", "7", &x, &y, 1, "left", "auto")
+	if !result.IsError || !strings.Contains(result.Content[0].Text, "use click_xy") {
+		t.Fatalf("click 收到 x/y 应当指向 click_xy: %#v", result)
+	}
+	result = service.click("Text Editor", "", nil, nil, 1, "left", "auto")
+	if !result.IsError || !strings.Contains(result.Content[0].Text, "click requires element_index") {
+		t.Fatalf("click 缺 element_index 应当明确报错: %#v", result)
 	}
 
-	// 带 element_index 的 global 点击不再被闸门拦下。
-	//
-	// 这道闸门挡的是"把指针甩到屏幕任意一点"，而 auto 的回落分支合成的是同样
-	// 的坐标点击、且不受该开关约束——所以拦住带元素锚点的 global 并不增加安全性，
-	// 只是掐掉了唯一的逃生路径：实测有多处 AT-SPI 动作返回成功却不生效
-	// （Nautilus 的 menu、GIMP 图层的 activate、VLC 的 Toggle），
-	// 此时 auto 因 do_action 返回 True 而不回落，agent 无路可走。
-	result = service.click("Text Editor", "7", &x, &y, 1, "left", "global")
-	if strings.Contains(result.Content[0].Text, "OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS") {
-		t.Fatalf("element-anchored global click should not hit the pointer gate: %#v", result)
+	// 原来的 OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS 闸门整个禁掉了
+	// 无锚点坐标点击，代价是 GUI 通道默认不可用——而实测多处 AT-SPI 动作
+	// 返回成功却不生效（Nautilus 的 menu、GIMP 图层的 activate、VLC 的 Toggle），
+	// 此时坐标是唯一出路。它被一条**更强**的保证替换：GUI 通道的坐标在运行时
+	// 夹紧在窗口矩形内，风险从"可能打到别的应用"降为"最多打到本窗口边缘"，
+	// 且不牺牲能力。
+	if strings.Contains(serverInstructions, "OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS") {
+		t.Fatal("闸门已移除，instructions 不该再提它")
+	}
+	for _, fragment := range []string{
+		"# 裸坐标**夹紧在窗口矩形内**。",
+		"min(max(left + float(x), left), right)",
+	} {
+		if !strings.Contains(linuxRuntimeScript, fragment) {
+			t.Fatalf("GUI 通道的坐标必须夹紧在窗口内: 缺 %q", fragment)
+		}
 	}
 
 	t.Setenv("OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS", "yes")
@@ -691,7 +707,8 @@ func TestLinuxRuntimeGuardsGlobalInputSynthesis(t *testing.T) {
 		"require_window_focus(window, \"press_key\")",
 		"require_window_focus(window, \"type_text\")",
 		"require_window_focus(window, \"scroll\")",
-		"require_window_focus(window, \"drag\")",
+		"require_window_focus(window, \"drag_xy\")",
+		"require_window_focus(window, \"click_xy\")",
 		"require_window_focus(window, \"click\")",
 	} {
 		if !strings.Contains(linuxRuntimeScript, guarded) {
@@ -831,7 +848,7 @@ func TestTreeRenderingReadsActionTableOnce(t *testing.T) {
 // 于是"什么都没变"的含义是**应用收到了但没反应**，同一个按键再按一次不会
 // 有不同结果；这与 click 那种"可能压根没送到"是不同的处置。
 func TestSynthesisOnlyToolsSeparateDeliveryFromEffect(t *testing.T) {
-	for _, tool := range []string{"press_key", "scroll", "drag"} {
+	for _, tool := range []string{"press_key", "scroll", "drag_xy", "click_xy"} {
 		if !deliveryWasVerified(linuxRequest{Tool: tool}) {
 			t.Fatalf("%s 走 require_window_focus，送达是可确认的", tool)
 		}

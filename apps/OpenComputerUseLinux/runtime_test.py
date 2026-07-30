@@ -509,11 +509,11 @@ class ChannelTaggingTests(AtspiPatchedTestCase):
         self.addCleanup(setattr, runtime, "insert_text_detail", original)
 
         semantic = self._notes({"tool": "type_text", "app": "x", "text": "hi"})
-        self.assertTrue(semantic[0].startswith("[semantic] "))
+        self.assertIn("[semantic] ", semantic[0])
 
         runtime.insert_text_detail = lambda root, text: (False, 0, 0)
         synthesis = self._notes({"tool": "type_text", "app": "x", "text": "hi"})
-        self.assertTrue(synthesis[0].startswith("[synthesis] "))
+        self.assertIn("[synthesis] ", synthesis[0])
 
     def test_every_action_path_carries_a_channel_tag(self):
         original = runtime.insert_text_detail
@@ -524,23 +524,39 @@ class ChannelTaggingTests(AtspiPatchedTestCase):
             {"tool": "press_key", "app": "x", "key": "a"},
             {"tool": "type_text", "app": "x", "text": "hi"},
             {"tool": "scroll", "app": "x", "direction": "down", "pages": 1},
-            {"tool": "drag", "app": "x", "from_x": 1, "from_y": 2, "to_x": 3, "to_y": 4},
-            {"tool": "click", "app": "x", "click_method": "global", "x": 5, "y": 7},
+            {"tool": "drag_xy", "app": "x", "from_x": 1, "from_y": 2, "to_x": 3, "to_y": 4},
+            {"tool": "click_xy", "app": "x", "x": 5, "y": 7},
         ):
             notes = self._notes(op)
             self.assertTrue(notes, "{} 没有产生 note".format(op["tool"]))
+            # 两个正交的轴各要有一个标签：寻址通道 + 执行路径。
+            # 少任何一个，agent 都无法判断"该拿什么去验证这次动作"。
             self.assertTrue(
-                notes[0].startswith(("[semantic] ", "[synthesis] ")),
-                "{} 的 note 缺少通道标签: {}".format(op["tool"], notes[0][:60]),
+                notes[0].startswith(("[a11y]", "[gui]", "[keyboard]")),
+                "{} 的 note 缺少寻址通道标签: {}".format(op["tool"], notes[0][:70]),
+            )
+            self.assertTrue(
+                "[semantic] " in notes[0] or "[synthesis] " in notes[0],
+                "{} 的 note 缺少执行路径标签: {}".format(op["tool"], notes[0][:70]),
             )
 
-    def test_coordinate_click_nudges_toward_element_index(self):
-        """走了坐标兜底就要即时纠偏，否则 agent 不知道有更好的路。"""
-        notes = self._notes(
-            {"tool": "click", "app": "x", "click_method": "global", "x": 5, "y": 7}
-        )
+    def test_coordinate_click_reports_what_it_hit(self):
+        """裸坐标点击原本是纯盲点：打完就走，说不出打到了什么。
 
-        self.assertIn("prefer click(element_index=...)", notes[0])
+        命中回报把它变成有反馈的动作。但必须**明说是提示不是证明**——
+        实测 AT-SPI 命中测试在 VCL/Qt 上经常只解析到容器层
+        （gedit 11/11，LibreOffice 12/25），拿它当真值等于用一个新的谎
+        替换旧的沉默。
+        """
+        notes = self._notes({"tool": "click_xy", "app": "x", "x": 5, "y": 7})
+
+        self.assertIn("[gui]", notes[0])
+        self.assertIn("Hit test", notes[0])
+        # 两个分支——命中了、没命中——都不许把话说满。
+        self.assertTrue(
+            "HINT, not" in notes[0] or "is unverified" in notes[0],
+            "命中回报必须自陈不确定: {}".format(notes[0][-120:]),
+        )
 
 
 class ActionNotesTests(AtspiPatchedTestCase):
@@ -598,7 +614,7 @@ class ActionNotesTests(AtspiPatchedTestCase):
 
     def test_coordinate_click_is_reported_as_unverified(self):
         notes = runtime.perform_operation(
-            {"tool": "click", "app": "x", "click_method": "global", "x": 5, "y": 7}
+            {"tool": "click_xy", "app": "x", "x": 5, "y": 7}
         )["notes"]
 
         self.assertIn("coordinate click", notes[0])
@@ -953,7 +969,7 @@ class PerformOperationGuardTests(AtspiPatchedTestCase):
     def test_drag_requires_focus(self):
         runtime.perform_operation(
             {
-                "tool": "drag",
+                "tool": "drag_xy",
                 "app": "x",
                 "from_x": 1,
                 "from_y": 2,
@@ -962,7 +978,7 @@ class PerformOperationGuardTests(AtspiPatchedTestCase):
             }
         )
 
-        self.assertEqual(self.focus_calls, ["drag"])
+        self.assertEqual(self.focus_calls, ["drag_xy"])
         self.assertEqual(len(self.drags), 1)
 
     def test_scroll_requires_focus(self):
@@ -1918,17 +1934,18 @@ class ScreenshotPolicyTests(unittest.TestCase):
             os.environ["OPEN_COMPUTER_USE_A11Y_SCREENSHOTS"] = value
             self.assertTrue(runtime.a11y_screenshots_enabled(), value)
 
-    def test_drag_screenshot_is_not_negotiable(self):
-        """`drag` 两头都够不着 a11y：没有元素锚定，效果也不进树。
+    def test_gui_channel_screenshot_is_not_negotiable(self):
+        """GUI 通道两头都够不着 a11y：不锚定元素，效果也未必进树。
 
         实测把 Impress 标题从 0.76cm 拖到 15.00cm，元素的 Frame 一点没变。
         所以哪怕 A/B 把 a11y 轨的截图关了，drag 也必须带图。
         """
-        self.assertIn("drag", runtime.SCREENSHOT_REQUIRED_TOOLS)
+        self.assertEqual(runtime.SCREENSHOT_REQUIRED_TOOLS, {"drag_xy", "click_xy"})
         os.environ["OPEN_COMPUTER_USE_A11Y_SCREENSHOTS"] = "0"
         self.assertFalse(runtime.a11y_screenshots_enabled())
         # perform_operation 里的判据：required 的工具传 True，其余传 None 走策略。
-        for tool, expected in (("drag", True), ("click", None), ("press_key", None)):
+        for tool, expected in (("drag_xy", True), ("click_xy", True),
+                               ("click", None), ("press_key", None)):
             forced = True if tool in runtime.SCREENSHOT_REQUIRED_TOOLS else None
             self.assertEqual(forced, expected, tool)
 

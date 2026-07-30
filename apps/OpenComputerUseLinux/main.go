@@ -27,7 +27,7 @@ var clickMethodValues = []string{"auto", "accessibility", "app_post", "sky_click
 //go:embed runtime.py
 var linuxRuntimeScript string
 
-const serverInstructions = "Computer Use tools let you interact with Linux desktop apps by performing UI actions.\n\nBegin by calling `get_app_state` every turn you want to use Computer Use to get the latest state before acting. The available tools are list_apps, get_app_state, get_screenshot, click, invoke_element_action, scroll, drag, type_text, press_key, and set_value.\n\nPrefer element-targeted interactions over coordinate clicks when an index for the targeted element is available. Elements that expose an accessibility action are marked `[has-click-action]` in the tree, computed from the exact action `click` would invoke. Read it literally: the element has an action, NOT that the action works. AT-SPI actions on Linux routinely report success while doing nothing, so always confirm from the returned state instead of trusting the call. An element with no `[has-click-action]` marker exposes no usable accessibility action at all and can only be reached by a coordinate click — pass its element_index with `click_method` \"auto\" or \"global\" so the coordinates come from the accessibility tree. Linux actions use AT-SPI2 semantic actions and editable text APIs first. Coordinate mouse and key synthesis are best-effort fallbacks and are not a universal Wayland background input model.\n\nInput synthesis on Linux is global: it lands on whichever window currently holds focus, not on the app named in the call. Tools that fall back to synthesis therefore bring the target window to the foreground first, and fail rather than deliver input somewhere else. Expect press_key, scroll, drag and coordinate click to steal focus, and prefer set_value or element-targeted click when you need to avoid that.\n\nObservation has two channels and they are COMPLEMENTARY, not interchangeable. The accessibility tree is the ACTIONABLE one: it gives you element_index values you can act on and control semantics a picture cannot convey (for example which of four unlabelled spin buttons is 'Position Y' is stated in that element's description). The screenshot is the VERIFIABLE one: many effects never reach the tree at all. Measured on LibreOffice Impress, applying right alignment and saving the file both took effect while the tree stayed byte-identical, so the tool reported 'nothing observably changed' for two actions that had in fact worked; and dragging a title from 0.76cm to 15.00cm left that element's Frame in the tree unchanged. Treat 'the tree did not change' as weak evidence of failure, never as proof. get_app_state therefore returns a window screenshot alongside the tree by default. Coordinates are consistent across both: element Frame values, screenshot pixels, and the x/y arguments of click and drag all use the same window-relative origin, so a point read off the image can be passed straight to click. Use get_screenshot when you want the image WITHOUT paying for the tree. Do not assume the tree is always the cheaper channel either: measured here a window screenshot runs about a thousand tokens, more than a small app's tree (gedit ~350) but LESS than a content-rich one (a file manager tree ~2100).\n\nBrowsers are NOT handled by these tools. Chrome and Chromium are driven by a separate control plane (Playwright/browser-use over CDP), so do not call get_app_state, click, or type_text against them here — their accessibility tree is disabled by default and you will burn turns on an app you cannot see. If a task needs the browser, hand it to the browser control plane. Everything outside the browser — LibreOffice, VS Code, GIMP, VLC, Thunderbird, the file manager, the terminal — belongs to these tools. The handoff point between the two planes is the filesystem: a browser download lands in ~/Downloads and is then opened with these tools."
+const serverInstructions = "Computer Use tools let you interact with Linux desktop apps by performing UI actions.\n\nBegin by calling `get_app_state` every turn you want to use Computer Use to get the latest state before acting. The available tools are list_apps, get_app_state, get_screenshot, click, invoke_element_action, scroll, drag, type_text, press_key, and set_value.\n\nEvery tool declares a CHANNEL in the first words of its description, and the channel tells you how the target was addressed and therefore how to verify the result. There are three. ACCESSIBILITY addresses a target by element_index from the tree (click, invoke_element_action, set_value): the element is identified, not guessed, and it usually does not steal focus. GUI addresses a target by window-relative pixel coordinates (click_xy, drag_xy, get_screenshot): no element is identified at all, whatever sits under the point receives the input. KEYBOARD addresses nothing — the input goes to whichever widget currently holds focus inside the window (press_key, scroll, and type_text when its accessibility write does not land). Every action note is tagged with both its addressing channel ([a11y], [gui], [keyboard]) and its execution path ([semantic] AT-SPI call, [synthesis] XTEST). The combination [a11y][synthesis] is common and healthy: the target came from the tree, the click was synthesized at the tree's own coordinates.\n\nThe channels are COMPLEMENTARY, not interchangeable, and neither substitutes for the other. The tree is the ACTIONABLE one: it hands you element_index values you can act on, and control semantics a picture cannot convey — which of four unlabelled spin buttons is 'Position Y' is stated in that element's description. Prefer it whenever the target has an index. The screenshot is the VERIFIABLE one: many effects never reach the tree. Measured on LibreOffice Impress, applying right alignment and saving the file both took effect while the tree stayed byte-identical, so two actions that had in fact worked were reported as 'nothing observably changed'; and dragging a title from 0.76cm to 15.00cm left that element's Frame in the tree unchanged. Treat 'the tree did not change' as weak evidence of failure, never as proof. get_app_state therefore returns a screenshot alongside the tree, and the GUI-channel tools always return one. Use get_screenshot when you want the image WITHOUT paying for the tree. Do not assume the tree is always the cheaper channel either: measured here a window screenshot runs about a thousand tokens, more than a small app's tree (gedit ~350) but LESS than a content-rich one (a file manager tree ~2100).\n\nCoordinates are one consistent space across everything: Frame values in the tree, screenshot pixels, and the x/y arguments of click_xy and drag_xy are all window-relative, so a point read off the image can be passed straight to click_xy with no conversion.\n\nElements that expose an accessibility action are marked `[has-click-action]`, computed from the exact action click would invoke. Read it literally: the element HAS an action, NOT that the action works. AT-SPI actions on Linux routinely report success while doing nothing, so confirm from the returned state instead of trusting the call. An element with no `[has-click-action]` marker exposes no usable accessibility action at all; pass its element_index to click anyway — the coordinates then come from the tree, which is still better than guessing them.\n\nInput synthesis on Linux is global: it lands on whichever window currently holds focus, not on the app named in the call. Tools that synthesize therefore bring the target window to the foreground first, and fail rather than deliver input somewhere else. Expect press_key, scroll, drag_xy and click_xy to steal focus, and prefer set_value or element-targeted click when you need to avoid that. Linux actions use AT-SPI2 semantic actions and editable-text APIs first; coordinate mouse and key synthesis are best-effort fallbacks and are not a universal Wayland background input model.\n\nBrowsers are NOT handled by these tools. Chrome and Chromium are driven by a separate control plane (Playwright/browser-use over CDP), so do not call get_app_state, click, or type_text against them here — their accessibility tree is disabled by default and you will burn turns on an app you cannot see. If a task needs the browser, hand it to the browser control plane. Everything outside the browser — LibreOffice, VS Code, GIMP, VLC, Thunderbird, the file manager, the terminal — belongs to these tools. The handoff point between the two planes is the filesystem: a browser download lands in ~/Downloads and is then opened with these tools."
 
 type toolDefinition struct {
 	Name        string         `json:"name"`
@@ -243,12 +243,20 @@ func (s *service) callTool(name string, args map[string]any) toolCallResult {
 		}
 		return s.click(
 			requiredString(args, "app"),
-			optionalElementIndex(args),
+			requiredElementIndex(args),
 			optionalFloat(args, "x"),
 			optionalFloat(args, "y"),
 			intValue(optionalFloat(args, "click_count"), 1),
 			defaultString(optionalString(args, "mouse_button"), "left"),
 			clickMethod,
+		)
+	case "click_xy":
+		return s.clickXY(
+			requiredString(args, "app"),
+			optionalFloat(args, "x"),
+			optionalFloat(args, "y"),
+			intValue(optionalFloat(args, "click_count"), 1),
+			defaultString(optionalString(args, "mouse_button"), "left"),
 		)
 	case "invoke_element_action":
 		return s.performSecondaryAction(
@@ -263,8 +271,8 @@ func (s *service) callTool(name string, args map[string]any) toolCallResult {
 			requiredElementIndex(args),
 			floatValue(optionalFloat(args, "pages"), 1),
 		)
-	case "drag":
-		return s.drag(
+	case "drag_xy":
+		return s.dragXY(
 			requiredString(args, "app"),
 			requiredFloat(args, "from_x"),
 			requiredFloat(args, "from_y"),
@@ -343,8 +351,13 @@ func (s *service) click(app, elementIndex string, x, y *float64, clickCount int,
 	if app == "" {
 		return textResult("Missing required argument: app", true)
 	}
-	if elementIndex == "" && (x == nil || y == nil) {
-		return textResult("click requires either element_index or x/y", true)
+	if x != nil || y != nil {
+		// 通道要能从工具名上看出来。坐标点击**不定位任何元素**——谁在那个点上
+		// 谁收到——所以它是另一个工具，不是 click 的一个参数变体。
+		return textResult("click no longer accepts x/y. It is the ACCESSIBILITY-channel tool and addresses targets by element_index. For a coordinate click use click_xy — it addresses by pixel, reports what the hit test found under that point, and always returns a screenshot.", true)
+	}
+	if elementIndex == "" {
+		return textResult("click requires element_index. If the target has no index in the tree, use click_xy with window-relative pixel coordinates.", true)
 	}
 	if clickMethod == "accessibility" && elementIndex == "" {
 		return textResult("click_method 'accessibility' requires element_index", true)
@@ -355,22 +368,15 @@ func (s *service) click(app, elementIndex string, x, y *float64, clickCount int,
 	if clickMethod == "sky_click" {
 		return textResult("click_method 'sky_click' is not supported on Linux", true)
 	}
-	// 这道闸门原本挡的是"把指针甩到屏幕上任意一点"。但它挡不住 `auto`——
-	// auto 的回落分支合成的是同样的坐标点击，且不受该开关约束。于是实际效果
-	// 变成：只禁止 agent **主动选择**合成，不禁止合成本身。
+	// 这里原本有一道 OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS 闸门，
+	// 挡"把指针甩到屏幕上任意一点"。现在 click 必须带 element_index，
+	// 裸坐标全部走 click_xy，这道闸门在这里已经不可达。
 	//
-	// 这个不对称正好卡死了唯一的逃生路径。实测有多处 AT-SPI 动作
-	// **返回成功却不生效**（Nautilus 文件图标的 `menu`、GIMP 图层 cell 的
-	// `activate`、VLC 单选按钮的 `Toggle`）。这种情况下 `auto` 因为
-	// do_action 返回 True 而不会回落，`accessibility` 报成功，`global` 被拒——
-	// agent 手里没有任何一条能走通的路。
-	//
-	// 判据改成按**是否锚定到元素**来分：带 element_index 的坐标点击落点由
-	// 无障碍树给出，与 auto 的回落完全等价，没有额外风险；不带 element_index
-	// 的裸坐标才是这道闸门真正要拦的东西。
-	if clickMethod == "global" && elementIndex == "" && !globalPointerFallbacksEnabled() {
-		return textResult("click_method 'global' without element_index requires OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1 because it may move the system pointer anywhere on screen. Pass element_index to synthesize a click anchored to an accessibility element instead.", true)
-	}
+	// 它防的风险由一条**更强**的保证接管：GUI 通道的坐标在运行时被
+	// **夹紧在窗口矩形内**（见 runtime.py 的 screen_point）。
+	// 夹紧把风险从"可能打到别的应用"降为"最多打到本窗口边缘"，
+	// 而且不牺牲任何能力——GUI 是一条声明过的一等通道，
+	// 不该靠环境变量才能用。
 	snapshot := s.currentSnapshot(app)
 	if snapshot == nil {
 		return textResult("No app state is available for "+app+". Run get_app_state before action tools.", true)
@@ -441,7 +447,31 @@ func (s *service) scroll(app, direction, elementIndex string, pages float64) too
 	return s.actionResult(app, linuxRequest{Tool: "scroll", App: app, Element: record, Direction: normalized, Pages: pages})
 }
 
-func (s *service) drag(app string, fromX, fromY, toX, toY *float64) toolCallResult {
+// clickXY 是 GUI 通道的点击：按屏幕像素定位，树完全不参与。
+//
+// 与 click 分成两个工具，是为了让模型**从名字上**就知道自己在哪条通道上
+// （抄的是 Playwright 的 browser_mouse_click_xy）。但光改名换不来能力，
+// 所以运行时会顺带做一次命中测试，把"那个点上到底是什么"报回去——
+// 坐标点击原本是个纯盲点，工具打完就走，说不出打到了什么。
+func (s *service) clickXY(app string, x, y *float64, clickCount int, mouseButton string) toolCallResult {
+	if app == "" {
+		return textResult("Missing required argument: app", true)
+	}
+	if x == nil || y == nil {
+		return textResult("click_xy requires both x and y, in window-relative pixels (the same space as the screenshot and as Frame values in the tree).", true)
+	}
+	snapshot := s.currentSnapshot(app)
+	if snapshot == nil {
+		return textResult("No app state is available for "+app+". Run get_app_state before action tools.", true)
+	}
+	return s.actionResult(app, linuxRequest{
+		Tool: "click_xy", App: app, X: x, Y: y,
+		ClickCount: clickCount, MouseButton: mouseButton,
+		WindowBounds: snapshot.WindowBounds,
+	})
+}
+
+func (s *service) dragXY(app string, fromX, fromY, toX, toY *float64) toolCallResult {
 	if app == "" {
 		return textResult("Missing required argument: app", true)
 	}
@@ -461,7 +491,7 @@ func (s *service) drag(app string, fromX, fromY, toX, toY *float64) toolCallResu
 	if snapshot == nil {
 		return textResult("No app state is available for "+app+". Run get_app_state before action tools.", true)
 	}
-	return s.actionResult(app, linuxRequest{Tool: "drag", App: app, FromX: fromX, FromY: fromY, ToX: toX, ToY: toY, WindowBounds: snapshot.WindowBounds})
+	return s.actionResult(app, linuxRequest{Tool: "drag_xy", App: app, FromX: fromX, FromY: fromY, ToX: toX, ToY: toY, WindowBounds: snapshot.WindowBounds})
 }
 
 func (s *service) typeText(app, text string) toolCallResult {
@@ -515,7 +545,7 @@ func (s *service) setValue(app, elementIndex, value string) toolCallResult {
 // click 不在此列：它可能走的是语义通道，压根没经过焦点确认。
 func deliveryWasVerified(request linuxRequest) bool {
 	switch request.Tool {
-	case "press_key", "scroll", "drag":
+	case "press_key", "scroll", "drag_xy", "click_xy":
 		return true
 	}
 	return false
@@ -1372,33 +1402,43 @@ func toolDefinitions() []toolDefinition {
 	return []toolDefinition{
 		{
 			Name:        "click",
-			Description: "Click an element. PREFER element_index: it invokes the element's own accessibility action, which is reliable and does NOT steal focus from whatever the user is doing. Fall back to x/y pixel coordinates only when the target has no element_index in the accessibility tree \u2014 coordinate clicks synthesize a real mouse event and DO take focus. This tool is part of plugin `Computer Use`.",
+			Description: "CHANNEL: ACCESSIBILITY. Click an element addressed by element_index from get_app_state. This invokes the element's own accessibility action when it has one, which does NOT steal focus from whatever the user is doing; when it has none, it synthesizes a click at coordinates taken FROM THE TREE, so the target is still identified rather than guessed. It does not accept x/y \u2014 for a click addressed by pixel, use click_xy. This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"app":           stringProperty("App name or bundle identifier"),
-				"element_index": stringProperty("Element index to click"),
-				"x":             numberProperty("X coordinate in screenshot pixel coordinates"),
-				"y":             numberProperty("Y coordinate in screenshot pixel coordinates"),
+				"element_index": stringProperty("Element index to click, from the most recent get_app_state"),
 				"click_count":   integerProperty("Number of clicks. Defaults to 1"),
 				"mouse_button":  enumStringProperty("Mouse button to click. Defaults to left.", []string{"left", "right", "middle"}),
-				"click_method":  enumStringProperty("Click implementation: auto (default), accessibility, app_post, sky_click, or global. Accessibility requires element_index. Linux supports global AT-SPI mouse synthesis and does not currently support app_post or sky_click.", clickMethodValues),
-			}, []string{"app"}),
+				"click_method":  enumStringProperty("Click implementation: auto (default), accessibility, app_post, sky_click, or global. Linux supports global AT-SPI mouse synthesis and does not currently support app_post or sky_click.", clickMethodValues),
+			}, []string{"app", "element_index"}),
 		},
 		{
-			Name:        "drag",
-			Description: "Drag from one point to another using pixel coordinates. This tool is part of plugin `Computer Use`.",
+			Name:        "click_xy",
+			Description: "CHANNEL: GUI. Click at a pixel coordinate. This addresses NO element \u2014 whatever happens to be under that point receives the click \u2014 so reach for it only when the target has no element_index in the tree, or when an accessibility action reported success without doing anything. Coordinates are window-relative and are the SAME space as the attached screenshot and as the Frame values in the tree, so a point read off the image can be passed straight in. Always returns a screenshot, and reports which element the hit test found under that point (a hint, not proof). This tool is part of plugin `Computer Use`.",
+			Annotations: defaultAnnotations(),
+			InputSchema: objectSchema(map[string]any{
+				"app":          stringProperty("App name or bundle identifier"),
+				"x":            numberProperty("X coordinate in window-relative pixels, same space as the screenshot"),
+				"y":            numberProperty("Y coordinate in window-relative pixels, same space as the screenshot"),
+				"click_count":  integerProperty("Number of clicks. Defaults to 1"),
+				"mouse_button": enumStringProperty("Mouse button to click. Defaults to left.", []string{"left", "right", "middle"}),
+			}, []string{"app", "x", "y"}),
+		},
+		{
+			Name:        "drag_xy",
+			Description: "CHANNEL: GUI. Drag from one pixel coordinate to another. There is NO element-addressed form of drag, and that is deliberate rather than an omission: the DESTINATION of a drag is usually not an element at all (\"move this 15cm down the slide\"). Coordinates are window-relative, the same space as the screenshot. Always returns a screenshot, because the accessibility tree does not reflect drag results \u2014 measured on LibreOffice Impress, moving a title from 0.76cm to 15.00cm left that element's Frame in the tree completely unchanged. Judge the result from the image. This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"app":    stringProperty("App name or bundle identifier"),
-				"from_x": numberProperty("Start X coordinate"),
-				"from_y": numberProperty("Start Y coordinate"),
-				"to_x":   numberProperty("End X coordinate"),
-				"to_y":   numberProperty("End Y coordinate"),
+				"from_x": numberProperty("Start X in window-relative pixels"),
+				"from_y": numberProperty("Start Y in window-relative pixels"),
+				"to_x":   numberProperty("End X in window-relative pixels"),
+				"to_y":   numberProperty("End Y in window-relative pixels"),
 			}, []string{"app", "from_x", "from_y", "to_x", "to_y"}),
 		},
 		{
 			Name:        "get_app_state",
-			Description: "Get the state of an already running app's key window and return its accessibility tree. This does NOT return a screenshot — use get_screenshot for that, and only when the tree is insufficient. This must be called once per assistant turn before interacting with the app. This tool is part of plugin `Computer Use`.",
+			Description: "CHANNEL: ACCESSIBILITY (with a screenshot attached). Get the state of an already running app's key window and return its accessibility tree. This does NOT return a screenshot — use get_screenshot for that, and only when the tree is insufficient. This must be called once per assistant turn before interacting with the app. This tool is part of plugin `Computer Use`.",
 			Annotations: readOnlyAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"app":            stringProperty("App name or bundle identifier"),
@@ -1410,7 +1450,7 @@ func toolDefinitions() []toolDefinition {
 		},
 		{
 			Name:        "get_screenshot",
-			Description: "Take a screenshot of an app's key window WITHOUT the accessibility tree. get_app_state already returns a screenshot next to the tree, so reach for this one only when you want the image alone — re-checking a pixel-level detail, watching a canvas change, or confirming an effect that never reaches the tree — and do not want to pay for the tree again. Costs are not ordered the way you might assume: a window screenshot runs about a thousand tokens, more than a small app's tree (gedit ~350) but LESS than a content-rich one (a file manager tree ~2100). This tool is part of plugin `Computer Use`.",
+			Description: "CHANNEL: GUI. Take a screenshot of an app's key window WITHOUT the accessibility tree. get_app_state already returns a screenshot next to the tree, so reach for this one only when you want the image alone — re-checking a pixel-level detail, watching a canvas change, or confirming an effect that never reaches the tree — and do not want to pay for the tree again. Costs are not ordered the way you might assume: a window screenshot runs about a thousand tokens, more than a small app's tree (gedit ~350) but LESS than a content-rich one (a file manager tree ~2100). This tool is part of plugin `Computer Use`.",
 			Annotations: readOnlyAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"app": stringProperty("App name or bundle identifier"),
@@ -1418,13 +1458,13 @@ func toolDefinitions() []toolDefinition {
 		},
 		{
 			Name:        "list_apps",
-			Description: "List the apps on this computer. Returns the set of apps that are currently running, as well as any that have been used in the last 14 days, including details on usage frequency. This tool is part of plugin `Computer Use`.",
+			Description: "CHANNEL: none — this only enumerates apps. List the apps on this computer. Returns the set of apps that are currently running, as well as any that have been used in the last 14 days, including details on usage frequency. This tool is part of plugin `Computer Use`.",
 			Annotations: readOnlyAnnotations(),
 			InputSchema: objectSchema(map[string]any{}, nil),
 		},
 		{
 			Name:        "invoke_element_action",
-			Description: "Invoke a named accessibility action on an element — a first-class way to drive the UI, not a fallback. `click` already performs each element's default action; this tool reaches the other actions it exposes (e.g. menu, expand, increment). Like click-by-index it does not steal focus, and it is preferred over coordinate clicks whenever the action you need is listed under \"More actions\" in the accessibility tree. This tool is part of plugin `Computer Use`.",
+			Description: "CHANNEL: ACCESSIBILITY. Invoke a named accessibility action on an element — a first-class way to drive the UI, not a fallback. `click` already performs each element's default action; this tool reaches the other actions it exposes (e.g. menu, expand, increment). Like click-by-index it does not steal focus, and it is preferred over coordinate clicks whenever the action you need is listed under \"More actions\" in the accessibility tree. This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"app":           stringProperty("App name or bundle identifier"),
@@ -1434,7 +1474,7 @@ func toolDefinitions() []toolDefinition {
 		},
 		{
 			Name:        "press_key",
-			Description: "Press a key or key-combination on the keyboard, including modifier and navigation keys.\n  - This supports xdotool's `key` syntax.\n  - Examples: \"a\", \"Return\", \"Tab\", \"super+c\", \"Up\", \"KP_0\" (for the numpad 0). This tool is part of plugin `Computer Use`.",
+			Description: "CHANNEL: KEYBOARD — the key goes to whatever widget currently holds focus inside the window, NOT to any element you name. Press a key or key-combination on the keyboard, including modifier and navigation keys.\n  - This supports xdotool's `key` syntax.\n  - Examples: \"a\", \"Return\", \"Tab\", \"super+c\", \"Up\", \"KP_0\" (for the numpad 0). This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"app": stringProperty("App name or bundle identifier"),
@@ -1443,7 +1483,7 @@ func toolDefinitions() []toolDefinition {
 		},
 		{
 			Name:        "scroll",
-			Description: "Scroll an element in a direction by a number of pages. This tool is part of plugin `Computer Use`.",
+			Description: "CHANNEL: KEYBOARD — element_index does NOT target the scroll. Page keys are synthesized to whatever widget holds focus inside the window; if the wrong region scrolled, click that region first. Scroll an element in a direction by a number of pages. This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"app":           stringProperty("App name or bundle identifier"),
@@ -1454,7 +1494,7 @@ func toolDefinitions() []toolDefinition {
 		},
 		{
 			Name:        "set_value",
-			Description: "Set the value of a settable accessibility element. This tool is part of plugin `Computer Use`.",
+			Description: "CHANNEL: ACCESSIBILITY. Set the value of a settable accessibility element. This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"app":           stringProperty("App name or bundle identifier"),
@@ -1464,7 +1504,7 @@ func toolDefinitions() []toolDefinition {
 		},
 		{
 			Name:        "type_text",
-			Description: "Type literal text using keyboard input. This tool is part of plugin `Computer Use`.",
+			Description: "CHANNEL: KEYBOARD (falls back from ACCESSIBILITY) — this first tries the AT-SPI editable-text API on the focused editable control, and only synthesizes keystrokes if that write does not land. Type literal text using keyboard input. This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"app":  stringProperty("App name or bundle identifier"),
