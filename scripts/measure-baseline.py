@@ -153,12 +153,23 @@ def launch(command, ready, timeout=90):
 
 # --- 任务链。每条给出 setup / run / verify，verify 必须读外部真值 ---
 
+# 收拾旧进程一律用 `pkill -x <进程名>`（精确匹配进程名），**不要用 `pkill -f <裸词>`**。
+# `-f` 匹配的是整条命令行，而本脚本的调用方式恰好把任务名写在命令行里：
+# `measure-baseline.py --task thunderbird-folder` 里就含有 "thunderbird"，
+# 于是 `pkill -f thunderbird` 会把**脚本自己连同调用它的 shell 一起杀掉**——
+# 表现为无输出、退出码 144，看上去像应用崩了。
+# 实测 5 个任务里有 4 个中招（nautilus / vlc / gedit / thunderbird），
+# 只有全量跑（命令行里不含任务名）幸免，所以这个坑藏了很久。
+# VS Code 那处保留 `-f`：它匹配的是可执行文件路径 `/usr/share/code/code`，
+# 既不会误伤命令行，也是唯一能一次收掉 Electron 那一堆子进程的写法。
+
+
 def task_nautilus_rename(client, workdir):
     """在文件管理器里把一个文件改名。判据：文件系统。"""
     target = os.path.join(workdir, "before.txt")
     with open(target, "w", encoding="utf-8") as handle:
         handle.write("payload\n")
-    subprocess.run(["pkill", "-f", "nautilus"], capture_output=True)
+    subprocess.run(["pkill", "-x", "nautilus"], capture_output=True)
     time.sleep(2)
     if not launch("nautilus {}".format(workdir), os.path.basename(workdir)):
         return False, "Nautilus 起不来"
@@ -201,7 +212,7 @@ def task_nautilus_rename(client, workdir):
 def task_vlc_preference(client, workdir):
     """改一项 VLC 首选项。判据：~/.config/vlc/vlcrc。"""
     rc = os.path.expanduser("~/.config/vlc/vlcrc")
-    subprocess.run(["pkill", "-f", "vlc"], capture_output=True)
+    subprocess.run(["pkill", "-x", "vlc"], capture_output=True)
     time.sleep(2)
     if not launch("vlc --no-video", "VLC media player"):
         return False, "VLC 起不来"
@@ -240,7 +251,7 @@ def task_gedit_type(client, workdir):
     target = os.path.join(workdir, "note.txt")
     with open(target, "w", encoding="utf-8") as handle:
         handle.write("old\n")
-    subprocess.run(["pkill", "-f", "gedit"], capture_output=True)
+    subprocess.run(["pkill", "-x", "gedit"], capture_output=True)
     time.sleep(2)
     if not launch("gedit {}".format(target), "note.txt"):
         return False, "gedit 起不来"
@@ -305,7 +316,7 @@ def task_thunderbird_folder(client, workdir):
     判据用**选中态的转移**而不是"点击返回成功"：今天在多个应用上确认过，
     动作返回成功不等于生效。
     """
-    subprocess.run(["pkill", "-f", "thunderbird"], capture_output=True)
+    subprocess.run(["pkill", "-x", "thunderbird"], capture_output=True)
     time.sleep(3)
     if not launch("thunderbird", "Mozilla Thunderbird"):
         return False, "Thunderbird 起不来"
