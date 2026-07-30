@@ -705,6 +705,7 @@ def render_visible_cells(
     total = (row1 - row0 + 1) * (col1 - col0 + 1)
     budget = min(MAX_TABLE_CELLS, max(0, max_tree_nodes - len(records)))
     count = 0
+    empty = 0
     for row in range(row0, row1 + 1):
         for col in range(col0, col1 + 1):
             if count >= budget:
@@ -712,15 +713,31 @@ def render_visible_cells(
             cell = safe(lambda r=row, c=col: Atspi.Table.get_accessible_at(table, r, c))
             if cell is None:
                 continue
+            # 只取文本，不回退到 numeric_value：Calc 的空单元格 Value 接口
+            # 返回 0.0，会让空白单元格看起来像是填了 0 —— 对"找出空单元格"
+            # 这类任务是致命的误导。
+            value = text_value(cell, text_limit=text_limit)
+            if not value:
+                # 空单元格不进树。实测一张只有 3 列 4 行数据的表：视口里
+                # 1081 个单元格中 1069 个是空的，占掉 19971 / 23182 token（86%）。
+                # 空格子除了坐标不携带任何信息，而坐标本身就是 RxCy，
+                # 从下面那行范围说明里可以直接推出来。
+                #
+                # 代价是空单元格拿不到 element_index。范围说明里给出的替代
+                # 路径是**实测过的那一条**：用 press_key 把单元格光标移过去，
+                # 再 type_text，内容会落进当前光标所在的格子。
+                #
+                # 名称框（树里的 `text Value: A1`）看起来更直接，但**没验证通过**：
+                # set_value 能改它的文本却不触发跳转（控件变了、应用没照做，
+                # 与下拉提交同一族），而 click 也没能让它获得键盘焦点。
+                # 没验证通过的操作不写进给 agent 的提示里。
+                empty += 1
+                continue
             index = len(records)
             record = record_for(
                 cell, index, path + [index], window_bounds, text_limit=text_limit
             )
             records.append(record)
-            # 只取文本，不回退到 numeric_value：Calc 的空单元格 Value 接口
-            # 返回 0.0，会让空白单元格看起来像是填了 0 —— 对"找出空单元格"
-            # 这类任务是致命的误导。
-            value = text_value(cell, text_limit=text_limit)
             # 必须带上 Frame。这些单元格是**屏幕上真实可见**的（它们正是坐标
             # 寻址取到的当前视口内容），漏掉 Frame 会让任何"只保留可见节点"的
             # 裁剪把整个下拉/表格内容判成不可见并全部丢掉——实测中行距下拉的
@@ -749,12 +766,15 @@ def render_visible_cells(
         if count >= budget:
             break
 
-    if count:
+    if count or empty:
         lines.append(
             ("\t" * (depth + 2))
-            + "(showing {} of {} cells in view; table is {}x{} — "
-              "address other cells by row/column)".format(
-                  count, total,
+            + "(rows {}-{} x cols {}-{} are in view: {} non-empty cell(s) listed, "
+              "{} empty cell(s) omitted; table is {}x{}. Omitted cells have no "
+              "element_index. To put content in one, move the cell cursor there "
+              "with press_key and then type_text — typing lands in whichever cell "
+              "currently holds the cursor.)".format(
+                  row0, row1, col0, col1, count, empty,
                   safe(lambda: Atspi.Table.get_n_rows(table), "?"),
                   safe(lambda: Atspi.Table.get_n_columns(table), "?"),
               )

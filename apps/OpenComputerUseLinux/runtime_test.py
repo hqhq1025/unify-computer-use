@@ -1462,6 +1462,35 @@ class DropdownItemTests(AtspiPatchedTestCase):
         self.assertFalse(runtime.is_dropdown_item(cell, dialog))
 
 
+class EmptyCellOmissionTests(AtspiPatchedTestCase):
+    """Calc 视口里绝大多数是空单元格，全渲染等于把配额烧在没有信息的格子上。"""
+
+    def test_notice_states_the_verified_path_only(self):
+        """回归：给 agent 的替代路径必须是实测过的那一条。
+
+        空单元格不进树之后就没有 element_index 了，提示必须说清楚怎么够到它们。
+        最初写的是"用名称框输入引用再回车"——看起来更直接，但实测**没通过**：
+        `set_value` 能改名称框的文本却不触发跳转（控件变了、应用没照做，
+        与下拉提交同一族），`click` 也没能让它获得键盘焦点。
+        实测能走通的是"press_key 移动单元格光标 + type_text"。
+        """
+        source = open(runtime.__file__, encoding="utf-8").read()
+
+        self.assertIn("empty cell(s) omitted", source)
+        self.assertIn("move the cell cursor there", source)
+        self.assertNotIn("Name Box and press", source)
+
+    def test_empty_cells_are_skipped_before_costing_a_record(self):
+        """空单元格要在建 record 之前就跳过，否则配额照样被吃掉。"""
+        source = open(runtime.__file__, encoding="utf-8").read()
+        body = source[source.index("def render_visible_cells"):]
+        body = body[: body.index("def render_tree")]
+
+        skip = body.index("if not value:")
+        build = body.index("record = record_for(")
+        self.assertLess(skip, build, "跳过判断必须在 record_for 之前")
+
+
 class _NoSleep:
     """让 perform_operation 里的固定 sleep 不拖慢测试。"""
 
