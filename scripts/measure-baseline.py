@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
-"""跑一组已验证的任务链，产出四元组基线（待办 #26）。
+"""跑一组已验证的任务链，产出基线（待办 #26）。
 
-四元组：**成功率 / 平均步数 / 平均 token / a11y 通道使用率**。
+**成功率 / 平均步数 / 平均 token / 两条通道的使用率**。
+
+通道有**两个正交的轴**，必须分开报：
+  - **执行轴**：`[semantic]` AT-SPI 动作 vs `[synthesis]` XTEST 合成
+  - **观测轴**：a11y 树 vs 截图
+
+以前只有执行轴一个数，观测轴一个数都没有。这会漏掉一整类依赖：`drag`
+在执行轴上算合成，同时在观测轴上**必须**看图（实测把 Impress 标题从 0.76cm
+拖到 15.00cm，a11y 树里该元素的 Frame 一点没变）。单轴指标说不出这件事。
 
 这不是 LLM 驱动的 agent，是一台**测量仪器**：任务链是脚本化的、已知可完成的
 序列，所以任何一项失败都指向 MCP 侧的回归，而不是模型的发挥。这一点很重要——
@@ -12,8 +20,9 @@
   - 应用配置文件（vlcrc / prefs.js）
   - 保存后的文档内部结构（ODT 的 content.xml）
 
-a11y 通道使用率取自每条 Note 上的 `[semantic]` / `[synthesis]` 标签——
-这正是本项目的核心主张（a11y 优先）能否成立的直接度量。
+执行轴取自每条 Note 上的 `[semantic]` / `[synthesis]` 标签；观测轴取自响应里
+image content 的视觉 token（宽×高/750）占总 token 的比例。截图默认恒带之后，
+只统计文本会让视觉成本**完全隐形**——那正是这个指标要防的事。
 
 用法:
   scripts/measure-baseline.py                    # 全部任务
@@ -23,6 +32,7 @@ a11y 通道使用率取自每条 Note 上的 `[semantic]` / `[synthesis]` 标签
 """
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -47,7 +57,11 @@ class MCP:
         threading.Thread(target=self._drain, daemon=True).start()
         # 四元组的原料在这里累积
         self.steps = 0
+        # 观测成本分两块记。截图现在默认恒带，只统计 text 会让视觉成本**完全隐形**。
         self.observation_chars = 0
+        self.observation_image_tokens = 0
+        self.observations = 0
+        self.observations_with_image = 0
         self.semantic_notes = 0
         self.synthesis_notes = 0
 
@@ -97,6 +111,12 @@ class MCP:
                 text = item.get("text", "")
                 break
         self.observation_chars += len(text)
+        self.observations += 1
+        for item in result.get("content", []):
+            if item.get("type") != "image":
+                continue
+            self.observations_with_image += 1
+            self.observation_image_tokens += image_tokens(item.get("data", ""))
         if name not in ("get_app_state", "get_screenshot", "list_apps"):
             self.steps += 1
             for line in text.splitlines():
@@ -114,6 +134,27 @@ class MCP:
             self.process.wait(timeout=5)
         except Exception:
             self.process.kill()
+
+
+def image_tokens(base64_png):
+    """按 Claude 的口径估一张 PNG 的视觉 token：宽 × 高 / 750。
+
+    不引 PIL，直接读 PNG 的 IHDR：8 字节签名 + 4 长度 + 4 类型之后就是
+    宽高各 4 字节大端。读不出来就退回按 base64 长度粗估，宁可给个偏大的数，
+    也不要在统计里把视觉成本记成 0。
+    """
+    if not base64_png:
+        return 0
+    try:
+        blob = base64.b64decode(base64_png)
+        if blob[:8] == b"\x89PNG\r\n\x1a\n":
+            width = int.from_bytes(blob[16:20], "big")
+            height = int.from_bytes(blob[20:24], "big")
+            if 0 < width < 100000 and 0 < height < 100000:
+                return width * height // 750
+    except Exception:
+        pass
+    return len(base64_png) // 4
 
 
 def find_index(tree, pattern):
@@ -372,7 +413,11 @@ def run_one(name, binary):
         "detail": detail,
         "steps": client.steps,
         # 4 字符 ≈ 1 token 是本仓库其它脚本一贯的粗估口径，保持一致以便横向比
-        "tokens": client.observation_chars // 4,
+        "text_tokens": client.observation_chars // 4,
+        "image_tokens": client.observation_image_tokens,
+        "tokens": client.observation_chars // 4 + client.observation_image_tokens,
+        "observations": client.observations,
+        "observations_with_image": client.observations_with_image,
         "semantic": client.semantic_notes,
         "synthesis": client.synthesis_notes,
         "a11y_rate": (100 * client.semantic_notes // total_notes) if total_notes else None,
@@ -408,26 +453,42 @@ def main():
         print("跑 {} …".format(name), flush=True)
         row = run_one(name, args.binary)
         rows.append(row)
-        print("  {}  步数={} token={} a11y={}  {}".format(
+        print("  {}  步数={} token={}（文本 {} + 视觉 {}） 执行a11y={}  {}".format(
             "PASS" if row["ok"] else "FAIL", row["steps"], row["tokens"],
+            row["text_tokens"], row["image_tokens"],
             "n/a" if row["a11y_rate"] is None else "{}%".format(row["a11y_rate"]),
-            row["detail"][:52]))
+            row["detail"][:44]))
 
     done = [r for r in rows if r["ok"]]
     notes = sum(r["semantic"] + r["synthesis"] for r in rows)
     semantic = sum(r["semantic"] for r in rows)
+    text_tokens = sum(r["text_tokens"] for r in rows)
+    image_tokens_total = sum(r["image_tokens"] for r in rows)
+    all_tokens = text_tokens + image_tokens_total
+    observations = sum(r["observations"] for r in rows)
+    with_image = sum(r["observations_with_image"] for r in rows)
     print()
     print("=" * 60)
-    print("四元组基线（{} 个任务）".format(len(rows)))
+    print("基线（{} 个任务）".format(len(rows)))
     print("  成功率        {}/{} = {}%".format(
         len(done), len(rows), 100 * len(done) // max(len(rows), 1)))
     print("  平均步数      {:.1f}".format(
         sum(r["steps"] for r in rows) / max(len(rows), 1)))
-    print("  平均 token    {:.0f}".format(
-        sum(r["tokens"] for r in rows) / max(len(rows), 1)))
-    print("  a11y 通道占比 {}".format(
-        "n/a" if not notes else "{}% （{}/{} 条动作 Note）".format(
+    print("  平均 token    {:.0f}（文本 {:.0f} + 视觉 {:.0f}）".format(
+        all_tokens / max(len(rows), 1),
+        text_tokens / max(len(rows), 1),
+        image_tokens_total / max(len(rows), 1)))
+    print()
+    # 两个轴要分开报。以前只有执行轴一个数，说不出"这次任务有多依赖截图"——
+    # 而 drag 这类工具恰恰是执行上算合成、观测上还必须看图，
+    # 单轴指标会把它的 VLM 依赖整个漏掉。
+    print("  执行轴 a11y   {}".format(
+        "n/a" if not notes else "{}% （{}/{} 条动作 Note 走语义通道）".format(
             100 * semantic // notes, semantic, notes)))
+    print("  观测轴 视觉   {}".format(
+        "n/a" if not all_tokens else
+        "{}% token （{}/{} 次观测带图）".format(
+            100 * image_tokens_total // all_tokens, with_image, observations)))
     print("=" * 60)
 
     if args.json:

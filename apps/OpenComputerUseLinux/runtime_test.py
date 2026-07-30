@@ -1886,6 +1886,53 @@ class SettleWaitTests(AtspiPatchedTestCase):
         self.assertAlmostEqual(clock.now, runtime.SETTLE_MIN_SECONDS, places=6)
 
 
+class ScreenshotPolicyTests(unittest.TestCase):
+    """a11y 轨带不带截图，以及哪些工具的截图不可关。
+
+    默认改成带图，是因为"两条独立轨道"这个前提被实测推翻了：树给过两次假阴性
+    （右对齐、保存都生效了却被判成"送达但被忽略"），都是一张截图判掉的。
+    """
+
+    def setUp(self):
+        self._saved = os.environ.get("OPEN_COMPUTER_USE_A11Y_SCREENSHOTS")
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        if self._saved is None:
+            os.environ.pop("OPEN_COMPUTER_USE_A11Y_SCREENSHOTS", None)
+        else:
+            os.environ["OPEN_COMPUTER_USE_A11Y_SCREENSHOTS"] = self._saved
+
+    def test_enabled_by_default(self):
+        os.environ.pop("OPEN_COMPUTER_USE_A11Y_SCREENSHOTS", None)
+        self.assertTrue(runtime.a11y_screenshots_enabled())
+
+    def test_can_be_switched_off_for_the_ab_test(self):
+        for value in ("0", "false", "no", "off", "OFF", " 0 "):
+            os.environ["OPEN_COMPUTER_USE_A11Y_SCREENSHOTS"] = value
+            self.assertFalse(runtime.a11y_screenshots_enabled(), value)
+
+    def test_unrecognised_values_keep_screenshots_on(self):
+        """开关只认明确的关闭值。拼错了应该维持默认，而不是静默省掉截图。"""
+        for value in ("1", "true", "yes", "", "maybe"):
+            os.environ["OPEN_COMPUTER_USE_A11Y_SCREENSHOTS"] = value
+            self.assertTrue(runtime.a11y_screenshots_enabled(), value)
+
+    def test_drag_screenshot_is_not_negotiable(self):
+        """`drag` 两头都够不着 a11y：没有元素锚定，效果也不进树。
+
+        实测把 Impress 标题从 0.76cm 拖到 15.00cm，元素的 Frame 一点没变。
+        所以哪怕 A/B 把 a11y 轨的截图关了，drag 也必须带图。
+        """
+        self.assertIn("drag", runtime.SCREENSHOT_REQUIRED_TOOLS)
+        os.environ["OPEN_COMPUTER_USE_A11Y_SCREENSHOTS"] = "0"
+        self.assertFalse(runtime.a11y_screenshots_enabled())
+        # perform_operation 里的判据：required 的工具传 True，其余传 None 走策略。
+        for tool, expected in (("drag", True), ("click", None), ("press_key", None)):
+            forced = True if tool in runtime.SCREENSHOT_REQUIRED_TOOLS else None
+            self.assertEqual(forced, expected, tool)
+
+
 class _NoSleep:
     """让 perform_operation 里的固定 sleep 不拖慢测试。"""
 

@@ -42,6 +42,28 @@ SETTLE_MIN_SECONDS = 0.12
 # 不可聚焦的顶层），带着当前状态返回并**明说没稳定**，好过把工具卡死。
 SETTLE_FOCUS_TIMEOUT_SECONDS = 0.8
 SETTLE_POLL_SECONDS = 0.02
+# 这些工具的截图**不可关**，`#29` 的 A/B 也不例外。
+#
+# `drag` 是目前唯一一个：它两头都够不着 a11y。
+# - **执行**：三处实现（官方 Codex macOS、本仓库 macOS Kit、本仓库 Linux）
+#   都只接受 `from_x/from_y/to_x/to_y`，没有 `element_index`。这不是遗漏——
+#   拖拽的**目标位置通常不是元素**（"移到幻灯片下方 15cm 处"不是一个元素），
+#   所以元素锚定从根上解决不了它。
+# - **验证**：实测把 Impress 的标题从 0.76cm 拖到 15.00cm 之后，
+#   a11y 树里该元素的 `Frame` **一点没变**，只有状态栏文本变了。
+#   树接不住拖拽的效果，所以事后必须有一张图。
+SCREENSHOT_REQUIRED_TOOLS = {"drag"}
+
+
+def a11y_screenshots_enabled():
+    """a11y 轨要不要顺带带截图。默认**开**。
+
+    设 `OPEN_COMPUTER_USE_A11Y_SCREENSHOTS=0` 关掉——这是 `#29`（截图 A/B）
+    的开关，而不是给日常使用准备的。关掉之后
+    `SCREENSHOT_REQUIRED_TOOLS` 里的工具仍然带图。
+    """
+    value = os.environ.get("OPEN_COMPUTER_USE_A11Y_SCREENSHOTS", "1").strip().lower()
+    return value not in {"0", "false", "no", "off"}
 # 预算用到这个比例之后，开始丢弃"无名 + 无动作 + 无值"的纯结构容器。
 # 深度优先截断等于按遍历顺序随机丢弃，先到的占满配额、后面的整片消失；
 # 而结构容器（filler / panel / separator）对 agent 没有可操作价值，
@@ -1218,15 +1240,27 @@ def build_snapshot(
     text_limit=DEFAULT_TEXT_LIMIT,
     max_tree_nodes=MAX_ELEMENTS,
     max_tree_depth=MAX_DEPTH,
-    include_screenshot=False,
+    include_screenshot=None,
     prune=True,
 ):
     """构建应用快照。
 
-    `include_screenshot` 默认关闭：a11y 与 VLM 是两条独立轨道，a11y 轨不应该
-    顺带付截图的钱。实测 gedit 单次观测里截图占 1014 token（文本 1908），
-    约 35%；等树裁剪把文本砍掉后截图会升到 80% 左右，成为主要成本。
-    截图改由 `get_screenshot` 显式索取。
+    `include_screenshot=None` 表示"按当前策略决定"，见
+    `a11y_screenshots_enabled()`；传 True/False 则强制。
+
+    这里原本默认关闭，理由是"a11y 与 VLM 是两条独立轨道，a11y 轨不该顺带付
+    截图的钱"。成本数字仍然成立（gedit 单次观测截图约 1014 token，占 35%，
+    树裁剪后会升到 80% 左右）——**但"两条独立轨道"这个前提被实测推翻了**。
+
+    实测 LibreOffice Impress：
+    - 右对齐生效了，段落节点的 `Frame` 却一直指向占位符左端；
+      `ctrl+r` 与 `ctrl+s` 都真的生效了，却都被"树没变"判成"送达但被忽略"。
+      **两次假阴性，都是一张截图一眼判掉的。**
+    - 反过来，「哪个 spin button 是 Position Y」靠截图只能凭标签的空间邻近去猜，
+      靠树的 Description 是确定的。
+
+    所以两条通道是**互补**，不是替代：树给可操作性，截图给可验证性。
+    默认改为带截图，`#29` 的 A/B 用环境变量关掉再比。
     """
     app = resolve_app(query)
     window_index, window = main_window(app)
@@ -1249,7 +1283,9 @@ def build_snapshot(
         },
         "windowTitle": limit_text(node_name(window), text_limit=text_limit),
         "windowBounds": bounds,
-        "screenshotPngBase64": capture_window_png(bounds) if include_screenshot else None,
+        "screenshotPngBase64": capture_window_png(bounds)
+        if (a11y_screenshots_enabled() if include_screenshot is None else include_screenshot)
+        else None,
         "treeLines": lines,
         "focusedSummary": focused_summary(pid, text_limit=text_limit),
         "selectedText": selected_text(pid, text_limit=text_limit),
@@ -2017,7 +2053,9 @@ def perform_operation(operation):
     if tool == "list_apps":
         return {"ok": True, "text": list_apps_text()}
     if tool == "get_screenshot":
-        # VLM 轨道的唯一入口。树只渲染一层，避免为了拿一张图顺带付整棵树的钱。
+        # 只渲染一层树，避免为了拿一张图顺带付整棵树的钱。
+        # `get_app_state` 现在默认也带图（见 a11y_screenshots_enabled），所以这里
+        # 不再是"VLM 轨道的唯一入口"，而是**只要图不要树**时的便宜入口。
         return {
             "ok": True,
             "snapshot": build_snapshot(
@@ -2190,7 +2228,11 @@ def perform_operation(operation):
         notes.append(
             SYNTHESIS
             + "Synthesized a coordinate drag after bringing the window to the "
-            "foreground. {}".format(UNVERIFIED_SYNTHESIS)
+            "foreground. {} A screenshot is attached because the accessibility "
+            "tree does not reflect drag results: measured on LibreOffice Impress, "
+            "moving a title from 0.76cm to 15.00cm left the element's Frame in the "
+            "tree completely unchanged. Judge this drag from the image, not the "
+            "tree.".format(UNVERIFIED_SYNTHESIS)
         )
     elif tool == "type_text":
         # AT-SPI 直写不依赖窗口焦点，优先走；只有退化到全局合成时才需要夺焦点。
@@ -2247,7 +2289,15 @@ def perform_operation(operation):
     settle_note = wait_for_ui_to_settle(app, windows_before)
     if settle_note:
         notes.append(settle_note)
-    response = {"ok": True, "snapshot": build_snapshot(operation.get("app", ""))}
+    response = {
+        "ok": True,
+        "snapshot": build_snapshot(
+            operation.get("app", ""),
+            # 动作后的快照按当前策略带图；`SCREENSHOT_REQUIRED_TOOLS` 里的
+            # 工具无视策略，因为它们的效果树里根本看不出来。
+            include_screenshot=True if tool in SCREENSHOT_REQUIRED_TOOLS else None,
+        ),
+    }
     if notes:
         response["notes"] = notes
     return response

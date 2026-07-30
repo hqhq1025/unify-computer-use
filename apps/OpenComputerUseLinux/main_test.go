@@ -121,22 +121,42 @@ func TestBrowserRoutingRuleIsExplicit(t *testing.T) {
 	}
 }
 
-func TestObservationChannelsAreSeparate(t *testing.T) {
+// 观测的两条通道是**互补**，不是主备。
+//
+// 这条曾经写成"两条独立轨道、截图是 fallback"，`build_snapshot` 也默认不带图，
+// 理由是 a11y 轨不该顺带付截图的钱。成本数字至今成立，**但"独立"这个前提被
+// 实测推翻了**（手动跑 OSWorld Impress 任务，见 docs/exec-plans/active/
+// 20260730-impress-manual-run-findings.md）：
+//
+//   - 右对齐与保存都真的生效了，a11y 树却字节不变，于是两个动作都被判成
+//     "送达但被忽略"——**两次假阴性，都是一张截图一眼判掉的**。
+//   - 反过来，"四个没有名字的 spin button 里哪个是 Position Y" 靠截图只能凭
+//     标签的空间邻近去猜，靠树的 description 是确定的。
+//
+// 所以树给**可操作性**，截图给**可验证性**，默认两个都给。
+// #29 的 A/B 靠 OPEN_COMPUTER_USE_A11Y_SCREENSHOTS=0 关掉再比。
+func TestObservationChannelsAreComplementary(t *testing.T) {
 	shot := findToolDefinition(t, "get_screenshot")
-	if !strings.Contains(shot.Description, "ONLY when the accessibility tree is insufficient") {
-		t.Fatal("get_screenshot must present itself as the fallback channel, not an equal option")
+	if !strings.Contains(shot.Description, "WITHOUT the accessibility tree") {
+		t.Fatal("get_screenshot 现在是「只要图不要树」的入口，不再是 fallback")
 	}
-	if !strings.Contains(serverInstructions, "two separate channels and they are NOT equal") {
-		t.Fatal("server instructions must state that the two observation channels are not equal")
+	if !strings.Contains(serverInstructions, "COMPLEMENTARY, not interchangeable") {
+		t.Fatal("server instructions 必须把两条通道讲成互补而不是主备")
 	}
-	if !strings.Contains(serverInstructions, "Do not request a screenshot 'just to check'") {
-		t.Fatal("server instructions should discourage speculative screenshots")
+	if !strings.Contains(serverInstructions, "ACTIONABLE") ||
+		!strings.Contains(serverInstructions, "VERIFIABLE") {
+		t.Fatal("必须分别讲清树的可操作性与截图的可验证性")
 	}
-	if !strings.Contains(linuxRuntimeScript, "include_screenshot=False,") {
-		t.Fatal("build_snapshot must default to omitting the screenshot")
+	// 假阴性是这次改动的**唯一**理由，必须带着实测证据讲给 agent 听，
+	// 否则它会继续把"树没变"当成"动作没生效"。
+	if !strings.Contains(serverInstructions, "weak evidence of failure, never as proof") {
+		t.Fatal("必须告诉 agent「树没变」只是弱证据")
 	}
-	if !strings.Contains(linuxRuntimeScript, "capture_window_png(bounds) if include_screenshot else None") {
-		t.Fatal("the screenshot must be opt-in rather than always captured")
+	if !strings.Contains(linuxRuntimeScript, "def a11y_screenshots_enabled():") {
+		t.Fatal("截图策略必须集中在一个可开关的判据里，供 #29 做 A/B")
+	}
+	if !strings.Contains(linuxRuntimeScript, `SCREENSHOT_REQUIRED_TOOLS = {"drag"}`) {
+		t.Fatal("drag 的截图不可关：它没有元素锚定，效果也不进树")
 	}
 }
 
@@ -843,8 +863,13 @@ func TestInstructionsDoNotClaimScreenshotsAreAlwaysCostlier(t *testing.T) {
 	if strings.Contains(serverInstructions, "it is cheap, precise") {
 		t.Fatal("不得再声称 a11y 树总是更便宜——实测在文件管理器上不成立")
 	}
-	if !strings.Contains(serverInstructions, "Do not assume it is also the cheaper one") {
+	// 措辞随"截图默认恒带"改过一次，但这条教训本身没有被推翻：成本没有固定
+	// 高低序，暗示 a11y 总是更省会在文件管理器这类应用上把 agent 引偏。
+	if !strings.Contains(serverInstructions, "Do not assume the tree is always the cheaper channel") {
 		t.Fatal("应当明确提醒不要假定 a11y 总是更省")
+	}
+	if !strings.Contains(serverInstructions, "a file manager tree ~2100") {
+		t.Fatal("应当给出实测数字，而不是只给一句定性的话")
 	}
 }
 
