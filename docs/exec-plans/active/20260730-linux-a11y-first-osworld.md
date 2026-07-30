@@ -751,7 +751,23 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
   1. 识别应用消失（`appNotFound` 已加重试，但这里是真的没了）
   2. 自动重启并处理随之而来的「文档恢复」对话框（Discard → Yes，两级）
   3. 从任务的已知中间态续跑，而不是整个任务判失败
-- 验收：harness 能在 LibreOffice 中途消失后自动恢复并续跑同一任务
+- **✅ 已完成（2026-07-30）**：`scripts/verify-libreoffice-crash-recovery.py`
+  把这条能力做成可复用例程并当场验证，全部通过：
+
+  ```
+  PASS  应用消失后动作明确失败，没有静默成功
+  PASS  已自动恢复（过掉 ['Discard', 'Yes']）
+  PASS  保存后的 content.xml line-height=200%
+  ```
+
+- **踩到的坑，harness 必须知道**：**恢复流程有两个不同的窗口，标题里都带
+  "Recovery"，按钮却完全不同**——
+  `LibreOffice 7.3 Document Recovery`（Start / **Discard**）与
+  `LibreOffice Document Recovery`（自动恢复被中断，Save / **Cancel**）。
+  只认 Discard 会在第二个窗口上无限空转。判据要按"哪个退出按钮存在"来选，
+  而不是假定只有一种。
+- 另一条：**点完 Discard 必须等标题真的变了再动**。立刻重判会以为没生效而
+  再点一次，叠出一串一模一样的确认框，越点越乱。
 
 
 
