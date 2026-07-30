@@ -266,17 +266,28 @@ def main_window(app):
 
     模态状态本身就是最强判据：MODAL 按定义阻塞了应用其余部分的交互，
     它就是此刻唯一可操作的窗口。
+
+    但模态窗口可能同时存在多个：combo box 的下拉在 LibreOffice 里是一个独立的
+    顶层 window，状态为 MODAL + SHOWING + **ACTIVE**，而它下面的对话框只有
+    MODAL + SHOWING。只按"第一个模态"取会拿到对话框，下拉里的选项仍然看不见。
+    所以模态候选里再按 ACTIVE 细分一次，取最上层的那个。
     """
     windows = app_windows(app)
     if not windows:
         raise RuntimeError(
             "No top-level AT-SPI window is available for " + node_name(app)
         )
-    for index, window in windows:
-        if state_contains(window, Atspi.StateType.MODAL) and state_contains(
-            window, Atspi.StateType.SHOWING
-        ):
+    modal = [
+        (index, window)
+        for index, window in windows
+        if state_contains(window, Atspi.StateType.MODAL)
+        and state_contains(window, Atspi.StateType.SHOWING)
+    ]
+    for index, window in modal:
+        if state_contains(window, Atspi.StateType.ACTIVE):
             return index, window
+    if modal:
+        return modal[0]
     for index, window in windows:
         if state_contains(window, Atspi.StateType.ACTIVE):
             return index, window

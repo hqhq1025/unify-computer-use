@@ -476,15 +476,37 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 | `spin button` 的 `set_value` | 通，且回读确认生效 |
 | `push button OK` 语义点击 | 通 |
 
-**走不通的：对话框里的 combo box（行距选择器）**
+**对话框里的 combo box（行距选择器）：导航能走通，提交走不通**（待办 #1b）
 
-四条路径全部失败：
+先是一个结构性发现：**树里那个 `combo box` 节点是幻影**——它的 extents 是
+`-2147483648,-2147483648 1x1`（INT_MIN 哨兵），根本没有渲染。屏幕上真正的控件是
+它旁边的 **`toggle button`**。此前对 combo box 的所有操作都打在虚空里，
+`press` 返回 `True` 纯属假成功。
 
-1. `do_action("press")` 返回 `True`，但下拉不展开、无新顶层窗口、`menu` 子节点仍为 0
-2. `Selection` 接口存在，但 `menu` 是懒加载的，展开前没有任何可选项
-3. 写它旁边的 `text` 兄弟节点：`set_value` 返回成功**且回读确认值已变成 "Double"**，
-   但文档的 `line-height` 仍是 `100%`
-4. 写完再 `press_key Return`：对话框关闭了，`line-height` 依然 `100%`
+改打 `toggle button` 后，**导航链路完全打通**：
+
+- `do_action("click")` 到 toggle → 下拉作为**独立顶层 `window`** 弹出
+  （状态 `SHOWING, VISIBLE, MODAL, ACTIVE`），而不是 combo 的子节点
+- 该弹窗与 Paragraph 对话框**同为 MODAL**，靠 `ACTIVE` 区分最上层（已修）
+- 弹窗内是带 `Selection` 接口的 `table`，渲染为 `cell R3C0 Double` 等 8 个选项，
+  agent 完全可见（对方的 MANAGES_DESCENDANTS 坐标寻址兜底在这里正确生效）
+
+**但没有任何一条路径能把选中真正提交下去**，`line-height` 始终停在 `100%`：
+
+| 路径 | 结果 |
+|---|---|
+| `do_action` 到 `cell Double` | 返回 True，下拉关闭，值未应用 |
+| `Atspi.Selection.select_child(table, 4)` | 返回 True，值未应用 |
+| 裸 xdotool 方向键 + Return | 按键没进弹窗，下拉都没关 |
+| MCP `press_key`（带夺焦点） | 同样无效 |
+| 写 combo 的 `text` 兄弟节点 | `set_value` 成功且回读确认值变成 "Double"，文档未变 |
+
+根因线索：**AT-SPI 说弹窗是 `ACTIVE`，但 `xdotool getwindowfocus` 显示 X 输入焦点
+仍在主窗口上**——两个信号打架，键盘因此永远送不进弹窗。这也解释了夺焦点为什么没用：
+`focus_window` 抓的是 AT-SPI 层的焦点，改变不了 X 层的输入焦点归属。
+
+**结论**：LibreOffice 的下拉选择目前无法通过语义路径提交。导航部分（打开下拉、
+看见全部选项）已经可用，缺的是最后一步提交。
 
 **由此暴露的一个验证盲区**：第 3 条里 `set_value` 的"回读确认已生效"是**诚实但不充分**的——
 它确认的是**控件的值变了**，不是**应用真的采纳了这个值**。对于会把控件值和文档状态分开的

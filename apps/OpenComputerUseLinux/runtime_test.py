@@ -664,6 +664,23 @@ class MainWindowSelectionTests(AtspiPatchedTestCase):
 
         self.assertIs(chosen, frame)
 
+    def test_active_modal_wins_over_earlier_modal(self):
+        """回归：combo 下拉是叠在对话框之上的第二个模态窗口。
+
+        实测 LibreOffice：Paragraph 对话框是 MODAL+SHOWING，
+        行距下拉弹出的独立顶层 window 是 MODAL+SHOWING+**ACTIVE**。
+        只取"第一个模态"会拿到对话框，下拉里的选项仍然看不见。
+        """
+        dialog = FakeNode(states=(STATE.SHOWING, STATE.VISIBLE, STATE.MODAL))
+        popup = FakeNode(
+            states=(STATE.SHOWING, STATE.VISIBLE, STATE.MODAL, STATE.ACTIVE)
+        )
+        self._patch_roles({id(dialog): "dialog", id(popup): "window"})
+
+        _, chosen = runtime.main_window(self._app(dialog, popup))
+
+        self.assertIs(chosen, popup)
+
     def test_falls_back_to_active_then_showing(self):
         plain = FakeNode(states=(STATE.SHOWING,))
         active = FakeNode(states=(STATE.SHOWING, STATE.ACTIVE))
