@@ -687,7 +687,14 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
     CSS）。首选项对话框实测 19 段合计 9149 字符，占整次观测 **56%**。
     剥离后 4041 → 2261 token（-44%），描述变成干净的一句话。
     判据卡在 `<html>` 开头，不对普通文本动手——真实内容里可能有尖括号。
-  - **文件路径输入 🔶 部分验证**：`Open Network Stream...` 能语义打开
+  - **文件路径输入（6 个任务）✅ 已通关**：
+    `Open Network Stream...`（语义）→ 选中 **Network 标签页**（语义）→
+    URL 框 `type_text` → Play（该按钮无 click 动作，`auto` 回落坐标）。
+    **外部真值**：`~/.config/vlc/vlc-qt-interface.conf` 的
+    `[RecentsMRL] list=file:///tmp/tone.wav, …` ——文件排在最近列表首位。
+    （界面上进度显示 `--:--` 是因为测试音频只有 3 秒、读状态时已播完，
+    不是没播；**换个不依赖时序的判据才看清**。）
+  - 早先失败的记录（保留，因为坑本身有价值）：`Open Network Stream...` 能语义打开
     「Open Media」对话框，URL 输入框接受 `type_text`（树里读回
     `text Value: file:///tmp/tone.wav`，确认落进去了）。
     但**未能确认播放真的开始**——点 Play 后对话框未关闭、进度仍是 `--:--`。
