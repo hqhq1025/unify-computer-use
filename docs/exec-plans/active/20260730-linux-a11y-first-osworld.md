@@ -669,7 +669,12 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
     直接把它解决在树里了。
   - **图层面板（5/17）✅**：`activate` 撒谎（返回 True 但活动图层不变），
     由本轮的自动回落接住，状态栏 `TopLayer` → `Background` 验证。
-  - 仍待做：工具选择（3 个任务）、画布直接操作（3 个，调研判定必须依赖视觉）。
+  - **工具选择（3 个任务）✅**：点 Crop Tool 后，工具选项面板由画笔硬度换成
+    `Current layer only` / `Delete cropped pixels` / `Allow growing`——
+    这是**独立于被点节点**的外部信号。工具箱没有 AT-SPI 动作，
+    `auto` 如实回落到元素锚定的坐标点击。
+  - 仍待做：画布直接操作（3 个，调研判定必须依赖视觉，属 a11y 天然给不出目标
+    的一类，应计入 #29 收益侧的单独计数）。
 - **VLC 🔶 菜单与首选项已通关**（2026-07-30，Qt）：
   - **判分器级验收**：Tools → Preferences → 勾选 → Save，
     `~/.config/vlc/vlcrc` 由 `#qt-pause-minimized=0` 变为 `qt-pause-minimized=1`。
@@ -682,8 +687,16 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
     CSS）。首选项对话框实测 19 段合计 9149 字符，占整次观测 **56%**。
     剥离后 4041 → 2261 token（-44%），描述变成干净的一句话。
     判据卡在 `<html>` 开头，不对普通文本动手——真实内容里可能有尖括号。
-  - 仍待做：文件路径输入（6 个任务）、播放控制（5 个）、
-    以及调研点名的 Simple/All 单选按钮（`Toggle` 后 CHECKED 翻转但面板不切换）。
+  - **文件路径输入 🔶 部分验证**：`Open Network Stream...` 能语义打开
+    「Open Media」对话框，URL 输入框接受 `type_text`（树里读回
+    `text Value: file:///tmp/tone.wav`，确认落进去了）。
+    但**未能确认播放真的开始**——点 Play 后对话框未关闭、进度仍是 `--:--`。
+    这一步我没有在有限预算内查清，**不标完成**。
+    排查线索：VLC 的 combo box 以当前值作为 name，容易与协议下拉混淆；
+    我第一次就把路径打进了 `combo box Network Protocol`。
+  - 仍待做：播放控制（5 个）、以及调研点名的 Simple/All 单选按钮
+    （`Toggle` 后 CHECKED 翻转但面板不切换——属"状态变了行为没变"那一类，
+    通用判据接不住）。
 - **VS Code ✅ 高频操作已通关**（2026-07-30，Electron/Chromium）：
   - **树是出来的**，不是空壳（`toolkit-accessibility` 本机已为 true）。
     欢迎页 9517 → 8393 token（修完动作名与 U+FFFC 之后）。
