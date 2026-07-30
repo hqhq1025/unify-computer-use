@@ -138,7 +138,13 @@
 - `extents()` 会同时过滤异常尺寸和异常原点：未渲染控件在 GTK 上返回 INT_MIN 量级的坐标但尺寸看着正常（常见 1x1），只查尺寸拦不住，这些坐标进了元素树会让 coordinate click / drag 打到无意义的位置。
 - Linux runtime 需要运行在已登录桌面用户 session 里。缺少 `XDG_RUNTIME_DIR`、`DBUS_SESSION_BUS_ADDRESS` 或 display 环境时，Go runtime 会在启动 Python AT-SPI bridge 前尝试从 `/run/user/<uid>` 和常见桌面进程自动发现当前用户的 session bus、display / Wayland 值；纯 SSH tty 如果找不到已登录桌面 session，可以启动二进制，但不能直接 inspect 或操作 GUI session。
 - `get_app_state` 的 accessibility tree 在 GTK/GNOME app 上可能很深，Linux bridge 使用与 macOS / Windows 一致的 1200 节点、64 层默认 tree budget，并支持显式提高 `max_tree_nodes` / `max_tree_depth`。截图通过 GDK root window best-effort capture；GNOME Wayland 可能返回黑图，bridge 会检测全黑采样并省略 image block。
-- 这 9 个 tool 的协议面与 macOS / Windows 保持一致：`list_apps`、`get_app_state`、`click`、`perform_secondary_action`、`scroll`、`drag`、`type_text`、`press_key`、`set_value`。其中 element-targeted action 会优先复用上一轮 `get_app_state` 的 runtime path metadata，coordinate action 使用 screenshot/window-relative 坐标。
+- Linux 侧的 tool 面：`list_apps`、`get_app_state`、`get_screenshot`、`click`、
+  **`invoke_element_action`**、`scroll`、`drag`、`type_text`、`press_key`、`set_value`。
+  其中两处**刻意偏离** macOS / Windows：
+  - `invoke_element_action` 原名 `perform_secondary_action`（2026-07-30 改名）。
+    工具名是模型选通道时最强的信号，旧名读起来像 fallback，而 a11y 语义动作
+    恰恰是首选路径。macOS / Windows 维持原名。
+  - `get_screenshot` 是 Linux 特有：观测拆成 a11y 与 VLM 两轨，a11y 轨不返回 image block。其中 element-targeted action 会优先复用上一轮 `get_app_state` 的 runtime path metadata，coordinate action 使用 screenshot/window-relative 坐标。
 - Linux `click_method=accessibility` 映射到 AT-SPI action，`global` 映射到 AT-SPI mouse synthesis 并要求全局指针环境变量；AT-SPI 没有等价的进程定向 mouse dispatch，因此 `app_post` 和 macOS-only 的 `sky_click` 会在 snapshot lookup 前明确返回 unsupported。`auto` 仍保持 AT-SPI action 优先、mouse synthesis fallback 的现有行为。
 - 当前 Linux 侧仍是功能性第一版：没有 visual cursor overlay、没有 installer/desktop entry，也没有独立 Linux fixture。后续 TODO 记录在 `docs/exec-plans/active/20260422-linux-computer-use-runtime.md`。
 

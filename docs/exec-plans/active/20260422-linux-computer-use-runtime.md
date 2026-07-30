@@ -9,7 +9,8 @@
 - 包含：
   - Linux 独立 runtime，不耦合 Swift `.app`。
   - Go CLI / MCP / `call --calls` 入口。
-  - `list_apps`、`get_app_state`、`click`、`perform_secondary_action`、`scroll`、`drag`、`type_text`、`press_key`、`set_value` 的功能性实现。
+  - `list_apps`、`get_app_state`、`click`、`invoke_element_action`、`scroll`、`drag`、`type_text`、`press_key`、`set_value` 的功能性实现。
+  - 注：`perform_secondary_action` 已于 2026-07-30 在 Linux 侧改名为 `invoke_element_action`（#27 方案 C，刻意偏离 macOS/Windows）。下文已勾选的历史验收记录保留原名，不追溯改写。
   - Linux arm64/amd64 构建脚本和基础 Go 单测。
   - Ubuntu GNOME VM 上的 9-tool 实机 smoke。
   - 架构文档、README、质量说明和 history。

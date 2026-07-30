@@ -97,6 +97,11 @@
 - 2026-04-22：官方 `1.0.755` 的 `scroll.pages` 已确认是 `number` schema；旧插件根返回的 `integer` 视为旧版本基线，不再作为当前对齐目标。
 - 2026-04-22：官方 app-server 对 required string 的空字符串按 missing 处理；本地 dispatcher 统一改成非空 required string，并返回 `Missing required argument: <name>`。
 - 2026-04-22：本地 `scroll` / `drag` 不再默认调用全局 `.cghidEventTap` 和 app activation fallback；未命中 AX scroll action 时先用 `CGEvent.postToPid` 定向发给目标进程，只有显式打开 `OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1` 才走物理指针兜底。
+- **2026-07-30：Linux 侧把 `perform_secondary_action` 改名为 `invoke_element_action`**
+  ——这是本对齐计划下的一处**刻意分歧**，由用户拍板（方案 C）。理由：工具名是
+  模型选通道时最强的信号，旧名读起来像 fallback，而 a11y 语义动作恰恰是首选路径；
+  实测七个应用后确认通道选对与否直接决定任务成败。macOS / Windows 维持原名，
+  因此本项在 Linux 上不再"与官方对齐"，属**已知且有意**的偏离。
 - 2026-04-22：`perform_secondary_action` 保持 AX action 路径，invalid action 错误改为官方字符串形态；fixture 的 `Raise` 不再调用 global pointer prepare。
 - 2026-04-22：官方 binary key table 包含 `BackSpace`、`Page_Up`、`Prior`、`Next`、`F1...F12` 和完整 `KP_0...KP_9/KP_Enter` 等 xdotool 名称；本地 `press_key` parser 补齐这些常用 alias，仍通过 `CGEvent.postToPid` 定向投递。
 - 2026-04-22：`list_apps` / `get_app_state` 本轮没有新增代码路径：当前实现已按官方 surface 输出运行中 + 近 14 天 app，并且 `get_app_state` 不主动 `activate` 目标 app；验证以官方/本地 `tools/list`、smoke suite 和既有 reverse-engineering 样本为准。
