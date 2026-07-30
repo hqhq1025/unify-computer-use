@@ -253,11 +253,30 @@ def app_windows(app):
 
 
 def main_window(app):
+    """挑出当前真正该操作的顶层窗口。
+
+    顺序：可见的模态对话框 > ACTIVE > SHOWING > 第一个。
+
+    模态对话框必须排在 ACTIVE 前面。macOS 侧可以直接问
+    `kAXFocusedWindowAttribute`，AT-SPI 没有等价属性，只能从状态推断；而
+    LibreOffice 这类应用的 frame 和 dialog **都不上报 ACTIVE**，于是判据会一路
+    落到 SHOWING，模态对话框就因为在子节点顺序里排得靠后而输给主窗口——
+    结果是只要弹出对话框，agent 拿到的就是主窗口的树，**完全看不见对话框**。
+    而对话框恰恰是 OSWorld 里最主要的操作对象。
+
+    模态状态本身就是最强判据：MODAL 按定义阻塞了应用其余部分的交互，
+    它就是此刻唯一可操作的窗口。
+    """
     windows = app_windows(app)
     if not windows:
         raise RuntimeError(
             "No top-level AT-SPI window is available for " + node_name(app)
         )
+    for index, window in windows:
+        if state_contains(window, Atspi.StateType.MODAL) and state_contains(
+            window, Atspi.StateType.SHOWING
+        ):
+            return index, window
     for index, window in windows:
         if state_contains(window, Atspi.StateType.ACTIVE):
             return index, window

@@ -140,6 +140,9 @@ class FakeNode:
     def get_value_iface(self):
         return self.value
 
+    def get_name(self):
+        return ""
+
 
 class FakeAtspiText:
     @staticmethod
@@ -616,6 +619,74 @@ class SnapshotDiagnosticsTests(AtspiPatchedTestCase):
         self.assertTrue(response["ok"])
         self.assertEqual(len(response["notes"]), 1)
         self.assertIn("exposes no accessibility content", response["notes"][0])
+
+
+class MainWindowSelectionTests(AtspiPatchedTestCase):
+    """回归：弹出模态对话框后，agent 必须能看到对话框而不是主窗口。
+
+    实测证据：LibreOffice Writer 打开「格式 → 段落」对话框后，frame 与 dialog
+    的状态分别是 (SHOWING, VISIBLE) 和 (SHOWING, VISIBLE, MODAL)——**两者都不报
+    ACTIVE**。旧逻辑按 ACTIVE > SHOWING > 第一个 排序，于是模态对话框因为在
+    子节点顺序里靠后而输给主窗口，`get_app_state` 返回主窗口的树，
+    树里连一个 dialog 角色的节点都没有。而对话框是 OSWorld 的主要操作对象。
+    """
+
+    def _app(self, *windows):
+        return FakeNode(children=windows)
+
+    def test_visible_modal_dialog_wins_over_main_frame(self):
+        frame = FakeNode(states=(STATE.SHOWING, STATE.VISIBLE))
+        dialog = FakeNode(states=(STATE.SHOWING, STATE.VISIBLE, STATE.MODAL))
+        self._patch_roles({id(frame): "frame", id(dialog): "dialog"})
+
+        index, chosen = runtime.main_window(self._app(frame, dialog))
+
+        self.assertIs(chosen, dialog)
+        self.assertEqual(index, 1)
+
+    def test_modal_dialog_wins_even_when_frame_claims_active(self):
+        """模态按定义阻塞其余窗口，比 ACTIVE 更强。"""
+        frame = FakeNode(states=(STATE.SHOWING, STATE.VISIBLE, STATE.ACTIVE))
+        dialog = FakeNode(states=(STATE.SHOWING, STATE.VISIBLE, STATE.MODAL))
+        self._patch_roles({id(frame): "frame", id(dialog): "dialog"})
+
+        _, chosen = runtime.main_window(self._app(frame, dialog))
+
+        self.assertIs(chosen, dialog)
+
+    def test_hidden_modal_dialog_does_not_win(self):
+        """已关闭但仍挂在树上的模态对话框不该抢走主窗口。"""
+        frame = FakeNode(states=(STATE.SHOWING, STATE.VISIBLE, STATE.ACTIVE))
+        stale = FakeNode(states=(STATE.MODAL,))
+        self._patch_roles({id(frame): "frame", id(stale): "dialog"})
+
+        _, chosen = runtime.main_window(self._app(frame, stale))
+
+        self.assertIs(chosen, frame)
+
+    def test_falls_back_to_active_then_showing(self):
+        plain = FakeNode(states=(STATE.SHOWING,))
+        active = FakeNode(states=(STATE.SHOWING, STATE.ACTIVE))
+        self._patch_roles({id(plain): "frame", id(active): "frame"})
+
+        _, chosen = runtime.main_window(self._app(plain, active))
+
+        self.assertIs(chosen, active)
+
+    def test_raises_when_no_window_exists(self):
+        self._patch_roles({})
+        with self.assertRaises(RuntimeError):
+            runtime.main_window(FakeNode(children=()))
+
+    def _patch_roles(self, mapping):
+        original = runtime.node_role
+        self.addCleanup(setattr, runtime, "node_role", original)
+        runtime.node_role = lambda node: mapping.get(id(node), "frame")
+        # extents 走真实 Atspi.Component，这里的 Fake 没有 component，
+        # app_windows 靠 role 判定即可
+        original_ext = runtime.extents
+        self.addCleanup(setattr, runtime, "extents", original_ext)
+        runtime.extents = lambda node: None
 
 
 class FocusWindowTests(AtspiPatchedTestCase):
