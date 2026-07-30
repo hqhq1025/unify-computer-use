@@ -666,6 +666,11 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
     `tree` → `tree item Local Folders [selected]` → `tree item Trash`，
     点击 Trash **0 次合成**，`[selected focused]` 正确转移，
     末尾焦点行确认 `tree item Trash`。
+  - **消息过滤器（3 个任务）🔶 对话框已可达**：建了 Local Folders 之后，
+    `AppMenu → Tools → Message Filters` 能打开对话框（窗口标题 `Message Filters`），
+    `Run Now` / `New…` / `Edit…` / `Delete` 全部可寻址。
+    **未确认**：点 `New…` 是纯语义（0 次合成）但主窗口标题未变，
+    新建过滤器的子对话框没能确认打开——**不标完成**。
   - **原先的记录（保留，因为过程有价值）：**
     - 消息过滤器（3 个）：AppMenu → Tools → `push button Message Filters`
       在树里可寻址、点击也执行了，但**没有任何新窗口出现**——
