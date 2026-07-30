@@ -134,7 +134,12 @@ def launch(document, settle=70):
 def find_index(tree, pattern):
     for line in tree.splitlines():
         stripped = line.strip()
-        if stripped and stripped[0].isdigit() and re.search(pattern, stripped):
+        if not (stripped and stripped[0].isdigit()):
+            continue
+        # 新文法给自由文本加了引号（修"名字可以含冒号"造成的歧义）。
+        # 匹配时先去引号，这样 r"menu item Rename" 这类既有模式不必为引号重写。
+        plain = stripped.replace('"', "")
+        if re.search(pattern, plain):
             return stripped.split(" ", 1)[0]
     return None
 

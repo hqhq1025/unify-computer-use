@@ -1137,8 +1137,8 @@ class RenderIndentationTests(AtspiPatchedTestCase):
 
         rendered = self._nodes(lines)
         self.assertEqual(len(rendered), 2, "中间的 filler 应被裁掉：{}".format(rendered))
-        self.assertIn("frame Doc", rendered[0])
-        self.assertIn("push button Save", rendered[1])
+        self.assertIn('frame "Doc"', rendered[0])
+        self.assertIn('push button "Save"', rendered[1])
         self.assertEqual(
             self._indent(rendered[1]) - self._indent(rendered[0]), 1,
             "被裁的 filler 不该在缩进上留下空档：{}".format(rendered),
@@ -1176,7 +1176,7 @@ class NodeDescriptionTests(AtspiPatchedTestCase):
 
         _, lines = runtime.render_tree(root, None, [0], prune=True)
 
-        self.assertIn("Description: Go back", "\n".join(lines))
+        self.assertIn('[desc="Go back"]', "\n".join(lines))
 
     def test_description_disambiguates_identically_named_buttons(self):
         """三个都叫 Menu 的 toggle button 只能靠 description 区分。"""
@@ -1702,6 +1702,60 @@ class QtRichTextTests(AtspiPatchedTestCase):
     def test_empty_and_none_are_safe(self):
         self.assertEqual(runtime.plain_text_from_rich_text(None), "")
         self.assertEqual(runtime.plain_text_from_rich_text(""), "")
+
+
+class SnapshotGrammarTests(unittest.TestCase):
+    """快照文法。借鉴 Playwright 的 aria snapshot（`- role "name" [attr=value]`）。
+
+    最要紧的一条是**自由文本必须加引号**。旧格式是
+    `<idx> <role> <name> Description: <desc>`，而名字本身可以含冒号——
+    实测 LibreOffice Impress 里就有 `panel PageShape: Weekday in school`。
+    于是"名字"与"字段分隔符"在词法上无法区分，我们发出去的是一种歧义文法。
+    """
+
+    def _line(self, **overrides):
+        record = {
+            "index": 7, "localizedControlType": "push button", "controlType": "push button",
+            "name": "", "automationId": "", "value": "", "states": "",
+            "description": "", "placeholder": "", "actions": [], "frame": None,
+        }
+        record.update(overrides)
+        return runtime.render_element_line(record, 0)
+
+    def test_name_containing_a_colon_stays_unambiguous(self):
+        """回归：这正是旧格式解析不了的那一行。"""
+        line = self._line(name="PageShape: Weekday in school",
+                          description="Slide")
+        self.assertIn('"PageShape: Weekday in school"', line)
+        self.assertIn('[desc="Slide"]', line)
+
+    def test_quotes_inside_a_name_are_escaped(self):
+        line = self._line(name='say "hi"')
+        self.assertIn(r'"say \"hi\""', line)
+
+    def test_geometry_is_compact(self):
+        """`Frame: {x: 687, y: 23, width: 64, height: 46}` 45 字符 → 14 字符。
+
+        实测几何占整棵树的 35–50%，压缩后全树省约 30%，信息不少一个字。
+        """
+        line = self._line(frame={"x": 687.0, "y": 23.0, "width": 64.0, "height": 46.0})
+        self.assertIn("{687,23,64,46}", line)
+        self.assertNotIn("Frame:", line)
+
+    def test_value_goes_last_after_a_colon(self):
+        """对齐 aria 的 `- textbox: Enter your name`。"""
+        line = self._line(localizedControlType="text", value="baseline-marker",
+                          states="[focused]")
+        self.assertTrue(line.rstrip().endswith(': "baseline-marker"'), line)
+
+    def test_empty_segments_are_omitted(self):
+        """空的段不留空壳——否则每行都拖一串没有信息的字节。"""
+        self.assertEqual(self._line(name="OK"), '\t7 push button "OK"')
+
+    def test_index_stays_at_the_head(self):
+        """我们没有 selector，下标是唯一的引用手段，必须好取。"""
+        line = self._line(name="OK").strip()
+        self.assertTrue(line.startswith("7 "), line)
 
 
 class _FakeClock:

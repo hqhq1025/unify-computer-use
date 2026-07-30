@@ -752,6 +752,64 @@ def placeholder_text(node, text_limit=DEFAULT_TEXT_LIMIT):
     return ""
 
 
+def quoted(text):
+    """把自由文本包成带转义的引号。
+
+    树里的名字**可以包含冒号**——实测 LibreOffice Impress 就有
+    `panel PageShape: Weekday in school`。原来的格式是
+    `<idx> <role> <name> Description: <desc>`，于是名字里的冒号与
+    `Description:` 这个分隔符在词法上**无法区分**：agent 想从一行里切出
+    "名字到底是什么"，没有任何可靠办法。我们发出去的是一种歧义文法。
+
+    Playwright 的 aria snapshot 用引号定界正是为了这个（`- role "name"`）。
+    """
+    escaped = str(text).replace("\\", "\\\\").replace('"', '\\"')
+    escaped = escaped.replace("\r", "\\r").replace("\n", "\\n")
+    return '"' + escaped + '"'
+
+
+def render_element_line(record, render_depth):
+    """把一条元素记录渲染成一行。文法（借鉴 Playwright 的 aria snapshot）：
+
+        <缩进><index> <role> "<name>" [<states>] [desc="…"] [placeholder="…"]
+                     [actions=a,b] {x,y,w,h}: "<value>"
+
+    - 所有自由文本一律**加引号**，消掉旧格式里名字与字段分隔符撞车的歧义
+    - 附加属性一律进**方括号**，与 aria snapshot 的 `[checked]` `[level=1]` 同构
+    - 几何压成 `{x,y,w,h}`：旧写法 `Frame: {x: 687, y: 23, width: 64, height: 46}`
+      是 45 字符，新写法 14 字符，**每行省 31 字符而信息不少一个字**。
+      实测几何占整棵树的 35–50%，这一项就能砍掉其中约三分之二。
+    - 值放在**最后、冒号之后**，对齐 aria 的 `- textbox: Enter your name`
+    - 空的段一律省略，不留空壳
+    - `index` 保留在行首：我们没有 selector，它是唯一的引用手段
+    """
+    role = record["localizedControlType"] or record["controlType"] or "element"
+    title = record["name"] or record["automationId"] or ""
+    parts = ["{} {}".format(record["index"], role)]
+    if title:
+        parts.append(quoted(title))
+    state_seg = record.get("states", "")
+    if state_seg:
+        parts.append(state_seg.strip())
+    if record.get("description") and record["description"] != title:
+        # 单独一段，不并进 name：name 是元素身份的一部分（轨迹按 role+name
+        # 匹配）。GTK 把可读标签放在这里的情况很常见，尤其是纯图标按钮。
+        parts.append("[desc=" + quoted(record["description"]) + "]")
+    if record.get("placeholder") and record["placeholder"] != title:
+        # 提示不是内容——控件其实是空的，所以绝不能混进值里。
+        parts.append("[placeholder=" + quoted(record["placeholder"]) + "]")
+    if record["actions"]:
+        parts.append("[actions=" + ",".join(record["actions"]) + "]")
+    if record["frame"] is not None:
+        f = record["frame"]
+        parts.append("{{{0},{1},{2},{3}}}".format(
+            round(f["x"]), round(f["y"]), round(f["width"]), round(f["height"])))
+    line = ("\t" * (render_depth + 1)) + " ".join(parts)
+    if record["value"] and record["value"] != title:
+        line += ": " + quoted(record["value"])
+    return line
+
+
 def state_segment(node, has_click_action=False):
     """把值得关注的状态渲染成紧凑标记，如 `[checked expanded]`。
 
@@ -1042,41 +1100,8 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
 
         records.append(record)
 
+        lines.append(render_element_line(record, render_depth))
         role = record["localizedControlType"] or record["controlType"] or "element"
-        title = record["name"] or record["automationId"] or ""
-        value_segment = ""
-        if record["value"] and record["value"] != title:
-            safe_value = record["value"].replace("\r", "\\r").replace("\n", "\\n")
-            value_segment = " Value: " + safe_value
-        state_seg = record.get("states", "")
-        description_seg = ""
-        if record.get("description") and record["description"] != title:
-            # 单独标注，不并进 name：name 是元素身份的一部分（轨迹按 role+name
-            # 匹配）。GTK 把可读标签放在这里的情况很常见，尤其是纯图标按钮。
-            description_seg = " Description: " + record["description"]
-        placeholder_seg = ""
-        if record.get("placeholder") and record["placeholder"] != title:
-            # 单独标注，不要混进 Value——它是提示不是内容，控件其实是空的
-            placeholder_seg = " Placeholder: " + record["placeholder"]
-        actions_segment = ""
-        if record["actions"]:
-            actions_segment = " More actions: " + ", ".join(record["actions"])
-        frame_segment = ""
-        if record["frame"] is not None:
-            f = record["frame"]
-            frame_segment = " Frame: {{x: {0}, y: {1}, width: {2}, height: {3}}}".format(
-                round(f["x"]),
-                round(f["y"]),
-                round(f["width"]),
-                round(f["height"]),
-            )
-        lines.append(
-            ("\t" * (render_depth + 1))
-            + "{} {} {}{}{}{}{}{}{}".format(
-                index, role, title, state_seg, value_segment, description_seg,
-                placeholder_seg, actions_segment, frame_segment
-            ).rstrip()
-        )
 
         # 未展开的菜单：保留节点自身（它是 invoke_element_action 的入口），
         # 但不递归其子项。role 与 state 都走 libatspi 本地缓存，零 D-Bus 成本。

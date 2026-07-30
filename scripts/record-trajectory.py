@@ -120,7 +120,8 @@ def parse_tree(text):
             continue
         lines.append(line)
         index, _, rest = stripped.partition(" ")
-        for marker in (" More actions:", " Frame: {", " Value: ", " ["):
+        # 新文法：附加属性一律进方括号、几何是 {x,y,w,h}、值在末尾冒号之后。
+        for marker in (" [", " {", ": "):
             position = rest.find(marker)
             if position >= 0:
                 rest = rest[:position]

@@ -45,7 +45,7 @@ def parse_line(line):
     if not stripped or not stripped[0].isdigit():
         return None
     index, _, rest = stripped.partition(" ")
-    has_frame = " Frame: {" in rest
+    has_frame = bool(re.search(r"\{\d+,\d+,\d+,\d+\}", rest))
     body = rest
     for marker in (" More actions:", " Frame: {", " Value: ", " ["):
         position = body.find(marker)

@@ -160,7 +160,12 @@ def image_tokens(base64_png):
 def find_index(tree, pattern):
     for line in tree.splitlines():
         stripped = line.strip()
-        if stripped and stripped[0].isdigit() and re.search(pattern, stripped):
+        if not (stripped and stripped[0].isdigit()):
+            continue
+        # 新文法给自由文本加了引号（修"名字可以含冒号"造成的歧义）。
+        # 匹配时先去引号，这样 r"menu item Rename" 这类既有模式不必为引号重写。
+        plain = stripped.replace('"', "")
+        if re.search(pattern, plain):
             return stripped.split(" ", 1)[0]
     return None
 
@@ -231,7 +236,9 @@ def task_nautilus_rename(client, workdir):
     time.sleep(2.5)
 
     tree, _ = client.call("get_app_state", {"app": app})
-    entry = find_index(tree, r"text .*Value: before\.txt")
+    # 新文法把值放在末尾冒号之后（`text [focused] {x,y,w,h}: "before.txt"`），
+    # 不再有 `Value:` 字段名。
+    entry = find_index(tree, r"text .*: before\.txt")
     if entry is None:
         return False, "找不到重命名输入框"
     client.call("press_key", {"app": app, "key": "ctrl+a"})
@@ -378,7 +385,8 @@ def task_thunderbird_folder(client, workdir):
 
     tree, _ = client.call("get_app_state", {"app": app, "max_tree_nodes": 2500})
     for line in tree.splitlines():
-        stripped = line.strip()
+        # 同 find_index：新文法给自由文本加了引号，比对前先去掉。
+        stripped = line.strip().replace('"', "")
         if "tree item {}".format(name) in stripped and "[selected" in stripped:
             return True, "{} 已取得 [selected]".format(name)
     return False, "{} 没有取得选中态".format(name)
