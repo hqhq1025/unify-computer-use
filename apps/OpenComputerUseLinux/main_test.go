@@ -829,3 +829,21 @@ func TestSynthesisOnlyToolsSeparateDeliveryFromEffect(t *testing.T) {
 		t.Fatal("合成通道仍应声明目标控件级别的不确定性")
 	}
 }
+
+// a11y 优先的理由是**可操作性**，不是普遍更便宜。
+//
+// 实测（#29）：gedit 树 349 token vs 窗口截图约 1014 视觉 token（截图贵 2.9x）；
+// 文件管理器树 2135 token vs 截图 756（截图反而便宜 0.4x）。
+// 早先的措辞暗示截图总是更贵，对内容丰富的应用是错的——工具不该拿一个
+// 会被实测推翻的理由去引导 agent。
+func TestInstructionsDoNotClaimScreenshotsAreAlwaysCostlier(t *testing.T) {
+	if !strings.Contains(serverInstructions, "ACTIONABLE") {
+		t.Fatal("应当把可操作性讲成 a11y 优先的理由")
+	}
+	if strings.Contains(serverInstructions, "it is cheap, precise") {
+		t.Fatal("不得再声称 a11y 树总是更便宜——实测在文件管理器上不成立")
+	}
+	if !strings.Contains(serverInstructions, "Do not assume it is also the cheaper one") {
+		t.Fatal("应当明确提醒不要假定 a11y 总是更省")
+	}
+}
