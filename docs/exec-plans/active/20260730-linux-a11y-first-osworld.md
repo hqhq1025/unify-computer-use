@@ -586,9 +586,22 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 **#7 保留率 / 压缩率离线评测**　依赖：#8
 - 验收：给定任意裁剪方案，能算出保留率与压缩率两个数
 
-**#8 轨迹数据生成**　依赖：无
-> 自驱动 agent 带本 MCP 跑任务，记录每一步**实际操作过的元素**。
-- 验收：产出可复用的轨迹集，每步记录了被操作元素的稳定标识
+**#8 轨迹数据生成** ✅ 已完成　依赖：无
+> `scripts/record-trajectory.py`。不需要 LLM——把已验证可完成的操作序列脚本化，
+> 跑一遍并逐步记录**当时的完整树**与**这一步实际操作的元素**。
+>
+> 每步记录：动作与参数、目标元素的**稳定标识**（完整渲染行，带 role/name/状态/Frame）、
+> 完整树（lines + elements + raw）、以及带通道标签的 notes。
+>
+> 稳定标识不用 `element_index`：#15 已证明它是位置性的，结构一变就永久重排。
+> 改用完整渲染行——这也正是 agent 实际定位元素的方式，比内部 id 更贴近
+> 评测要回答的问题（"裁剪后还能不能找到它"）。
+>
+> 附带收益：`notes` 里的 `[semantic]` / `[synthesis]` 标签让同一批轨迹
+> 可直接用于统计 S3 口径的第四项。
+>
+> 已内置三个场景：`gedit-type`（键盘+文本）、`gedit-menu`（元素定向点击）、
+> `writer-line-spacing`（菜单→对话框）。实测录制正常，单条轨迹 30-60 KB。
 
 **#9 移植 macOS 的裁剪判据**（`shouldSkipChild` / `isPlainGenericTextContainer` /
 `placeholderValue` / `isSiblingCounterText`）　依赖：#5 #7
