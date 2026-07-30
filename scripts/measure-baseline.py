@@ -260,6 +260,41 @@ def task_gedit_type(client, workdir):
     return False, "磁盘文件内容为 {!r}".format(content[:40])
 
 
+def task_vscode_edit(client, workdir):
+    """在编辑器里替换文件内容并保存。判据：磁盘文件。
+
+    加这条是为了让基线盖住 **Electron/Chromium**——实测它是五种工具包里语义
+    执行最不可靠的一种（默认动作名不标准、点击会丢焦点、原生对话框对 a11y 隐形）。
+    **把最差的一种排除在外，会系统性抬高 a11y 通道占比**，让指标看起来比实际好。
+
+    链路用的是实测唯一可靠的模式：靠打开文件时自带的焦点，全程键盘不中途点击；
+    焦点一旦丢失用 `ctrl+1` 找回。
+    """
+    target = os.path.join(workdir, "edit-me.txt")
+    with open(target, "w", encoding="utf-8") as handle:
+        handle.write("original\n")
+    subprocess.run(["pkill", "-f", "/usr/share/code/code"], capture_output=True)
+    time.sleep(3)
+    if not launch("code {}".format(target), "edit-me.txt"):
+        return False, "VS Code 起不来"
+
+    app = "code"
+    client.call("get_app_state", {"app": app, "max_tree_nodes": 2000})
+    client.call("press_key", {"app": app, "key": "ctrl+1"})
+    time.sleep(1.2)
+    client.call("press_key", {"app": app, "key": "ctrl+a"})
+    time.sleep(0.8)
+    client.call("type_text", {"app": app, "text": "baseline-electron"})
+    time.sleep(1.5)
+    client.call("press_key", {"app": app, "key": "ctrl+s"})
+    time.sleep(3)
+
+    content = open(target, encoding="utf-8", errors="replace").read()
+    if "baseline-electron" in content:
+        return True, "磁盘文件包含写入内容"
+    return False, "磁盘文件内容为 {!r}".format(content[:40])
+
+
 def task_thunderbird_folder(client, workdir):
     """在邮件客户端里切换文件夹。判据：树里的 `[selected focused]` 转移。
 
@@ -299,6 +334,7 @@ def task_thunderbird_folder(client, workdir):
 
 TASKS = {
     "thunderbird-folder": (task_thunderbird_folder, "邮件客户端切换文件夹（Gecko/XUL）"),
+    "vscode-edit": (task_vscode_edit, "编辑器替换内容并保存（Electron）"),
     "nautilus-rename": (task_nautilus_rename, "文件管理器重命名（GTK）"),
     "vlc-preference": (task_vlc_preference, "VLC 首选项改动（Qt）"),
     "gedit-type": (task_gedit_type, "文本编辑器写入并保存（GTK）"),
