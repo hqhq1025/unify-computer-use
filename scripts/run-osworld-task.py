@@ -205,6 +205,11 @@ def evaluate(task):
     funcs = spec["func"]
     if isinstance(funcs, str):
         funcs = [funcs]
+    # **options 必须原样传给评估器**。忘了传的代价是实测过的：几何任务的
+    # `examine_shape: false` 没传下去，于是"标题被移动了"这件事本身触发了
+    # 形状比对，判 0.0——而磁盘上的 top 明明满足判据。
+    # 少传一个参数，就会把一次成功记成失败，然后去错误的方向找原因。
+    options = spec.get("options") or {}
     expected = spec.get("expected")
     result = spec.get("result")
     if isinstance(expected, dict):
@@ -225,7 +230,7 @@ def evaluate(task):
             print("  {}: 结果文件不存在 {}".format(name, got))
             continue
         try:
-            score = float(fn(got, gold, enable_debug=False))
+            score = float(fn(got, gold, enable_debug=False, **options))
         except Exception as error:
             score = 0.0
             print("  {} 抛异常: {}".format(name, error))
