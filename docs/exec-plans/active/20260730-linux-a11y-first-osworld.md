@@ -795,9 +795,27 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 >
 > 建议选 1：本项目已同时接入两者，按任务类型路由即可，不必额外起服务。
 
-**#20 跨平面交接测试**　依赖：无
-> 浏览器下载 → `~/Downloads` → GUI 应用打开。这类任务最易碎。
-- 验收：至少一条完整交接链路端到端跑通并有证据
+**#20 跨平面交接测试** ✅ 已完成　依赖：无
+> `scripts/verify-cross-plane-handoff.py`。实测链路：
+> **浏览器下载 → `~/Downloads` → GUI 应用打开 → a11y 可读**，三项全 PASS。
+>
+> 判据全部用外部观测，不采信任一平面自己的返回值：文件系统检查、窗口标题、
+> AT-SPI 真值。
+>
+> 过程中踩到三个坑，每个都会让交接静默失败：
+>
+> 1. **CDP 驱动的导航没有用户手势，Chrome 会静默拦下下载**——不报错、不弹提示、
+>    不留半成品文件，表现为"下载就是没发生"。必须用
+>    `Page.setDownloadBehavior({behavior: "allow", downloadPath: ...})` 显式放行。
+>    **这是本项最关键的发现**：不知道这条，跨平面任务会以最难排查的方式失败。
+> 2. **Playwright 的 `expect_download` 对 CDP 接管的浏览器不可靠**——context 不是
+>    它创建的，`acceptDownloads` 没配上。改成让 Chrome 原生下载再轮询文件系统，
+>    这也更贴近真实场景。
+> 3. **不加 `Content-Disposition: attachment` 的话 Chrome 会内联渲染 `.txt`**，
+>    根本不触发下载，测的就不是交接链路了。
+>
+> 另：触发下载会中断导航，Playwright 同步 API 在这种情形下可能卡在 `close()`，
+> 所以浏览器那步隔离在独立子进程里并设超时。
 
 **#21 路由规则写进 system prompt** ✅ 已完成　依赖：无
 > `serverInstructions` 现在显式写明：浏览器不由本 MCP 操作，Chrome/Chromium 归
