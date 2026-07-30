@@ -23,3 +23,5 @@
   - 仓库内 `scripts/computer-use-cli/` 的用途、使用方法，以及为什么探测官方 bundled `computer-use` 时要优先走 `codex app-server` 代理而不是 direct stdio。
 - `macos-skylight-background-click.md`
   - `click_method=sky_click` 的文章与开源实现来源、固定源码版本、Chromium primer 事件序列、未采用范围和 macOS 私有 SPI 兼容性检查。
+- `osworld-operations/`
+  - 从 OSWorld 官方任务文件里统计出的"每个应用实际需要哪些 GUI 操作"清单，按频次排序并标注 a11y 可寻址性。对应 `docs/exec-plans/active/20260730-linux-a11y-first-osworld.md` 待办 #2a。

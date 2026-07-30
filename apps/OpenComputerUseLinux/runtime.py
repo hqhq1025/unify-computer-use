@@ -363,9 +363,37 @@ def matches_query(app, query):
 
 
 def resolve_app(query):
-    for app in iter_apps():
-        if matches_query(app, query):
-            return app
+    """按名字/标题/pid 找应用，找不到时**重试几次**再宣告失败。
+
+    实测（LibreOffice 7.3）：`get_app_state` 刚成功，紧接着同一会话里的 `click`
+    就报 `appNotFound("soffice")`，而 AT-SPI 桌面里那一条自始至终都在。
+    三次失败都发生在**会开关对话框的点击之后**——应用正忙于重建窗口时，
+    枚举链路上任何一环（`Atspi.get_desktop`、`get_child_count`、`get_name`）
+    瞬时读失败，都会被 `safe()` 吞成"这个应用不存在"。
+
+    没能钉死具体是哪一环（空名字与桌面条目消失两种猜想都实测证伪了），
+    但无论哪种瞬时故障，处置都一样：**"暂时读不到"不等于"不存在"**。
+    直接抛 appNotFound 是在向 agent 谎报事实——它会据此改用别的应用名、
+    重启应用，甚至判定任务无法完成，而真相只是需要再读一次。
+
+    重试上限很小：应用真的不存在时不该让调用方多等。
+    """
+    last_error = None
+    for attempt in range(RESOLVE_APP_ATTEMPTS):
+        try:
+            for app in iter_apps():
+                if matches_query(app, query):
+                    return app
+        except Exception as error:      # 枚举本身炸了也算这一轮没找到
+            last_error = error
+        if attempt + 1 < RESOLVE_APP_ATTEMPTS:
+            time.sleep(RESOLVE_APP_RETRY_SECONDS)
+    if last_error is not None:
+        raise RuntimeError(
+            'appNotFound("{}") after {} attempts (last enumeration error: {})'.format(
+                query, RESOLVE_APP_ATTEMPTS, last_error
+            )
+        )
     raise RuntimeError('appNotFound("{}")'.format(query))
 
 
@@ -1546,6 +1574,13 @@ def invoke_secondary_action(node, action):
             break
     raise RuntimeError("{} is not a valid secondary action for element".format(action))
 
+
+# 应用解析的重试次数与间隔。见 resolve_app() 的说明：应用忙于重建窗口时，
+# 枚举可能瞬时读不到，而"读不到"被当成"不存在"会让 agent 走上完全错误的分支。
+RESOLVE_APP_ATTEMPTS = int(os.environ.get("OPEN_COMPUTER_USE_RESOLVE_ATTEMPTS", "3"))
+RESOLVE_APP_RETRY_SECONDS = float(
+    os.environ.get("OPEN_COMPUTER_USE_RESOLVE_RETRY", "0.3")
+)
 
 # 调完开菜单的动作后等多久再判断菜单有没有真的弹出来。菜单是异步弹的，
 # 立刻去查必然查不到，会把能用的语义动作误判成失效并多合成一次右键。

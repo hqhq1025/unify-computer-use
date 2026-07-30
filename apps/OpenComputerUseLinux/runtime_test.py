@@ -1327,6 +1327,69 @@ class ClickableMarkerTests(AtspiPatchedTestCase):
         self.assertIn("clickable", runtime.state_segment(clickable))
 
 
+class ResolveAppRetryTests(AtspiPatchedTestCase):
+    """"暂时读不到"不等于"不存在"。"""
+
+    def setUp(self):
+        super().setUp()
+        self.slept = []
+        real_sleep = runtime.time.sleep
+        runtime.time.sleep = lambda s: self.slept.append(s)
+        self.addCleanup(setattr, runtime.time, "sleep", real_sleep)
+
+    def patch_iter_apps(self, results):
+        """results 是每次调用的返回值；元素为异常时抛出。"""
+        calls = {"n": 0}
+
+        def fake():
+            index = min(calls["n"], len(results) - 1)
+            calls["n"] += 1
+            outcome = results[index]
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
+
+        original = runtime.iter_apps
+        runtime.iter_apps = fake
+        self.addCleanup(setattr, runtime, "iter_apps", original)
+        return calls
+
+    def test_transient_empty_enumeration_is_retried(self):
+        """回归：应用忙于重建窗口时枚举可能瞬时为空，不能就此宣告不存在。
+
+        实测 LibreOffice：get_app_state 刚成功，紧接着 click 就报
+        appNotFound("soffice")，而 AT-SPI 桌面里那一条自始至终都在。
+        向 agent 谎报"应用不存在"会让它改用别的应用名、重启应用，
+        甚至判定任务无法完成——而真相只是需要再读一次。
+        """
+        app = _TreeNode(role="application", name="soffice")
+        self.patch_iter_apps([[], [], [app]])
+
+        self.assertIs(runtime.resolve_app("soffice"), app)
+
+    def test_enumeration_exception_is_retried(self):
+        app = _TreeNode(role="application", name="soffice")
+        self.patch_iter_apps([RuntimeError("dbus hiccup"), [app]])
+
+        self.assertIs(runtime.resolve_app("soffice"), app)
+
+    def test_genuinely_absent_app_still_fails(self):
+        self.patch_iter_apps([[]])
+
+        with self.assertRaises(RuntimeError) as caught:
+            runtime.resolve_app("no-such-app")
+        self.assertIn("appNotFound", str(caught.exception))
+
+    def test_found_on_first_try_does_not_sleep(self):
+        """应用在就立刻返回，不给正常路径加延迟。"""
+        app = _TreeNode(role="application", name="soffice")
+        self.patch_iter_apps([[app]])
+
+        runtime.resolve_app("soffice")
+
+        self.assertEqual(self.slept, [])
+
+
 class _NoSleep:
     """让 perform_operation 里的固定 sleep 不拖慢测试。"""
 
