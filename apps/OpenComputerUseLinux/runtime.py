@@ -1064,22 +1064,32 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
                 dropped["count"] += 1
             return
         index = len(records)
-        record = record_for(node, index, path, window_bounds, text_limit=text_limit)
 
         # 裁剪：只保留"可操作角色 + 屏幕上可见"的节点。与 OSWorld 官方判据同源，
         # 实测 22% 压缩率、100% 保留率。被裁的只是它自己这一行，**仍然继续递归
         # 子节点**——中间容器往往正是有价值控件的父节点，连子树一起砍会适得其反。
+        #
+        # 判据**先只读它真正用到的四个字段**，不要先建整条记录。
+        # 实测 GIMP（GAIL）：完整的 record_for 是 8.45ms/节点，而一次 render_tree
+        # 调用它 3162 次却只产出 157 条记录——**95% 的开销当场丢弃**，
+        # 占渲染耗时的 87%，整棵树 38s，超过 Go 层 30s 的超时。
+        # 也就是说 a11y 通道在 GIMP 上**默认根本用不了**，而原因只是取数顺序。
+        #
+        # 这四个字段合计约 2.3ms；状态段(2.52)、动作表(1.78)、值(0.92)、
+        # 占位符(0.58)、automationId(0.57) 只在节点确定保留时才读。
+        # 幸存者会把这四个字段重读一遍，但幸存率只有 5%，重读的代价可以忽略。
         if prune and depth > 0:
-            role_name = record["controlType"] or ""
+            probe_frame = relative_frame(node, window_bounds)
+            probe_role = node_role(node)
             # 有名字的可见节点一律保留，哪怕角色不"可交互"。
             # 实测教训：行距 combo 的 toggle button 本身没有名字，agent 只能靠
             # 父节点 `panel Line Spacing` 指认它。纯按角色白名单裁掉这个 panel，
             # 目标元素虽然还在树里，却**没法被指认**——整条对话框链路当场断掉。
             # 保留率指标只看"目标在不在"，看不到这一层，是它的盲区。
-            keeps = record["frame"] is not None and (
-                is_interactive_role(role_name)
-                or bool(record["name"])
-                or bool(record["description"])
+            keeps = probe_frame is not None and (
+                is_interactive_role(probe_role)
+                or bool(limit_text(node_name(node), text_limit=text_limit))
+                or bool(node_description(node, text_limit=text_limit))
             )
             if not keeps:
                 dropped["count"] += 1
@@ -1088,6 +1098,8 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
                     visit(child_at(node, child_index), depth + 1,
                           path + [child_index], render_depth)
                 return
+
+        record = record_for(node, index, path, window_bounds, text_limit=text_limit)
 
         # 预算吃紧时优先保住有名字/有动作/有值的节点。丢容器只丢它自己这一行，
         # 仍然继续递归子节点——被丢的容器往往正是有价值控件的父节点。

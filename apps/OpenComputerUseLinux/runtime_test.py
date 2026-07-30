@@ -1704,6 +1704,56 @@ class QtRichTextTests(AtspiPatchedTestCase):
         self.assertEqual(runtime.plain_text_from_rich_text(""), "")
 
 
+class PruneCostTests(AtspiPatchedTestCase):
+    """裁剪判据必须**先只读它用到的字段**，不能先建整条记录。
+
+    实测 GIMP（GAIL）：完整的 record_for 是 8.45ms/节点，而一次 render_tree
+    调用它 3162 次却只产出 157 条记录——**95% 的开销当场丢弃**，占渲染耗时的
+    87%，整棵树 38.4s，超过 Go 层 30s 的超时。也就是说 a11y 通道在 GIMP 上
+    **默认根本用不了**，而原因只是取数顺序。改完 17.5s，行数一字不差。
+    """
+
+    def test_pruned_nodes_never_pay_for_a_full_record(self):
+        # 一堆会被裁掉的无名 filler，外加一个留得下的按钮。
+        fillers = [_TreeNode(role="filler", name="", x=1, y=1, w=5, h=5)
+                   for _ in range(30)]
+        keeper = _TreeNode(role="push button", name="OK", x=1, y=1, w=5, h=5)
+        window = _TreeNode(role="frame", name="W", x=0, y=0, w=100, h=100,
+                           kids=tuple(fillers) + (keeper,))
+
+        calls = []
+        original = runtime.record_for
+
+        def counted(node, *args, **kwargs):
+            calls.append(runtime.node_name(node))
+            return original(node, *args, **kwargs)
+
+        runtime.record_for = counted
+        self.addCleanup(setattr, runtime, "record_for", original)
+
+        records, _ = runtime.render_tree(window, {"x": 0, "y": 0, "width": 100, "height": 100}, [0])
+
+        # 只有窗口自身与幸存的按钮该付全量代价。
+        self.assertEqual(len(records), 2, [r["name"] for r in records])
+        self.assertEqual(len(calls), 2,
+                         "被裁掉的节点不该走 record_for，实际调用了 {} 次".format(len(calls)))
+
+    def test_prune_decision_still_keeps_named_containers(self):
+        """省开销不许省掉正确性：有名字的容器仍然要留住。
+
+        实测教训——行距 combo 的 toggle button 本身没有名字，agent 只能靠父节点
+        `panel Line Spacing` 指认它。裁掉这个 panel，目标虽在树里却没法被指认。
+        """
+        inner = _TreeNode(role="toggle button", name="", x=2, y=2, w=4, h=4)
+        named_panel = _TreeNode(role="panel", name="Line Spacing", x=1, y=1, w=8, h=8,
+                                kids=(inner,))
+        window = _TreeNode(role="frame", name="W", x=0, y=0, w=100, h=100,
+                           kids=(named_panel,))
+        records, _ = runtime.render_tree(
+            window, {"x": 0, "y": 0, "width": 100, "height": 100}, [0])
+        self.assertIn("Line Spacing", [r["name"] for r in records])
+
+
 class SnapshotGrammarTests(unittest.TestCase):
     """快照文法。借鉴 Playwright 的 aria snapshot（`- role "name" [attr=value]`）。
 
