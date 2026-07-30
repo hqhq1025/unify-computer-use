@@ -562,7 +562,7 @@ def state_segment(node):
     if preferred_action_index(node) is not None:
         # 措辞刻意是"有一个动作"而不是"点得动"。它保证的是 click 工具能在这个
         # 元素上找到可调用的动作，**不保证那个动作生效**——实测 Nautilus /
-        # LibreOffice / GIMP / VLC 四个应用的动作都会返回成功却什么都不做。
+        # GIMP / VLC 三个应用的动作都会返回成功却什么都不做。
         # 叫 `clickable` 会被读成"点这里就行"，那就是工具在替 agent 打包票。
         marks.append("has-click-action")
     if not marks:
@@ -1661,7 +1661,6 @@ UNVERIFIED_SYNTHESIS = (
 
 # 语义调用同样不能当成"生效"的证据。这不是保守措辞，是实测结论：
 #   Nautilus  文件图标的 `menu`   -> do_action True，菜单一个都不弹（焦点/选中三种前置都试过）
-#   LibreOffice 确认框的 `Yes`    -> do_action True，对话框纹丝不动
 #   GIMP      图层 cell 的 `activate` -> do_action True，活动图层不变（截图 0 像素差异）
 #   VLC       单选按钮的 `Toggle`  -> CHECKED 真的翻转了，面板却不切换
 # 最后一条尤其要紧：**判据不能读被操作节点自身的状态**，状态会跟着变、行为没有。

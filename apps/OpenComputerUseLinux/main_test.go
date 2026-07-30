@@ -195,8 +195,8 @@ func TestLinuxClickMethodSafetyAndPlatformSupport(t *testing.T) {
 	//
 	// 这道闸门挡的是"把指针甩到屏幕任意一点"，而 auto 的回落分支合成的是同样
 	// 的坐标点击、且不受该开关约束——所以拦住带元素锚点的 global 并不增加安全性，
-	// 只是掐掉了唯一的逃生路径：实测有三处 AT-SPI 动作返回成功却不生效
-	// （Nautilus 的 menu、LibreOffice 的 Discard、行距下拉提交），
+	// 只是掐掉了唯一的逃生路径：实测有多处 AT-SPI 动作返回成功却不生效
+	// （Nautilus 的 menu、GIMP 图层的 activate、VLC 的 Toggle），
 	// 此时 auto 因 do_action 返回 True 而不回落，agent 无路可走。
 	result = service.click("Text Editor", "7", &x, &y, 1, "left", "global")
 	if strings.Contains(result.Content[0].Text, "OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS") {
@@ -544,8 +544,8 @@ func TestLinuxRuntimeReportsExecutionPath(t *testing.T) {
 	if !strings.Contains(linuxRuntimeScript, "UNVERIFIED_SYNTHESIS") {
 		t.Fatal("Linux runtime should mark synthesis-based actions as unverified")
 	}
-	// 语义调用同样不能当成"生效"的证据：实测 Nautilus / LibreOffice / GIMP / VLC
-	// 四个应用的 AT-SPI 动作都会返回成功却什么都不做。工具必须把这一点说出来，
+	// 语义调用同样不能当成"生效"的证据：实测 Nautilus / GIMP / VLC 三个应用的
+	// AT-SPI 动作都会返回成功却什么都不做。工具必须把这一点说出来，
 	// 否则 agent 会据此推进下一步，而真实界面还停在原地。
 	if !strings.Contains(linuxRuntimeScript, "UNVERIFIED_SEMANTIC") {
 		t.Fatal("Linux runtime should mark semantic AT-SPI actions as unverified too")
@@ -722,5 +722,60 @@ func TestMCPInstructionsDocumentGlobalSynthesisFocusContract(t *testing.T) {
 	}
 	if !strings.Contains(serverInstructions, "bring the target window to the foreground") {
 		t.Fatal("MCP instructions must document that synthesis tools steal focus")
+	}
+}
+
+// 语义调用返回成功却什么都没发生时，auto 必须自己改走坐标合成。
+//
+// 这是实测出来的常态而非边角：Nautilus 文件图标的 menu、GIMP 图层 cell 的
+// activate、VLC 单选按钮的 Toggle，三个应用的 AT-SPI 动作都会返回 True
+// 却什么都不做。此时 do_action 返回 True，auto 原有的回落
+// 分支（只在返回 False 时触发）不会启动，agent 无路可走。
+func TestAutoClickRetriesWithSynthesisWhenSemanticDidNothing(t *testing.T) {
+	element := &elementRecord{Index: 7, ControlType: "push button", Name: "Yes"}
+	semantic := []string{"[semantic] Invoked the element's AT-SPI accessibility action."}
+
+	request := linuxRequest{Tool: "click", ClickMethod: "auto", Element: element}
+	if !shouldRetryWithSynthesis(request, semantic) {
+		t.Fatal("auto + element + 语义通道，观测无变化时应当重试")
+	}
+
+	// accessibility 是调用方显式要求"只走语义"，不能替它合成。
+	explicit := request
+	explicit.ClickMethod = "accessibility"
+	if shouldRetryWithSynthesis(explicit, semantic) {
+		t.Fatal("click_method accessibility 表示只走语义，不得自动合成")
+	}
+
+	// 已经是合成路径了，重试没有意义。
+	synthesized := []string{"[synthesis] Synthesized a coordinate click at (1, 2)."}
+	if shouldRetryWithSynthesis(request, synthesized) {
+		t.Fatal("已经走过合成的动作不应再重试")
+	}
+
+	// 没有元素锚点就没有可信落点，退回原来的"如实报告未确认"。
+	anchorless := request
+	anchorless.Element = nil
+	if shouldRetryWithSynthesis(anchorless, semantic) {
+		t.Fatal("没有 element_index 时不得凭空合成坐标点击")
+	}
+
+	// 只对 click 生效：其它工具的重复执行可能有副作用。
+	other := request
+	other.Tool = "perform_secondary_action"
+	if shouldRetryWithSynthesis(other, semantic) {
+		t.Fatal("自动合成重试只对 click 开放")
+	}
+}
+
+func TestUsedSemanticPathReadsChannelTags(t *testing.T) {
+	if !usedSemanticPath([]string{"noise", "[semantic] did a thing"}) {
+		t.Fatal("应当识别 [semantic] 标签")
+	}
+	if usedSemanticPath([]string{"[synthesis] did a thing"}) {
+		t.Fatal("[synthesis] 不是语义通道")
+	}
+	if usedSemanticPath(nil) {
+		t.Fatal("没有 Note 时不应判定为语义通道")
 	}
 }

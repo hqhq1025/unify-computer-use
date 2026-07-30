@@ -359,9 +359,9 @@ func (s *service) click(app, elementIndex string, x, y *float64, clickCount int,
 	// auto 的回落分支合成的是同样的坐标点击，且不受该开关约束。于是实际效果
 	// 变成：只禁止 agent **主动选择**合成，不禁止合成本身。
 	//
-	// 这个不对称正好卡死了唯一的逃生路径。实测有三处 AT-SPI 动作
-	// **返回成功却不生效**（Nautilus 文件图标的 `menu`、LibreOffice 恢复
-	// 对话框的 `Discard`、行距下拉的选项提交）。这种情况下 `auto` 因为
+	// 这个不对称正好卡死了唯一的逃生路径。实测有多处 AT-SPI 动作
+	// **返回成功却不生效**（Nautilus 文件图标的 `menu`、GIMP 图层 cell 的
+	// `activate`、VLC 单选按钮的 `Toggle`）。这种情况下 `auto` 因为
 	// do_action 返回 True 而不会回落，`accessibility` 报成功，`global` 被拒——
 	// agent 手里没有任何一条能走通的路。
 	//
@@ -508,6 +508,31 @@ func (s *service) setValue(app, elementIndex, value string) toolCallResult {
 	return s.actionResult(app, linuxRequest{Tool: "set_value", App: app, Element: record, Value: value})
 }
 
+// usedSemanticPath 判断这次动作实际走的是不是语义调用。
+// 运行时给每条 Note 打了通道标签，这里只认标签，不猜。
+func usedSemanticPath(notes []string) bool {
+	for _, note := range notes {
+		if strings.Contains(note, "[semantic]") {
+			return true
+		}
+	}
+	return false
+}
+
+// shouldRetryWithSynthesis：语义调用报了成功却什么都没发生时，该不该改走坐标合成。
+//
+// 只对 click_method "auto" 开放。想"只走语义、绝不合成"的调用方用
+// "accessibility"，想"只合成"的用 "global"——两个显式选项本来就在 schema 里，
+// 不需要为这件事新增参数。
+//
+// 必须带 element_index：落点由无障碍树给出，不是屏幕上任意一点。
+func shouldRetryWithSynthesis(request linuxRequest, notes []string) bool {
+	return request.Tool == "click" &&
+		strings.EqualFold(request.ClickMethod, "auto") &&
+		request.Element != nil &&
+		usedSemanticPath(notes)
+}
+
 func (s *service) actionResult(app string, request linuxRequest) toolCallResult {
 	// 动作前的状态在 Go 侧已经缓存着了（动作工具契约要求先调 get_app_state，
 	// 且每个动作自己也会刷新缓存），所以 before/after 比对不需要额外遍历一次树。
@@ -517,7 +542,46 @@ func (s *service) actionResult(app string, request linuxRequest) toolCallResult 
 		return result
 	}
 	if before != nil && !observablyChanged(before, snapshot) {
-		notes = append(notes, "Nothing observable changed: the window title, accessibility tree, focus and selection are identical to the state before this action. Treat the action as unconfirmed rather than successful.")
+		// 语义调用返回成功却什么都没发生——实测这不是罕见情况，Nautilus 文件
+		// 图标的 `menu`、GIMP 图层 cell 的 `activate`、VLC 单选按钮的 `Toggle`
+		// 都如此。此时 do_action 返回 True，
+		// `auto` 的原有回落分支（只在返回 False 时触发）不会启动，
+		// agent 手里没有任何一条能走通的路。
+		//
+		// 判据刻意只用**外部信号**：窗口标题、整棵树、焦点、选中。
+		// 不读被操作节点自身的状态——VLC 那颗单选按钮 Toggle 之后 CHECKED
+		// 真的翻转了、面板却不切换，读节点自身会把它判成"生效了"。
+		//
+		// **这个机制盖不住 VLC 那一类，要说清楚**：它只认"什么都没变"。
+		// VLC 的案例是"状态变了、行为没变"——CHECKED 翻转会让树跟着变，
+		// 于是这里判定"发生了变化"，不会重试。要接住那一类，需要知道
+		// 这次动作**本该**造成什么后果（比如面板应当切换），
+		// 那是任务级的语义，不是通用判据能给的。
+		// 所以这里覆盖的是静默无操作，不是全部执行失败。
+		//
+		// 重复执行的风险是可控的：只有整棵树逐行相同、标题/焦点/选中都没变时
+		// 才重试，也就是应用状态与动作前完全一致，此时再点一次等价于从同一
+		// 状态点第一次。会漏判的只有"生效了但界面毫无痕迹"这一类，
+		// 而当前的失败模式——静默无操作——是实测在 3 个应用上都会发生的。
+		if shouldRetryWithSynthesis(request, notes) {
+			retry := request
+			retry.ClickMethod = "global"
+			retrySnapshot, retryNotes, retryResult := s.refreshSnapshot(app, retry)
+			if !retryResult.IsError && retrySnapshot != nil {
+				notes = append(notes,
+					"The semantic action reported success but nothing observably changed, so this retried the same element as a coordinate click.")
+				notes = append(notes, retryNotes...)
+				snapshot = retrySnapshot
+				if !observablyChanged(before, snapshot) {
+					notes = append(notes, "Still nothing observably changed after the coordinate retry. Both execution paths are exhausted for this element — do not assume the click landed.")
+				}
+			} else {
+				notes = append(notes,
+					"The semantic action reported success but nothing observably changed, and the coordinate retry could not run. Treat the action as unconfirmed.")
+			}
+		} else {
+			notes = append(notes, "Nothing observable changed: the window title, accessibility tree, focus and selection are identical to the state before this action. Treat the action as unconfirmed rather than successful.")
+		}
 	}
 	if diff, ok := incrementalTree(before, snapshot); ok {
 		return snapshot.resultWithTreeOverride(notes, diff)
