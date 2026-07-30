@@ -113,11 +113,50 @@ Playwright 每个动作都带一个 `element` 参数：
 阶段之间**只有 P0 是已决策的**，其余需要逐个确认再动——它们都会改变
 agent 看到的东西，改完都要重跑基线。
 
-### P0 — 通道按名字分家 ✅ 已决策
+### P0 — 通道按名字分家（**用户质疑后已修订**）
 
-- `click` **去掉 `x`/`y`**，只留 `element_index`（accessibility 通道）
-- 新增 `click_xy(app, x, y, click_count, mouse_button)`（GUI 通道）
-- `drag` → **`drag_xy`**（本来就只有坐标）
+> 用户问：「click 的 xy 不是为了定位对应的元素吗？你觉得有必要吗」
+>
+> 先澄清事实：**`click` 的 `x`/`y` 并不定位元素**。代码路径是
+> `screen_point(bounds, element=None, x, y)` → `window_bounds + x/y` →
+> 合成一次鼠标事件，**全程没有任何元素查找**，工具事后也说不出打到了什么。
+> 真正"用坐标去够元素"的是 `click(element_index=N, click_method="global")`
+> ——坐标由树给出，这条留在 `click` 里。
+>
+> 但这个质疑指出了一件更要紧的事：**`x`/`y` 本来"应该"能定位元素，
+> 只是我们没做。** 所以拆分的收益不该只是改名。
+
+**先纠正我自己引错的一处 Playwright 依据**：我一度以为
+`browser_click` 的 `target` 同时吃 ref 与坐标，所以"一个工具吃两种寻址"。
+不对——`target` 是 "snapshot reference **or a unique element selector**"，
+两种都是 DOM/a11y 寻址；`browser_click` **根本没有坐标模式**，
+坐标只存在于 opt-in 的 `browser_mouse_*` 家族。所以 Playwright 的先例
+是**支持**拆分的。
+
+**修订后的 P0**：
+
+- `drag` → **`drag_xy`**：值得做。它**没有**元素形式，名字应该把这件事说出来，
+  省得 agent 去找不存在的用法；而且它是唯一截图不可关的工具。
+- `click` 的 `x`/`y`：**拆成 `click_xy`，但必须同时给它加"命中回报"**——
+  否则拆分只是改名，参数名本来就已经自说明了，白增加表面积。
+
+**命中回报的可行性已实测**（`Atspi.Component.get_accessible_at_point`
+递归到叶子）：
+
+| 应用 | 工具包 | 命中与期望一致 |
+|---|---|---|
+| gedit | GTK | **11/11** |
+| Nautilus | GTK | 19/25 |
+| LibreOffice | VCL | 12/25 |
+| VLC | Qt | 2/25（测法有问题：把已关闭菜单里 extents 陈旧的项也算了） |
+
+**结论：能用，但不可靠到能当保证。** 只能作为**提示**发给 agent
+（"这个点上的元素看起来是 `push button Close`"），并明说
+某些工具包只能解析到容器层。即便如此也远好过现在——现在是
+纯粹的盲点，工具一个字都说不出来。
+
+**如果暂时不做命中回报，就先别拆 `click`**：参数名 `element_index` vs
+`x`/`y` 已经把通道说清楚了，只拆名字换不来任何新能力。
 - Note 标签变成**两个轴各一个**：`[a11y][semantic]` / `[gui][synthesis]`
   （保留执行轴的原标签，基线脚本的执行轴指标不受影响）
 - 每个工具的 description 开头加一行 `Channel: …`
