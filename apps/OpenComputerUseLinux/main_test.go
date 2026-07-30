@@ -11,8 +11,30 @@ import (
 )
 
 func TestToolDefinitionCount(t *testing.T) {
-	if got := len(toolDefinitions()); got != 9 {
-		t.Fatalf("toolDefinitions() count = %d, want 9", got)
+	// 9 个与 macOS / Windows 对齐的工具，外加 Linux 特有的 get_screenshot。
+	// 后者是 VLM 轨道的显式入口——a11y 轨（get_app_state 与所有动作工具）一律不带图，
+	// 否则每次调用都在同时付两条轨道的钱。
+	if got := len(toolDefinitions()); got != 10 {
+		t.Fatalf("toolDefinitions() count = %d, want 10", got)
+	}
+}
+
+func TestObservationChannelsAreSeparate(t *testing.T) {
+	shot := findToolDefinition(t, "get_screenshot")
+	if !strings.Contains(shot.Description, "ONLY when the accessibility tree is insufficient") {
+		t.Fatal("get_screenshot must present itself as the fallback channel, not an equal option")
+	}
+	if !strings.Contains(serverInstructions, "two separate channels and they are NOT equal") {
+		t.Fatal("server instructions must state that the two observation channels are not equal")
+	}
+	if !strings.Contains(serverInstructions, "Do not request a screenshot 'just to check'") {
+		t.Fatal("server instructions should discourage speculative screenshots")
+	}
+	if !strings.Contains(linuxRuntimeScript, "include_screenshot=False,") {
+		t.Fatal("build_snapshot must default to omitting the screenshot")
+	}
+	if !strings.Contains(linuxRuntimeScript, "capture_window_png(bounds) if include_screenshot else None") {
+		t.Fatal("the screenshot must be opt-in rather than always captured")
 	}
 }
 

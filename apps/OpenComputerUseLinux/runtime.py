@@ -710,7 +710,20 @@ def selected_text(app_pid, text_limit=DEFAULT_TEXT_LIMIT):
     return None
 
 
-def build_snapshot(query, text_limit=DEFAULT_TEXT_LIMIT, max_tree_nodes=MAX_ELEMENTS, max_tree_depth=MAX_DEPTH):
+def build_snapshot(
+    query,
+    text_limit=DEFAULT_TEXT_LIMIT,
+    max_tree_nodes=MAX_ELEMENTS,
+    max_tree_depth=MAX_DEPTH,
+    include_screenshot=False,
+):
+    """构建应用快照。
+
+    `include_screenshot` 默认关闭：a11y 与 VLM 是两条独立轨道，a11y 轨不应该
+    顺带付截图的钱。实测 gedit 单次观测里截图占 1014 token（文本 1908），
+    约 35%；等树裁剪把文本砍掉后截图会升到 80% 左右，成为主要成本。
+    截图改由 `get_screenshot` 显式索取。
+    """
     app = resolve_app(query)
     window_index, window = main_window(app)
     bounds = extents(window)
@@ -731,7 +744,7 @@ def build_snapshot(query, text_limit=DEFAULT_TEXT_LIMIT, max_tree_nodes=MAX_ELEM
         },
         "windowTitle": limit_text(node_name(window), text_limit=text_limit),
         "windowBounds": bounds,
-        "screenshotPngBase64": capture_window_png(bounds),
+        "screenshotPngBase64": capture_window_png(bounds) if include_screenshot else None,
         "treeLines": lines,
         "focusedSummary": focused_summary(pid, text_limit=text_limit),
         "selectedText": selected_text(pid, text_limit=text_limit),
@@ -1311,6 +1324,17 @@ def perform_operation(operation):
     tool = operation.get("tool")
     if tool == "list_apps":
         return {"ok": True, "text": list_apps_text()}
+    if tool == "get_screenshot":
+        # VLM 轨道的唯一入口。树只渲染一层，避免为了拿一张图顺带付整棵树的钱。
+        return {
+            "ok": True,
+            "snapshot": build_snapshot(
+                operation.get("app", ""),
+                max_tree_nodes=1,
+                max_tree_depth=1,
+                include_screenshot=True,
+            ),
+        }
     if tool == "get_app_state":
         snapshot = build_snapshot(
             operation.get("app", ""),

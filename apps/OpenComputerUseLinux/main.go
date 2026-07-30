@@ -27,7 +27,7 @@ var clickMethodValues = []string{"auto", "accessibility", "app_post", "sky_click
 //go:embed runtime.py
 var linuxRuntimeScript string
 
-const serverInstructions = "Computer Use tools let you interact with Linux desktop apps by performing UI actions.\n\nBegin by calling `get_app_state` every turn you want to use Computer Use to get the latest state before acting. The available tools are list_apps, get_app_state, click, perform_secondary_action, scroll, drag, type_text, press_key, and set_value.\n\nPrefer element-targeted interactions over coordinate clicks when an index for the targeted element is available. Linux actions use AT-SPI2 semantic actions and editable text APIs first. Coordinate mouse and key synthesis are best-effort fallbacks and are not a universal Wayland background input model.\n\nInput synthesis on Linux is global: it lands on whichever window currently holds focus, not on the app named in the call. Tools that fall back to synthesis therefore bring the target window to the foreground first, and fail rather than deliver input somewhere else. Expect press_key, scroll, drag and coordinate click to steal focus, and prefer set_value or element-targeted click when you need to avoid that."
+const serverInstructions = "Computer Use tools let you interact with Linux desktop apps by performing UI actions.\n\nBegin by calling `get_app_state` every turn you want to use Computer Use to get the latest state before acting. The available tools are list_apps, get_app_state, get_screenshot, click, perform_secondary_action, scroll, drag, type_text, press_key, and set_value.\n\nPrefer element-targeted interactions over coordinate clicks when an index for the targeted element is available. Linux actions use AT-SPI2 semantic actions and editable text APIs first. Coordinate mouse and key synthesis are best-effort fallbacks and are not a universal Wayland background input model.\n\nInput synthesis on Linux is global: it lands on whichever window currently holds focus, not on the app named in the call. Tools that fall back to synthesis therefore bring the target window to the foreground first, and fail rather than deliver input somewhere else. Expect press_key, scroll, drag and coordinate click to steal focus, and prefer set_value or element-targeted click when you need to avoid that.\n\nObservation has two separate channels and they are NOT equal. The accessibility tree from get_app_state is the primary channel: it is cheap, precise, and gives you element_index values you can act on directly. get_screenshot is the fallback and costs roughly a thousand extra tokens per call — reach for it only when the tree cannot answer the question: get_app_state reported the app exposes no accessibility content, an action reported that nothing observably changed, or the task genuinely depends on pixels. Do not request a screenshot 'just to check'."
 
 type toolDefinition struct {
 	Name        string         `json:"name"`
@@ -206,6 +206,8 @@ func (s *service) callTool(name string, args map[string]any) toolCallResult {
 	switch name {
 	case "list_apps":
 		return s.listApps()
+	case "get_screenshot":
+		return s.getScreenshot(requiredString(args, "app"))
 	case "get_app_state":
 		maxTreeNodes, err := optionalPositiveInt(args, "max_tree_nodes")
 		if err != nil {
@@ -301,6 +303,25 @@ func (s *service) getAppState(app string, textLimit *textLimit, maxTreeNodes, ma
 	// get_app_state 也要带上诊断：应用可能活着但 a11y 是空壳，
 	// 不说明的话 agent 会把"我看不见"误读成"界面是空的"。
 	return snapshot.resultWithNotes(notes)
+}
+
+// getScreenshot 是 VLM 轨道的唯一入口。a11y 轨（get_app_state 与所有动作工具）
+// 一律不带图，避免每次调用都同时付两条轨道的钱。
+func (s *service) getScreenshot(app string) toolCallResult {
+	if app == "" {
+		return textResult("Missing required argument: app", true)
+	}
+	snapshot, _, result := s.refreshSnapshot(app, linuxRequest{Tool: "get_screenshot", App: app})
+	if result.IsError {
+		return result
+	}
+	if snapshot.ScreenshotPNGBase64 == "" {
+		return textResult("No screenshot is available for this window. On GNOME Wayland the capture may come back blank; use the accessibility tree instead.", true)
+	}
+	return toolCallResult{Content: []contentItem{
+		{Type: "text", Text: fmt.Sprintf("Screenshot of %q (app %s, pid %d).", snapshot.WindowTitle, snapshot.App.Name, snapshot.App.PID)},
+		{Type: "image", Data: snapshot.ScreenshotPNGBase64, MimeType: "image/png"},
+	}}
 }
 
 func (s *service) click(app, elementIndex string, x, y *float64, clickCount int, mouseButton, clickMethod string) toolCallResult {
@@ -1226,6 +1247,14 @@ func toolDefinitions() []toolDefinition {
 				"text_limit":     textLimitProperty("Maximum text characters to return. Use \"max\" for full text. Defaults to 500."),
 				"max_tree_nodes": positiveIntegerProperty("Maximum accessibility tree nodes to render. Defaults to 1200."),
 				"max_tree_depth": positiveIntegerProperty("Maximum accessibility tree depth to render. Defaults to 64."),
+			}, []string{"app"}),
+		},
+		{
+			Name:        "get_screenshot",
+			Description: "Take a screenshot of an app's key window. Use this ONLY when the accessibility tree is insufficient — e.g. get_app_state reports the app exposes no accessibility content, an action reported that nothing observably changed, or the task depends on pixels (colors, images, canvas drawing). The accessibility tree from get_app_state is cheaper and more precise for everything else; it is the primary channel and this is the fallback. This tool is part of plugin `Computer Use`.",
+			Annotations: readOnlyAnnotations(),
+			InputSchema: objectSchema(map[string]any{
+				"app": stringProperty("App name or bundle identifier"),
 			}, []string{"app"}),
 		},
 		{
