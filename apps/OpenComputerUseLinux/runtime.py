@@ -34,6 +34,14 @@ FOCUS_GRAB_CANDIDATES = 8
 # 合理屏幕坐标/尺寸的上限。超出这个量级的只可能是未渲染控件的 INT_MIN 哨兵值，
 # 再夸张的多显示器布局也到不了这个数量级。
 MAX_SANE_EXTENT = 100000
+# 动作之后、建快照之前的最短安置时间。顶层窗口集合没变时就只等这么久，
+# 与加入 settle 判据之前的行为完全一致。
+SETTLE_MIN_SECONDS = 0.12
+# 开出/关掉窗口之后，最多再等多久让焦点落定。实测焦点转移只要 0.053s，
+# 这里留了十几倍余量；超时说明新窗口压根没接管焦点（比如提示气泡这类
+# 不可聚焦的顶层），带着当前状态返回并**明说没稳定**，好过把工具卡死。
+SETTLE_FOCUS_TIMEOUT_SECONDS = 0.8
+SETTLE_POLL_SECONDS = 0.02
 # 预算用到这个比例之后，开始丢弃"无名 + 无动作 + 无值"的纯结构容器。
 # 深度优先截断等于按遍历顺序随机丢弃，先到的占满配额、后面的整片消失；
 # 而结构容器（filler / panel / separator）对 agent 没有可操作价值，
@@ -384,6 +392,102 @@ def main_window(app):
         if state_contains(window, Atspi.StateType.SHOWING):
             return index, window
     return windows[0]
+
+
+def window_identity_set(app):
+    """当前顶层窗口的身份集合，用来判断一次动作有没有开出或关掉窗口。
+
+    身份取 (索引, 角色, 标题)。刚映射出来的窗口可能先是空标题、稍后才拿到
+    真正的标题，这会让同一个窗口在集合里换一个身份——**这不影响判据**：
+    它照样落在"新出现"那一侧，而这里要的正是"有东西变了"这个事实。
+    """
+    identity = set()
+    for index, window in app_windows(app):
+        identity.add((index, node_role(window), node_name(window)))
+    return identity
+
+
+def wait_for_ui_to_settle(
+    app,
+    before,
+    min_seconds=SETTLE_MIN_SECONDS,
+    timeout_seconds=SETTLE_FOCUS_TIMEOUT_SECONDS,
+    poll_seconds=SETTLE_POLL_SECONDS,
+    clock=time.monotonic,
+    sleep=time.sleep,
+):
+    """动作之后等界面安置好，再让调用方去建快照。
+
+    修的是一个**静默操作错误窗口**的竞态。实测（Thunderbird
+    `Tools → Message Filters`，AT-SPI 2.44 + GNOME Shell）：
+
+        t=0.070s  新窗口已经进入 AT-SPI 树，但 ACTIVE 还挂在主窗口身上
+        t=0.123s  ACTIVE 才转移过去（X11 的 _NET_ACTIVE_WINDOW 同一刻翻转）
+
+    而这里原先是固定 `sleep(0.12)`——**正好压在边界上**。快照因此有相当概率
+    落在 0.070~0.123 这段窗口期里建成：树是完整的、状态是自洽的、
+    `main_window()` 也按既有判据挑得没错，挑出来的却是主窗口。
+    agent 拿着主窗口的树按索引点击，就静默地操作了另一个窗口——
+    实测后果是在 Message Filters 里点 `New…`，弹出的是主窗口的「新建邮件」。
+
+    **把固定 sleep 调大修不了它**：那只是把边界挪到另一个不确定的位置，
+    应用越慢、机器越忙越容易重新撞上。判据必须从"等够时间"换成"等到状态"。
+
+    完成条件分两种：
+    - 顶层窗口集合与动作前一致 → 什么都没开也没关，立刻返回（常见路径不变慢）。
+    - 集合变了 → 等到**新出现的那个窗口**报 ACTIVE 或 MODAL 为止；
+      如果只有窗口关闭，则等到剩下的窗口里有人接管焦点。
+
+    超时**不静默**：返回一条说明，因为"新窗口没接管焦点"意味着这份快照可能
+    照的不是 agent 以为的那个窗口，这正是它需要知道的事。
+
+    **边界：窗口在最短安置时间之后才出现的，这里接不住。**
+    实测六例开窗口，进入 AT-SPI 树的耗时都 ≤ 0.070s：
+
+        Thunderbird 消息过滤器 (Gecko) 0.070   LibreOffice 查找替换 (VCL) 0.045
+        gedit 查找替换       (GTK)   0.045   gedit 另存为        (GTK) 0.064
+        VLC 首选项           (Qt)    0.046
+
+    `SETTLE_MIN_SECONDS` = 0.12 对最慢的一例仍有 1.7 倍余量，所以没有再加一段
+    固定观察期——那要给**每一个**动作加上几百毫秒，用真实延迟去买一个没量到的
+    余量。更慢的应用漏掉之后是另一种失败：快照照到的是动作前的状态，
+    新窗口完全不出现。那是**看得见**的失败（agent 会发现动作像是没生效），
+    与这里要修的"树自洽、却照错了窗口"不是一回事，不要混为一谈。
+    """
+    sleep(min_seconds)
+    if before is None:
+        return None
+    deadline = clock() + timeout_seconds
+    while True:
+        try:
+            windows = app_windows(app)
+            current = {
+                (index, node_role(window), node_name(window))
+                for index, window in windows
+            }
+        except Exception:
+            # 应用可能被这次动作关掉了。安置等待失败不该盖住真正的错误——
+            # 紧接着的 build_snapshot 会把它报出来。
+            return None
+        if current == before:
+            return None
+        appeared = current - before
+        for index, window in windows:
+            focused = state_contains(window, Atspi.StateType.ACTIVE) or state_contains(
+                window, Atspi.StateType.MODAL
+            )
+            if not focused:
+                continue
+            if not appeared or (index, node_role(window), node_name(window)) in appeared:
+                return None
+        if clock() >= deadline:
+            return (
+                "The set of top-level windows changed but no window took focus within "
+                "{:.1f}s. The snapshot below may show a different window than the one "
+                "this action opened — confirm the window title before using any "
+                "element_index from it.".format(timeout_seconds)
+            )
+        sleep(poll_seconds)
 
 
 def matches_query(app, query):
@@ -1942,6 +2046,9 @@ def perform_operation(operation):
     bounds = operation.get("windowBounds") or extents(window)
     element_record = operation.get("element")
     element = find_element(app, element_record)
+    # 动作之前先记下顶层窗口集合。动作之后要靠它判断有没有开出/关掉窗口，
+    # 从而决定该不该多等焦点落定——详见 wait_for_ui_to_settle。
+    windows_before = safe(lambda: window_identity_set(app))
     # 每个动作都要说清楚实际走了哪条路径、结果有没有被校验过。返回一棵新的
     # accessibility tree 看着像执行确认，其实只是快照，不能当成动作生效的证据。
     notes = []
@@ -2137,7 +2244,9 @@ def perform_operation(operation):
     else:
         raise RuntimeError('unsupportedTool("{}")'.format(tool))
 
-    time.sleep(0.12)
+    settle_note = wait_for_ui_to_settle(app, windows_before)
+    if settle_note:
+        notes.append(settle_note)
     response = {"ok": True, "snapshot": build_snapshot(operation.get("app", ""))}
     if notes:
         response["notes"] = notes

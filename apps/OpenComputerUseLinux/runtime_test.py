@@ -1688,6 +1688,204 @@ class QtRichTextTests(AtspiPatchedTestCase):
         self.assertEqual(runtime.plain_text_from_rich_text(""), "")
 
 
+class _FakeClock:
+    """假时钟。sleep 直接推进时间，测试因此既确定又不真的等。"""
+
+    def __init__(self):
+        self.now = 0.0
+
+    def monotonic(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+
+class _WindowNode(_TreeNode):
+    def __init__(self, role, name, active=False, modal=False):
+        super().__init__(role=role, name=name)
+        if active:
+            self.states.add(STATE.ACTIVE)
+        if modal:
+            self.states.add(STATE.MODAL)
+
+
+class _ScriptedApp(_TreeNode):
+    """顶层窗口集合随假时钟推进而变化的应用节点。
+
+    timeline 形如 [(生效时刻, [窗口...]), ...]，按时刻升序；读取时取最后一条
+    已经生效的。这样就能把实测到的时序原样搬进测试。
+    """
+
+    def __init__(self, clock, timeline):
+        super().__init__(role="application", name="app")
+        self.clock = clock
+        self.timeline = timeline
+
+    def _windows(self):
+        current = []
+        for at, windows in self.timeline:
+            if self.clock.now >= at:
+                current = windows
+        return current
+
+    def get_child_count(self):
+        return len(self._windows())
+
+    def get_child_at_index(self, index):
+        return self._windows()[index]
+
+
+class SettleWaitTests(AtspiPatchedTestCase):
+    """动作后的安置等待。
+
+    这一组守的是一个**静默操作错误窗口**的竞态：新窗口已经进树、但 ACTIVE
+    还挂在旧窗口上的那几十毫秒里，快照会照到旧窗口，而树本身完全自洽，
+    没有任何一处看得出不对。
+    """
+
+    def _wait(self, app, before, clock, **kwargs):
+        return runtime.wait_for_ui_to_settle(
+            app,
+            before,
+            clock=clock.monotonic,
+            sleep=clock.sleep,
+            **kwargs
+        )
+
+    def test_returns_right_after_the_minimum_wait_when_nothing_opened(self):
+        """常见路径不能变慢：窗口集合没变就只等最短安置时间。"""
+        clock = _FakeClock()
+        main = _WindowNode("frame", "Inbox", active=True)
+        app = _ScriptedApp(clock, [(0.0, [main])])
+        before = runtime.window_identity_set(app)
+
+        self.assertIsNone(self._wait(app, before, clock))
+        self.assertAlmostEqual(clock.now, runtime.SETTLE_MIN_SECONDS, places=6)
+
+    def test_waits_until_the_newly_opened_window_takes_focus(self):
+        """回归：实测到的 Thunderbird `Tools → Message Filters` 时序。
+
+            t=0.070  新窗口进树，ACTIVE 还在主窗口身上
+            t=0.123  ACTIVE 才转移过去
+
+        原先固定 sleep(0.12) 正好压在 0.123 这个边界上，于是快照有概率照到
+        主窗口——agent 按索引点 `New…`，实际点出的是主窗口的「新建邮件」。
+        """
+        clock = _FakeClock()
+        main_active = _WindowNode("frame", "Inbox", active=True)
+        main_idle = _WindowNode("frame", "Inbox")
+        filters_idle = _WindowNode("frame", "Message Filters")
+        filters_active = _WindowNode("frame", "Message Filters", active=True)
+        app = _ScriptedApp(
+            clock,
+            [
+                (0.0, [main_active]),
+                (0.070, [main_active, filters_idle]),
+                (0.123, [main_idle, filters_active]),
+            ],
+        )
+        before = runtime.window_identity_set(app)
+
+        self.assertIsNone(self._wait(app, before, clock))
+        self.assertGreaterEqual(clock.now, 0.123)
+        # 真正要守住的不是"等够了"，而是等完之后 main_window() 挑对了窗口。
+        _, chosen = runtime.main_window(app)
+        self.assertEqual(runtime.node_name(chosen), "Message Filters")
+
+    def test_the_old_fixed_sleep_would_have_picked_the_wrong_window(self):
+        """把旧行为钉住：这就是修之前会发生的事，不是假想出来的风险。"""
+        clock = _FakeClock()
+        main_active = _WindowNode("frame", "Inbox", active=True)
+        filters_idle = _WindowNode("frame", "Message Filters")
+        app = _ScriptedApp(
+            clock,
+            [(0.0, [main_active]), (0.070, [main_active, filters_idle])],
+        )
+
+        clock.sleep(0.12)  # 旧代码：动作后固定睡 0.12 就建快照
+        _, chosen = runtime.main_window(app)
+        self.assertEqual(runtime.node_name(chosen), "Inbox")
+
+    def test_modal_window_counts_as_settled(self):
+        """模态框可能只报 MODAL 不报 ACTIVE，两者都算焦点已落定。
+
+        出现时刻取实测的 LibreOffice 0.045s。
+        """
+        clock = _FakeClock()
+        main = _WindowNode("frame", "Writer", active=True)
+        alert = _WindowNode("alert", "Question", modal=True)
+        app = _ScriptedApp(clock, [(0.0, [main]), (0.045, [main, alert])])
+        before = runtime.window_identity_set(app)
+
+        self.assertIsNone(self._wait(app, before, clock))
+        _, chosen = runtime.main_window(app)
+        self.assertEqual(runtime.node_name(chosen), "Question")
+
+    def test_waits_for_focus_to_come_back_after_a_window_closes(self):
+        """关窗口同样有空档：对话框没了，焦点还没回到主窗口。"""
+        clock = _FakeClock()
+        main_idle = _WindowNode("frame", "Writer")
+        main_active = _WindowNode("frame", "Writer", active=True)
+        dialog = _WindowNode("dialog", "Find and Replace", active=True)
+        app = _ScriptedApp(
+            clock,
+            [
+                (0.0, [main_idle, dialog]),
+                (0.05, [main_idle]),
+                (0.30, [main_active]),
+            ],
+        )
+        before = runtime.window_identity_set(app)
+
+        self.assertIsNone(self._wait(app, before, clock))
+        self.assertGreaterEqual(clock.now, 0.30)
+
+    def test_window_opening_after_the_minimum_wait_is_out_of_scope(self):
+        """把边界钉住，别让它变成一个被误以为已覆盖的情形。
+
+        实测六例开窗口进树都 ≤ 0.070s，SETTLE_MIN_SECONDS=0.12 有 1.7 倍余量。
+        比这更慢的应用会漏——漏掉之后是**另一种**失败：快照照到动作前的状态，
+        新窗口根本不出现，agent 看得见。与这里修的"树自洽却照错窗口"不同。
+
+        谁要是调小 SETTLE_MIN_SECONDS，这条会先炸。
+        """
+        clock = _FakeClock()
+        main = _WindowNode("frame", "Inbox", active=True)
+        slow = _WindowNode("frame", "Slow Dialog")
+        app = _ScriptedApp(
+            clock,
+            [(0.0, [main]), (runtime.SETTLE_MIN_SECONDS + 0.05, [main, slow])],
+        )
+        before = runtime.window_identity_set(app)
+
+        self.assertIsNone(self._wait(app, before, clock))
+        self.assertAlmostEqual(clock.now, runtime.SETTLE_MIN_SECONDS, places=6)
+        self.assertGreaterEqual(runtime.SETTLE_MIN_SECONDS, 0.070)
+
+    def test_reports_when_the_new_window_never_takes_focus(self):
+        """超时不许静默：快照可能照的不是 agent 以为的那个窗口，得说出来。"""
+        clock = _FakeClock()
+        main = _WindowNode("frame", "Inbox", active=True)
+        tooltip = _WindowNode("window", "")
+        app = _ScriptedApp(clock, [(0.0, [main]), (0.05, [main, tooltip])])
+        before = runtime.window_identity_set(app)
+
+        note = self._wait(app, before, clock, timeout_seconds=0.4)
+        self.assertIsNotNone(note)
+        self.assertIn("element_index", note)
+        # 有界：不许把工具挂住。
+        self.assertLess(clock.now, runtime.SETTLE_MIN_SECONDS + 0.4 + 0.1)
+
+    def test_missing_baseline_skips_the_wait(self):
+        """取不到动作前的窗口集合时，退回旧行为，不要凭空等。"""
+        clock = _FakeClock()
+        app = _ScriptedApp(clock, [(0.0, [_WindowNode("frame", "Inbox")])])
+
+        self.assertIsNone(self._wait(app, None, clock))
+        self.assertAlmostEqual(clock.now, runtime.SETTLE_MIN_SECONDS, places=6)
+
+
 class _NoSleep:
     """让 perform_operation 里的固定 sleep 不拖慢测试。"""
 
