@@ -993,3 +993,40 @@ func TestIntentDeclarationOfferedOnEveryAccessibilityTool(t *testing.T) {
 		}
 	}
 }
+
+// 这两条都是**真实 agent 轨迹**（Claude Code 挂 MCP 跑 OSWorld Impress 任务，
+// 官方评估器判 1.0）暴露出来的，不是设想的场景。
+func TestNotesLearnedFromTheRealAgentRun(t *testing.T) {
+	// ① ctrl+s 之后 "delivered-but-ignored" 说过头了：文件其实存下来了，
+	//    agent 却因此多花截图 + 点 Save 两步去自证，占那次 12 步里的 17%。
+	//    格式类改动与文件状态**根本不进 a11y 树**，所以"树没变"只能推出
+	//    "树看不见"，推不出"没生效"。
+	for _, fragment := range []string{
+		"WEAK evidence, not proof of failure",
+		"Judge this from the attached screenshot",
+		"took effect while the tree stayed byte-identical",
+	} {
+		if !strings.Contains(deliveredButIgnoredNote(), fragment) {
+			t.Fatalf("送达但无变化的 Note 不得断言失败，缺 %q", fragment)
+		}
+	}
+
+	// ② `unknown element_index "128"` 只有 27 个字符、零指引，而同样是"下标
+	//    过期"，解析到别的控件时的报错却讲清了原因和出路。两条路径的帮助程度
+	//    不该差这么多。
+	snapshot := &appSnapshot{Elements: []elementRecord{{Index: 0}, {Index: 59}}}
+	_, err := lookupElement(snapshot, "128")
+	if err == nil {
+		t.Fatal("下标不存在时必须报错")
+	}
+	for _, fragment := range []string{"0..59", "renumbered", "get_app_state again"} {
+		if !strings.Contains(err.Error(), fragment) {
+			t.Fatalf("下标不存在的报错要给出范围与出路，缺 %q: %s", fragment, err)
+		}
+	}
+}
+
+// 把那句 Note 单独取出来，测试才不用去猜它藏在哪个分支里。
+func deliveredButIgnoredNote() string {
+	return strings.Join(unchangedNotes(true), " ")
+}

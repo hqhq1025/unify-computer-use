@@ -34,7 +34,13 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_BIN = os.path.join(REPO_ROOT, "dist", "linux", "amd64", "open-computer-use")
 OSWORLD_ROOT = os.environ.get("OSWORLD_ROOT", "/home/user/OSWorld")
 CACHE_DIR = "/tmp/osworld-cache"
-SERVER_NAME = "computer-use"
+# **不能叫 computer-use**——那是 Claude Code 的保留名，`claude mcp add` 会拒绝。
+# 而 `--mcp-config`（无论传文件还是 JSON 字符串）在实测里根本不生效：
+# stream-json 的 init 事件里 `mcp_servers` 始终是 []，agent 一个 mcp__ 工具都
+# 看不到，却**不报任何错**——它只会说"我没有这些工具"，看起来像模型的问题。
+# 可行的做法是 `claude mcp add --scope local`，它按目录存进 ~/.claude.json，
+# 所以注册到一个一次性目录里就不会污染用户的正常项目。
+SERVER_NAME = "ocu"
 
 # 这些内建工具必须禁掉，否则 agent 会绕开 GUI 直接改文件/跑脚本，
 # 试验就变成"Claude 会不会用 python-pptx"，与要回答的问题无关。
@@ -96,19 +102,24 @@ def apply_config(task):
     return True
 
 
-def write_mcp_config(binary, path):
-    with open(path, "w", encoding="utf-8") as handle:
-        json.dump({"mcpServers": {
-            SERVER_NAME: {"command": binary, "args": ["mcp"]}}}, handle)
-    return path
+def register_mcp(binary, workdir):
+    """把 MCP 注册到 workdir 这个一次性目录（scope=local，按目录隔离）。"""
+    os.makedirs(workdir, exist_ok=True)
+    result = subprocess.run(
+        ["claude", "mcp", "add", SERVER_NAME, "--", binary, "mcp"],
+        cwd=workdir, capture_output=True, text=True)
+    if result.returncode != 0 and "already exists" not in (result.stdout + result.stderr):
+        raise RuntimeError("注册 MCP 失败: {}{}".format(result.stdout, result.stderr))
+    check = subprocess.run(["claude", "mcp", "list"], cwd=workdir,
+                           capture_output=True, text=True)
+    if "Connected" not in check.stdout:
+        raise RuntimeError("MCP 没连上:\n" + check.stdout + check.stderr)
+    print("  MCP 已注册并连通（{}）".format(workdir))
 
 
-def run_agent(instruction, mcp_config, budget, transcript_path):
-    workdir = tempfile.mkdtemp(prefix="osworld-agent-")
+def run_agent(instruction, workdir, budget, transcript_path):
     command = [
         "claude", "-p", instruction,
-        "--mcp-config", mcp_config,
-        "--strict-mcp-config",
         "--permission-mode", "bypassPermissions",
         "--output-format", "stream-json",
         "--verbose",
@@ -121,7 +132,6 @@ def run_agent(instruction, mcp_config, budget, transcript_path):
         process = subprocess.run(command, cwd=workdir, stdout=handle,
                                  stderr=subprocess.PIPE, text=True)
     elapsed = time.time() - started
-    shutil.rmtree(workdir, ignore_errors=True)
     if process.stderr:
         tail = process.stderr.strip().splitlines()[-5:]
         for line in tail:
@@ -182,8 +192,14 @@ def summarize(transcript_path):
 
 def evaluate(task):
     """用 OSWorld 自己的评估器判分。"""
-    sys.path.insert(0, OSWORLD_ROOT)
-    from desktop_env.evaluators import metrics as metrics_module
+    # 直接按文件加载 slides.py，**不要走包的 __init__**——它会连带导入 chrome
+    # 评估器，那条链上需要 rapidfuzz / formulas，装不装跟本任务毫无关系。
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "osworld_slides", os.path.join(
+            OSWORLD_ROOT, "desktop_env/evaluators/metrics/slides.py"))
+    metrics_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(metrics_module)
 
     spec = task["evaluator"]
     funcs = spec["func"]
@@ -209,7 +225,7 @@ def evaluate(task):
             print("  {}: 结果文件不存在 {}".format(name, got))
             continue
         try:
-            score = float(fn(got, gold))
+            score = float(fn(got, gold, enable_debug=False))
         except Exception as error:
             score = 0.0
             print("  {} 抛异常: {}".format(name, error))
@@ -244,9 +260,11 @@ def main():
             return 1
         print()
 
-    mcp_config = write_mcp_config(args.binary, "/tmp/osworld-mcp.json")
+    workdir = "/tmp/ocu-agent-run"
+    shutil.rmtree(workdir, ignore_errors=True)
     print("=== 交给 agent ===")
-    elapsed = run_agent(task["instruction"], mcp_config, args.budget,
+    register_mcp(args.binary, workdir)
+    elapsed = run_agent(task["instruction"], workdir, args.budget,
                         args.transcript)
     print("  用时 {:.1f}s，轨迹写在 {}".format(elapsed, args.transcript))
     print()

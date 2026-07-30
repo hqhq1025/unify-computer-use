@@ -559,6 +559,24 @@ func (s *service) setValue(app, elementIndex, declared, value string) toolCallRe
 // 只有纯合成类工具才成立。它们走 require_window_focus，夺不到焦点就硬失败，
 // 绝不把输入送去别的窗口——所以一旦执行到了这里，就说明输入确实到了这个应用。
 // click 不在此列：它可能走的是语义通道，压根没经过焦点确认。
+// unchangedNotes 是"动作发出去了、树却没变"时说给 agent 的话。
+//
+// 措辞改过一次，因为它**说过头了**。真实 agent 轨迹（Claude Code 挂 MCP 跑
+// OSWorld Impress 任务）：ctrl+s 之后这条说"送达但被忽略、重复也没用"，
+// 而文件**其实存下来了**——OSWorld 官方评估器判 1.0 就是证据。agent 于是多花
+// 截图 + 点 Save 按钮**两步去自证**，占那次 12 步里的 17%。
+//
+// 成因是这条判据的结构性盲区：格式类改动与文件状态**根本不进 a11y 树**
+// （同一轮还实测到右对齐生效而树字节不变）。所以"树没变"在这里推不出
+// "没生效"，只能推出"树看不见"。截图现在恒带，那才是这类效果的可判之处
+// ——把 agent 指过去，而不是替它下一个会错的结论。
+func unchangedNotes(deliveryVerified bool) []string {
+	if deliveryVerified {
+		return []string{"This app's window was verified focused before synthesis, so the input reached this window; which widget received it is unverified. The accessibility tree, window title, focus and selection are unchanged — but that is WEAK evidence, not proof of failure: whole classes of effect never reach the tree at all. Measured on LibreOffice Impress, both applying right alignment and saving the file took effect while the tree stayed byte-identical. Judge this from the attached screenshot, or from external truth such as the file on disk, BEFORE concluding it did nothing. Only if the image also shows no change should you change approach rather than repeat the same input."}
+	}
+	return []string{"Nothing observable changed in the accessibility tree: window title, tree, focus and selection are identical to the state before this action. That is weak evidence rather than proof — effects that live outside the tree (formatting, file state, canvas pixels) leave it byte-identical. Check the attached screenshot before treating this as a failure."}
+}
+
 func deliveryWasVerified(request linuxRequest) bool {
 	switch request.Tool {
 	case "press_key", "scroll", "drag_xy", "click_xy":
@@ -649,9 +667,21 @@ func (s *service) actionResult(app string, request linuxRequest) toolCallResult 
 			//
 			// 这个区别直接决定 agent 下一步该干什么：同一个按键再按一次不会有
 			// 不同结果，该换路子；而不是像 click 那样值得换通道重试。
-			notes = append(notes, "This app's window was verified focused before synthesis, so the input reached this window (which widget inside it received the input is still unverified) — yet nothing observably changed: window title, accessibility tree, focus and selection are identical. Treat this as delivered-but-ignored: repeating the same input will not help; either the input is a no-op here, or the focus sits on a different widget than you assumed.")
+			// 措辞这里改过一次，因为它**说过头了**。
+			//
+			// 真实 agent 轨迹（Claude Code 跑 OSWorld Impress 任务）：ctrl+s
+			// 之后这条 Note 说"送达但被忽略、重复也没用"，而文件**其实存下来了**
+			// ——OSWorld 官方评估器判 1.0 就是证据。agent 于是多花了截图 + 点
+			// Save 按钮**两步去自证**，占那次 12 步里的 17%。
+			//
+			// 成因是这条判据的结构性盲区：格式类改动与文件状态**根本不进 a11y
+			// 树**（同一轮还实测到右对齐生效而树字节不变）。所以"树没变"在这里
+			// 不能推出"没生效"，只能推出"树看不见"。
+			// 截图现在恒带，那才是这类效果的可判之处——把 agent 指过去，
+			// 而不是替它下一个会错的结论。
+			notes = append(notes, unchangedNotes(true)...)
 		} else {
-			notes = append(notes, "Nothing observable changed: the window title, accessibility tree, focus and selection are identical to the state before this action. Treat the action as unconfirmed rather than successful.")
+			notes = append(notes, unchangedNotes(false)...)
 		}
 	}
 	if diff, ok := incrementalTree(before, snapshot); ok {
@@ -750,9 +780,22 @@ func (s *service) rememberSnapshot(query string, snapshot *appSnapshot) {
 }
 
 func lookupElement(snapshot *appSnapshot, elementIndex string) (*elementRecord, error) {
+	// 报错要把"为什么"和"怎么办"都说出来。
+	//
+	// 原来这里只回 `unknown element_index "128"`——27 个字符，零指引。真实 agent
+	// 轨迹里它就这么撞上了：用的是几步之前那份快照的下标，而树在动作之后缩小了。
+	// 对照之下，下标**解析到了别的控件**时的报错讲清了原因（索引会随对话框开关
+	// 重排）和出路（重新 get_app_state）。同样是"下标过期"，两条路径的帮助程度
+	// 不该差这么多。
+	hint := "Indices are renumbered on every get_app_state and shrink when the UI changes, so an index from an earlier snapshot is not reusable. Call get_app_state again and read the index from the fresh tree."
+	if len(snapshot.Elements) > 0 {
+		hint = fmt.Sprintf("The current snapshot has indices %d..%d. %s",
+			snapshot.Elements[0].Index,
+			snapshot.Elements[len(snapshot.Elements)-1].Index, hint)
+	}
 	index, err := strconv.Atoi(elementIndex)
 	if err != nil {
-		return nil, fmt.Errorf("unknown element_index %q", elementIndex)
+		return nil, fmt.Errorf("element_index %q is not an integer. %s", elementIndex, hint)
 	}
 	for _, record := range snapshot.Elements {
 		if record.Index == index {
@@ -760,7 +803,7 @@ func lookupElement(snapshot *appSnapshot, elementIndex string) (*elementRecord, 
 			return &copy, nil
 		}
 	}
-	return nil, fmt.Errorf("unknown element_index %q", elementIndex)
+	return nil, fmt.Errorf("unknown element_index %q. %s", elementIndex, hint)
 }
 
 // elementIntentMismatch 拿 agent 声明的意图去核对下标解析到的东西。
