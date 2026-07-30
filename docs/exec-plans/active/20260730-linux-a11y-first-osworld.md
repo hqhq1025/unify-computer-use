@@ -544,11 +544,35 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 - 验收：用 `element_index` 语义调用走通 `格式 → 段落 → 行距 → 双倍`，
   并用 AT-SPI 真值确认行距**真的改了**；失败点列成清单
 
-**#1b combo box / 下拉选择的可用路径** ⚠️ 部分完成（导航通、提交无解）　依赖：无
-> #1 实测发现 combo box 四条路径全不通，而下拉选择在 OSWorld 对话框里极其常见。
-- 验收：找到至少一条可靠路径（键盘序列 / Selection 接口 / 其它），
-  并用 `line-height` 类 ground truth 确认应用真的采纳了值；找不到则明确记录为
-  必须走 VLM 的操作类型
+**#1b combo box / 下拉选择的可用路径** ✅ 已找到可用路径　依赖：无
+> **答案：下拉里的选项必须用坐标点击，`do_action` 不行。**
+>
+> 完整可用链路（`line-height` 实测由 `100%` 变为 **`200%`**）：
+>
+> | 步骤 | 方式 |
+> |---|---|
+> | `menu Format` | 语义 `do_action` |
+> | `menu item Paragraph...` | 语义 `do_action` |
+> | `panel Line Spacing` 下的 `toggle button` | 语义 `do_action`（打开下拉）|
+> | **`table cell R3C0 Double`** | **坐标点击** ← 关键的一环 |
+> | `push button OK` | 语义 `do_action` |
+>
+> 三个前提，缺一条这条路就走不通：
+> 1. **不能点 `combo box` 节点**——它的 extents 是 INT_MIN 幻影，真实控件是旁边的
+>    `toggle button`
+> 2. **单元格必须带 Frame**——本轮修复。没有坐标就无从点击，这也正是之前五条
+>    路径全部失败的原因
+> 3. **需要 `OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1`**——坐标点击被
+>    既有安全闸挡着（它会移动系统指针并改变前台焦点）
+>
+> 已失败且不必再试的路径：`do_action` 到 cell（关掉下拉但不提交）、
+> `Atspi.Selection.select_child`（返回 True 不生效）、裸 xdotool 键盘、
+> MCP `press_key`、写 combo 的 `text` 兄弟节点。
+>
+> ⚠️ **验证状态**：原始 AT-SPI 层的完整链路已证实（100% → 200%）；MCP 层每一步
+> 单独验证通过（坐标点击 cell 返回成功、OK 在裁剪后的树里可见），但一次连贯的
+> 端到端跑未能完成——LibreOffice 在密集自动化下反复退出。补一次完整的 MCP
+> 端到端确认是这条的收尾工作。
 
 **#1c 区分"控件值变了"与"应用采纳了"** ✅ 已完成　依赖：无
 > `set_value` 原本说 `confirmed it applied`——这是**过度承诺**。回读确认的只是

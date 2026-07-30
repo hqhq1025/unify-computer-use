@@ -173,7 +173,9 @@ SCENARIOS = {
             # 行距 combo 的真实控件是 panel Line Spacing 下的 toggle button，
             # 那个 combo box 节点是 INT_MIN 幻影（见 plan 的实测发现）
             ("click", lambda e: _under(e, "panel Line Spacing", "toggle button")),
-            ("click", lambda e: _endswith(e, "Double")),
+            # 下拉里的单元格必须走坐标点击：do_action 会关掉下拉但不提交值。
+            # 这条路能走通的前提是单元格带 Frame（曾经缺失，已修）。
+            ("click", lambda e: _endswith(e, "Double", method="global")),
             ("click", lambda e: _by(e, "push button", "OK")),
         ],
     },
@@ -208,11 +210,11 @@ def _by(elements, role, name):
     return {"element_index": str(index), "click_method": "accessibility"}
 
 
-def _endswith(elements, suffix):
-    """按名字后缀定位，用于下拉里的 `cell R3C0 Double` 这类渲染。"""
+def _endswith(elements, suffix, method="accessibility"):
+    """按名字后缀定位，用于下拉里的 `table cell R3C0 Double` 这类渲染。"""
     for index, body in sorted(elements.items()):
         if body.endswith(suffix):
-            return {"element_index": str(index), "click_method": "accessibility"}
+            return {"element_index": str(index), "click_method": method}
     return None
 
 
