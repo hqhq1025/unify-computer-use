@@ -668,16 +668,39 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
     `Message Filters` 对话框照常打开、`Run Now/New…/Edit…/Delete` 可寻址，
     但点 `New…` 仍是纯语义 0 次合成、**无子窗口出现**。
     下次起点：先在 `combo box Filters for:` 里选中 `Local IMAP` 账户再点 `New…`。
-  - **⚠️ 途中暴露一个更要紧的问题：多顶层窗口时 `main_window()` 会选错。**
-    `Message Filters` 对话框开着时，`get_app_state` 返回的却是
-    `Inbox - Local IMAP` 主窗口——于是我按索引点 `New…`，实际点到的是**主窗口的
-    「新建邮件」**，弹出了 `Write: (no subject)`。
-    **这是"静默操作错误对象"那一类**，与陈旧 element_index 同源，但成因不同：
-    索引是新取的、没有过期，错的是**取状态时选错了窗口**。
-    `main_window()` 的顺序是 模态 > ACTIVE > SHOWING > 第一个，而
-    `Message Filters` 既不上报 MODAL 也不是 ACTIVE，就输给了主窗口。
-    **这条应当单独立项**：动作工具需要一种"指定窗口"的办法，
-    或 `main_window()` 要把"最近出现的顶层窗口"纳入判据。
+  - **❌ 已更正（2026-07-30 晚）：「多顶层窗口时 `main_window()` 会选错」是误判。**
+    原记录说 `Message Filters` 开着时 `get_app_state` 返回主窗口，我按索引点
+    `New…` 却点出了「新建邮件」（`Write: (no subject)`），并把成因归给
+    `main_window()` 的判据顺序。**当晚逐条复现，三条都不成立**：
+    - Gecko 把 `Message Filters` 报成 **`frame` 且确实上报 ACTIVE**，
+      不是原记录说的"既不报 MODAL 也不是 ACTIVE"；
+    - `get_app_state` 稳定地照到 `Message Filters`（`windowTitle` 实测），
+      `New…` 也正确寻址到（`[13] name='New…'`）；
+    - 端到端跑 8 轮，新旧两份 runtime 都是 8/8 拿到 `Message Filters`。
+
+    `Write: (no subject)` 最可能的来源是：`New…` 点下去**什么都没发生**之后，
+    合成回落把输入打到了当时持有 X 焦点的主窗口。那是**"焦点在别处"**那一类，
+    不是"选错窗口"那一类——**这两类的修法完全不同**，归错类会让下一轮去改
+    `main_window()` 这条每个应用都走的核心路径，而真正的毛病在别处。
+
+    教训与 Thunderbird「需要真实账户」那次同源：**看到一个坏结果就去猜成因、
+    并把猜测写成结论**。这次多花的代价是一整轮排查，好在没写进代码。
+
+  - **✅ 顺带查实并修掉了一个真实的时序隐患**（`4f64b35`）：
+    动作后固定 `sleep(0.12)` 建快照，而实测 Thunderbird 开窗口时
+    `t=0.070s` 新窗口进树、`t=0.123s` ACTIVE 才转移——中间 53ms 里快照会照到
+    上一个窗口，且树完全自洽、看不出异常。已改为按状态等待。
+    但要说清楚：当前路径下它被 `resolve_app` 的 0.15~0.20s 开销**偶然挡住了**
+    （实测快照真正发生在动作后 ~0.30s），所以**没有可演示的行为差异**；
+    价值在于不再依赖这个偶然。开窗口耗时实测六例：
+    Gecko 0.070 / VCL 0.045 / GTK 0.045、0.064 / Qt 0.046，全部 ≤ 0.070s。
+
+  - **✅ 还查实一个会误导排查的脚本 bug**（`92913c4`）：
+    `measure-baseline.py --task <name>` 里的 `pkill -f <裸词>` 匹配整条命令行，
+    而命令行里就写着任务名，于是**脚本把自己连同调用它的 shell 一起杀掉**
+    （无输出、退出码 144，看上去像被测应用崩了）。5 个任务里 4 个中招，
+    只有全量跑幸免。已改为 `pkill -x`。
+
   - **✅ 环境阻塞已解除（2026-07-30）**：`profiles.ini` 指向的
     `wtkk3c2w.default-release` 由 Thunderbird 启动时创建（这是我第一次找不到它的
     原因）。让它先建出来，再往 `prefs.js` 追加 8 条 pref 建一个
