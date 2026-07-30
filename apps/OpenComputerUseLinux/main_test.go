@@ -43,7 +43,6 @@ func TestDecisionRelevantStatesAreRendered(t *testing.T) {
 	for _, fragment := range []string{
 		"def state_segment(node):",
 		"NOTABLE_STATES",
-		`marks.append("disabled")`,
 	} {
 		if !strings.Contains(linuxRuntimeScript, fragment) {
 			t.Fatalf("tree must expose decision-relevant states: missing %q", fragment)
@@ -52,6 +51,14 @@ func TestDecisionRelevantStatesAreRendered(t *testing.T) {
 	// 只渲染"非默认"的一侧：每个节点都标 enabled 会淹没信号。
 	if strings.Contains(linuxRuntimeScript, `("ENABLED", "enabled")`) {
 		t.Fatal("rendering the default side of every state would drown the signal")
+	}
+	// 绝不从状态缺失反推语义：Nautilus 的文件图标不设 ENABLED/SENSITIVE 却完全
+	// 可操作，标成 disabled 会让 agent 跳过真实目标。
+	if strings.Contains(linuxRuntimeScript, `marks.append("disabled")`) {
+		t.Fatal("inferring 'disabled' from a missing ENABLED state produces false positives on Linux")
+	}
+	if !strings.Contains(linuxRuntimeScript, "绝不从状态的缺失反推语义") {
+		t.Fatal("the rule against inferring from absent states must stay documented in the source")
 	}
 }
 

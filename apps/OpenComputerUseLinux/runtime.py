@@ -460,14 +460,23 @@ def placeholder_text(node, text_limit=DEFAULT_TEXT_LIMIT):
 
 
 def state_segment(node):
-    """把值得关注的状态渲染成紧凑标记，如 `[disabled checked]`。
+    """把值得关注的状态渲染成紧凑标记，如 `[checked expanded]`。
 
-    禁用单独处理：它是"缺少 ENABLED"而不是"具备某状态"，而 agent 对着一个
-    禁用控件反复点击是很常见的浪费。
+    **只报告"存在即有意义"的状态，绝不从状态的缺失反推语义。**
+
+    这条规则是踩坑换来的：最初这里会在缺少 `ENABLED` 时标 `[disabled]`，
+    实测发现 Nautilus 的文件图标根本不设 `ENABLED` / `SENSITIVE`——
+    它们状态里只有 `SHOWING, VISIBLE, FOCUSABLE`，却带着 `open` / `menu` 两个动作，
+    完全可操作。被误标成 disabled 之后，agent 会直接跳过真正的目标。
+
+    对照组同样说明问题：gedit 那个被我一度当成"禁用"的 `Clear Highlight`，
+    其实是**没有 SHOWING**（藏在折叠的搜索面板里），不是禁用。
+
+    结论：AT-SPI 的 ENABLED/SENSITIVE 在 Linux 上不可靠，不同工具包设不设全凭自觉，
+    没有可靠判据能区分"真禁用"与"这个工具包不上报"。宁可少给一个信号，
+    也不能给一个会让 agent 跳过可用目标的假信号。
     """
     marks = []
-    if not state_contains(node, Atspi.StateType.ENABLED):
-        marks.append("disabled")
     for name, label in NOTABLE_STATES:
         state = getattr(Atspi.StateType, name, None)
         if state is not None and state_contains(node, state):

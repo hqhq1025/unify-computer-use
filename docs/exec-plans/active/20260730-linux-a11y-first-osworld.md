@@ -947,6 +947,37 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 > 2. **已决定：替换，不并存。** 只挂本 MCP，不启用它自带的 158 个 per-app 语义工具。
 >    见决策记录 2026-07-30。
 
+**#27 工具命名在误导模型：`perform_secondary_action` 听起来像兜底**　依赖：无
+> 来自实际使用观察：**工具名本身在影响模型的选择**，而 `perform_secondary_action`
+> 的字面意思是"次要动作"，读起来像 fallback。但事实相反——AT-SPI 的语义动作
+> **就是 first-class 的路径**。Nautilus 里文件的 `menu` 动作就是调出右键菜单的
+> 唯一正规方式，一点都不"次要"。
+>
+> **不是 Linux 独有**：macOS 侧同名，描述更弱——
+> "Invoke a secondary accessibility action exposed by an element."，
+> 树里还渲染成 `Secondary Actions:`（Linux 已改成 `More actions:`）。
+> 名字继承自官方 Codex Computer Use schema，两个平台都对齐了它。
+>
+> **约束**：仓库有明确的工具面对齐目标
+> （见 `docs/exec-plans/active/20260422-remaining-tool-official-alignment.md`），
+> 单方面改名会破坏与官方 schema 及 macOS/Windows 的一致性。所以这不是
+> "改个名字"那么简单，是要先决定对齐还是分歧。
+>
+> 三个选项，代价递增：
+>
+> | 选项 | 做法 | 代价 |
+> |---|---|---|
+> | A | 不改名，强化描述 + `serverInstructions` + 树里措辞 | 无对齐损失；但**名字仍是模型最强的模式匹配依据**，效果有限 |
+> | B | 保留原名，另加一个语义清晰的别名工具（如 `invoke_element_action`），二者等价 | 多一个工具；模型大概率优先选名字更清楚的那个 |
+> | C | 直接改名，接受与官方 schema 分歧 | 对齐破裂，跨平台一致性受损 |
+>
+> 我倾向 **B**：它是唯一能真正解决"名字即引导"的方案，而代价只是多一个工具——
+> 而本计划已经为 `get_screenshot` 开过一个平台特有工具的先例。
+> 但这条动的是对外协议面，该由人拍板。
+>
+> 相关：这与 #6（引导 agent 走 a11y 通道）是同一个问题的两面。#6 做的是
+> 描述和 Note 层面的引导，而命名是比描述更强的信号。
+
 **#26 harness 跑通并产出四元组基线**　依赖：#25
 - 验收：LibreOffice 子集上产出 成功率 / 平均步数 / 平均 token / a11y 通道使用率
 
