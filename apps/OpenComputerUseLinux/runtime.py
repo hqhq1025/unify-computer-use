@@ -515,6 +515,24 @@ def state_segment(node):
         state = getattr(Atspi.StateType, name, None)
         if state is not None and state_contains(node, state):
             marks.append(label)
+    # `clickable` 不是 AT-SPI 状态，是一条**能力**判断，但它属于同一个括号组：
+    # agent 扫一眼就该知道这个元素能不能直接按元素点。
+    #
+    # 为什么必须显式标出来：action_names() 会隐藏 click 类动作（否则每个可点节点
+    # 都显示 "More actions: click"，模型会以为那是 click 工具之外的另一条路，
+    # 于是在两个工具之间反复摇摆）。但一并隐藏之后，"有语义点击"和"根本没有动作
+    # 接口"在树里长得**一模一样**：
+    #     3  push button Home              <- 有 click 动作，可直接调
+    #     12 list item  Recent files       <- 没有 Action 接口，只能坐标点
+    # agent 无从分辨，只好一律退回坐标——恰好背离 a11y 优先。
+    #
+    # 实测这是少数派（Nautilus 10 个可点 vs 103 个不可点，gedit 7 vs 30），
+    # 所以标可点的比标不可点的省一个数量级。
+    #
+    # 判据必须与 click 工具实际调用的入口同源（preferred_action_index），
+    # 否则这个标记本身就成了新的谎言。
+    if preferred_action_index(node) is not None:
+        marks.append("clickable")
     if not marks:
         return ""
     return " [" + " ".join(marks) + "]"
