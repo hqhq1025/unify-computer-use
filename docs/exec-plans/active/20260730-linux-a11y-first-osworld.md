@@ -711,7 +711,12 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
       Local Folders 只提供文件夹树，凡是需要**收件/发件身份**的功能都不可用。
       **最终结论**：邮件列表与消息过滤器这 5 个任务需要一个**真正的收件账户**
       （POP/IMAP）。属**环境限制**，与 a11y 或本 MCP 无关。
-      下次起点：本地起一个 dovecot，或直接用 OSWorld 自带的 Thunderbird 账户配置。
+      **`movemail` 方案已排除（2026-07-30 实测）**：本机 Thunderbird 是 **115.6.0**，
+      `movemail` 账户类型在 91 之后已被移除——写进 prefs.js 后 Thunderbird 启动时
+      直接把 `mail.accountmanager.accounts` 重写回 `account1`，拒绝了该账户。
+      不是配置写错，是版本不支持。（相关 pref 已清理，profile 已回到原状。）
+      下次起点：装 dovecot-imapd（需 sudo），或直接用 OSWorld 自带的
+      Thunderbird 账户配置。
     - **尝试过的解法与结果**：想不联网建一个本地账户来解锁这 10 个任务。
       `AppMenu → Account Settings` 能打开（语义可达），里面有
       `push button Account Actions`，但点击后未展开预期菜单。
