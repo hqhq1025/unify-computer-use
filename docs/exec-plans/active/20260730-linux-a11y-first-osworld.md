@@ -539,12 +539,12 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 
 ### 可靠性与动作能力
 
-**#1 LibreOffice 菜单 → 对话框链路实测**　依赖：无
+**#1 LibreOffice 菜单 → 对话框链路实测** ✅ 已完成　依赖：无
 > OSWorld 的主导操作类型，任务密度最高，也最能验证语义动作的真实能力。
 - 验收：用 `element_index` 语义调用走通 `格式 → 段落 → 行距 → 双倍`，
   并用 AT-SPI 真值确认行距**真的改了**；失败点列成清单
 
-**#1b combo box / 下拉选择的可用路径**　依赖：无
+**#1b combo box / 下拉选择的可用路径** ⚠️ 部分完成（导航通、提交无解）　依赖：无
 > #1 实测发现 combo box 四条路径全不通，而下拉选择在 OSWorld 对话框里极其常见。
 - 验收：找到至少一条可靠路径（键盘序列 / Selection 接口 / 其它），
   并用 `line-height` 类 ground truth 确认应用真的采纳了值；找不到则明确记录为
@@ -599,9 +599,23 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 **#14 H5 菜单等层级按需展开**　依赖：#7
 - 验收：LibreOffice 的"可交互虚高"是否被消除；多出的交互轮次是否可接受
 
-**#15 `element_index` 跨观测稳定性**　依赖：无
-> #13 的前提。不稳定则增量观测无法成立。
-- 验收：给出同一元素在连续 N 次观测中标识是否不变的实测结论
+**#15 `element_index` 跨观测稳定性** ✅ 已完成　依赖：无
+> #13 的前提。实测结论：**索引是位置性的，不是身份稳定的**。
+
+| 场景（gedit，241 元素） | 索引漂移 |
+|---|---|
+| 空转两次观测 | 0% |
+| 无副作用按键（Home）后 | 0% |
+| 插入文本后 | 0%（仅内容变化：脏标记 `*`）|
+| **菜单展开（结构变化）** | **26%** |
+| **菜单关闭后** | **仍 26%，不回弹** |
+
+关键在最后一行：index 79 从 `radio button Documents` 变成 `filler` 后，
+关掉菜单**也没有变回去**——结构一旦变过，编号就永久重排了。
+
+对 #13 的影响：增量观测不能直接用 index 做身份，必须引入稳定标识
+（`runtimeId` 路径已在 element record 里，可作为基础）。当前用法之所以安全，
+是因为动作工具契约强制每次动作前重取 `get_app_state`，缓存不会过期。
 
 **#16 状态表达（选中 / 禁用 / 展开与否）**　依赖：无
 - 验收：这三类状态在树里可见，且不显著增加 token
@@ -616,8 +630,17 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 
 ### 浏览器控制平面
 
-**#19 browser-use 的 `file://` 放行策略**　依赖：无
-- 验收：确认能否放行；不能则给出 OSWorld 本地文件任务的替代路径
+**#19 browser-use 的 `file://` 放行策略** ✅ 已完成　依赖：无
+> 实测结论：**无法放行**。三种配置全部被 SecurityWatchdog 拦死：
+> `allowed_domains=["file://*"]`、`allowed_domains=["*"]`、`disable_security=True`，
+> 报错均为 `Navigation to file://... blocked by security policy`。
+> 更麻烦的是被拦后事件总线持续重试，调用方表现为**超时**而非明确拒绝。
+>
+> 替代路径（OSWorld 有相当一批本地文件任务，必须选一条）：
+> 1. 该类任务改走 **Playwright 直连**——已实测可正常导航 `file://`
+> 2. 用本地 HTTP 服务中转本地文件
+>
+> 建议选 1：本项目已同时接入两者，按任务类型路由即可，不必额外起服务。
 
 **#20 跨平面交接测试**　依赖：无
 > 浏览器下载 → `~/Downloads` → GUI 应用打开。这类任务最易碎。
@@ -629,9 +652,21 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 
 ### 环境与仓库
 
-**#22 沉淀 a11y 解锁配置清单**　依赖：无
-- 验收：Chrome/Electron 的 `--force-renderer-accessibility` 与独立
-  `user-data-dir`、snap 应用的限制等，形成可直接用于环境搭建的清单
+**#22 沉淀 a11y 解锁配置清单** ✅ 已完成　依赖：无
+
+环境搭建时按此清单配置，`scripts/a11y-readiness-probe.py` 可用于验收：
+
+| 项 | 配置 | 说明 |
+|---|---|---|
+| GTK 系（gedit / Nautilus / GIMP） | `GTK_MODULES=gail:atk-bridge`；`toolkit-accessibility=true` | 本机已默认开启 |
+| Qt 系（VLC） | `QT_ACCESSIBILITY=1` | 本机已默认开启 |
+| **Chrome / Chromium** | `--force-renderer-accessibility`，**且必须配独立 `--user-data-dir`** | 不给独立 profile 的话，带新参数的启动命令会被现有实例**会话交接**走、参数完全失效，表现为"加了参数也没用" |
+| **Electron（VS Code）** | `--force-renderer-accessibility` | 解锁后 602 节点可用，但观测成本高达 21.3k token |
+| **snap 打包的应用（Firefox）** | 无解 | 日志明示 `Not loading module "atk-bridge"`，snap 封装接不上会话 a11y 总线。只能换 deb/flatpak，或该应用降级走 VLM |
+
+排查时注意两个会导致误判的陷阱（已写进 probe 脚本头部）：
+**僵尸 AT-SPI 注册**（应用退出后残留 app+frame 空壳）与
+**浏览器会话交接**（新参数被现有实例吞掉）。
 
 **#23 修复 `make ci` 跑不到底** ✅ 已完成　依赖：无
 > `check-repo-hygiene.sh` 缺 `.editorconfig`、`.github/workflows/ci.yml` 等 11 个文件，
