@@ -1299,6 +1299,11 @@ class ClickableMarkerTests(AtspiPatchedTestCase):
 
     def make(self, actions):
         class Node(_TreeNode):
+            def get_action_iface(self):
+                # 真实节点没有动作时不实现 Action 接口。运行时先问接口再问动作数，
+                # 否则 LibreOffice 的 ATK 桥会对非 ATK_ACTION 对象打断言。
+                return object() if actions else None
+
             def get_n_actions(self):
                 return len(actions)
 
@@ -1310,8 +1315,13 @@ class ClickableMarkerTests(AtspiPatchedTestCase):
 
         return Node(role="push button", name="Home", x=1, y=1, w=5, h=5)
 
+    def segment(self, node):
+        """按 record_for 的真实用法：动作表只读一次，标记由它得出。"""
+        _, has_click = runtime.node_actions(node)
+        return runtime.state_segment(node, has_click_action=has_click)
+
     def test_element_with_click_action_is_marked(self):
-        self.assertIn("has-click-action", runtime.state_segment(self.make(["click"])))
+        self.assertIn("has-click-action", self.segment(self.make(["click"])))
 
     def test_element_without_any_action_is_not_marked(self):
         """回归：Nautilus 侧边栏条目只有 component 接口，没有 Action 接口。
@@ -1320,17 +1330,33 @@ class ClickableMarkerTests(AtspiPatchedTestCase):
         action_names() 会隐藏 click 类动作，于是"有语义点击"和"根本点不了"
         被抹成同一个样子，agent 只好一律退回坐标，恰好背离 a11y 优先。
         """
-        self.assertNotIn("has-click-action", runtime.state_segment(self.make([])))
+        self.assertNotIn("has-click-action", self.segment(self.make([])))
 
     def test_marker_matches_what_click_would_actually_invoke(self):
-        """标记必须与 click 工具真正调用的入口同源，否则它自己就是新的谎言。"""
-        only_menu = self.make(["menu"])
-        clickable = self.make(["activate"])
+        """标记与 click 真正调用的入口必须同源。
 
-        self.assertIsNone(runtime.preferred_action_index(only_menu))
-        self.assertNotIn("has-click-action", runtime.state_segment(only_menu))
-        self.assertIsNotNone(runtime.preferred_action_index(clickable))
-        self.assertIn("has-click-action", runtime.state_segment(clickable))
+        两者现在是两份实现——`node_actions()` 出标记、`preferred_action_index()`
+        出调用——因为渲染时的动作表只允许读一次（LibreOffice 的 ATK 桥被反复
+        问会让应用整个退出）。既然实现分开了，就必须显式钉住它们的一致性，
+        否则标记会变成新的谎言。
+        """
+        cases = [
+            ["menu"],                    # 只有二级动作，click 无从下手
+            ["activate"],                # 精确命中
+            ["click", "menu"],           # 混合
+            [],                          # 完全没有动作
+            ["Press the button"],        # 只有描述式命名，靠子串兜底
+        ]
+        for actions in cases:
+            node = self.make(actions)
+            _, has_click = runtime.node_actions(node)
+            invocable = runtime.preferred_action_index(node) is not None
+            self.assertEqual(
+                has_click, invocable,
+                "动作表 {!r}：标记说 {}，实际可调用 {}".format(
+                    actions, has_click, invocable),
+            )
+            self.assertEqual(has_click, "has-click-action" in self.segment(node))
 
 
 class ResolveAppRetryTests(AtspiPatchedTestCase):

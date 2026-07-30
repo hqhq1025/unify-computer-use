@@ -41,7 +41,9 @@ func TestDecisionRelevantStatesAreRendered(t *testing.T) {
 	// 禁用、选中、展开、勾选这几类状态此前完全不在树里。agent 因此会对着
 	// 禁用控件反复点击，也看不出下拉/菜单到底展开没有。
 	for _, fragment := range []string{
-		"def state_segment(node):",
+		// 断言函数存在即可，不钉签名——签名会因为参数增减而变，
+		// 那不是这条测试要保护的东西。
+		"def state_segment(",
 		"NOTABLE_STATES",
 	} {
 		if !strings.Contains(linuxRuntimeScript, fragment) {
@@ -777,5 +779,28 @@ func TestUsedSemanticPathReadsChannelTags(t *testing.T) {
 	}
 	if usedSemanticPath(nil) {
 		t.Fatal("没有 Note 时不应判定为语义通道")
+	}
+}
+
+// 渲染一个节点时，动作表只允许问一次。
+//
+// LibreOffice 的 ATK 桥被反复问动作表会打出
+//
+//	(soffice): CRITICAL: impl_get_NActions: assertion 'ATK_IS_ACTION (user_data)' failed
+//
+// 密集调用下应用会整个退出（实测：对话框循环第 3~4 轮 soffice 消失，
+// 随后 get_app_state 报 appNotFound）。早先为了给出 [has-click-action] 标记，
+// record_for 经 state_segment -> preferred_action_index 又问了第二次，
+// 等于在一个已知脆弱的桥上把每个节点的问询翻倍。
+func TestTreeRenderingReadsActionTableOnce(t *testing.T) {
+	if !strings.Contains(linuxRuntimeScript, "def node_actions(") {
+		t.Fatal("动作表必须有一个一次读完的入口 node_actions()")
+	}
+	// record_for 里不得再出现第二次动作表读取。
+	if strings.Contains(linuxRuntimeScript, "state_segment(node)\n") {
+		t.Fatal("state_segment 不应自己再去问一次动作表，标记要由 record_for 传入")
+	}
+	if !strings.Contains(linuxRuntimeScript, "actions, has_click_action = node_actions(node)") {
+		t.Fatal("record_for 应当一次读完动作表，两个字段共用")
 	}
 }

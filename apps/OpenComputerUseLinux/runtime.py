@@ -397,6 +397,56 @@ def resolve_app(query):
     raise RuntimeError('appNotFound("{}")'.format(query))
 
 
+def node_actions(node):
+    """**一次读完**该节点的动作表，同时给出渲染需要的两个结论。
+
+    返回 `(未被 click 覆盖的动作名, 是否存在可调用的 click 入口)`。
+
+    为什么必须合成一次读：LibreOffice 的 ATK 桥在被反复问动作表时会打出
+
+        (soffice): CRITICAL: impl_get_NActions:
+                   assertion 'ATK_IS_ACTION (user_data)' failed
+
+    密集调用下**应用会整个退出**（实测：对话框循环第 3~4 轮 soffice 消失，
+    随后 get_app_state 报 appNotFound）。渲染一棵树本来每个节点就要问一次，
+    早先为了给出 `[has-click-action]` 标记又经 preferred_action_index() 问了
+    第二次——等于在一个已知脆弱的桥上把压力翻倍。
+
+    动作名与描述在同一轮里取，因此每个节点对 ATK 的问询次数减半。
+    """
+    # 先确认这个节点真的实现了 Action 接口再问动作数。
+    #
+    # 不先问就直接调 get_n_actions()，LibreOffice 的 ATK 桥会对着一个不是
+    # ATK_ACTION 的对象打断言：
+    #     CRITICAL: impl_get_NActions: assertion 'ATK_IS_ACTION (user_data)' failed
+    # 而树里绝大多数节点（panel / filler / label / 各种容器）本来就没有这个接口，
+    # 于是每渲染一棵树就刷出成百上千条。实测一轮对话框循环刷出 3482 条。
+    if safe(node.get_action_iface) is None:
+        return [], False
+    count = int(safe(node.get_n_actions, 0) or 0)
+    names = []
+    has_click_entry = False
+    for index in range(count):
+        name = str(safe(lambda i=index: node.get_action_name(i), "") or "")
+        description = str(
+            safe(lambda i=index: node.get_action_description(i), "") or ""
+        )
+        label = name or description
+        lower = label.strip().lower()
+        # 与 preferred_action_index() 用同一套判据：精确命中，或含
+        # activate/click/press 的兜底。两者必须一致，否则标记会撒谎。
+        if lower in CLICK_COVERED_ACTIONS or (
+            "activate" in lower or "click" in lower or "press" in lower
+        ):
+            has_click_entry = True
+        if not label or label in names:
+            continue
+        if lower in CLICK_COVERED_ACTIONS:
+            continue
+        names.append(label)
+    return names, has_click_entry
+
+
 def action_names(node):
     """列出该节点**尚未被 click 工具覆盖**的语义动作。
 
@@ -409,20 +459,7 @@ def action_names(node):
     macOS 侧的 meaningfulActions() 出于同样理由过滤掉
     AXPress / AXConfirm / AXOpen / AXShowMenu。这里与之对齐。
     """
-    names = []
-    count = int(safe(node.get_n_actions, 0) or 0)
-    for index in range(count):
-        name = str(safe(lambda i=index: node.get_action_name(i), "") or "")
-        description = str(
-            safe(lambda i=index: node.get_action_description(i), "") or ""
-        )
-        label = name or description
-        if not label or label in names:
-            continue
-        if label.strip().lower() in CLICK_COVERED_ACTIONS:
-            continue
-        names.append(label)
-    return names
+    return node_actions(node)[0]
 
 
 def accessible_id(node):
@@ -521,7 +558,7 @@ def placeholder_text(node, text_limit=DEFAULT_TEXT_LIMIT):
     return ""
 
 
-def state_segment(node):
+def state_segment(node, has_click_action=False):
     """把值得关注的状态渲染成紧凑标记，如 `[checked expanded]`。
 
     **只报告"存在即有意义"的状态，绝不从状态的缺失反推语义。**
@@ -559,7 +596,7 @@ def state_segment(node):
     #
     # 判据必须与 click 工具实际调用的入口同源（preferred_action_index），
     # 否则这个标记本身就成了新的谎言。
-    if preferred_action_index(node) is not None:
+    if has_click_action:
         # 措辞刻意是"有一个动作"而不是"点得动"。它保证的是 click 工具能在这个
         # 元素上找到可调用的动作，**不保证那个动作生效**——实测 Nautilus /
         # GIMP / VLC 三个应用的动作都会返回成功却什么都不做。
@@ -573,6 +610,9 @@ def state_segment(node):
 def record_for(node, index, path, window_bounds, text_limit=DEFAULT_TEXT_LIMIT):
     bounds = relative_frame(node, window_bounds)
     role = node_role(node)
+    # 动作表只问一次，两个字段共用——见 node_actions() 里关于 LibreOffice
+    # ATK 桥的说明。
+    actions, has_click_action = node_actions(node)
     return {
         "index": index,
         "runtimeId": path[:],
@@ -584,8 +624,8 @@ def record_for(node, index, path, window_bounds, text_limit=DEFAULT_TEXT_LIMIT):
         "value": element_value(node, text_limit=text_limit),
         "nativeWindowHandle": 0,
         "frame": bounds,
-        "actions": action_names(node),
-        "states": state_segment(node),
+        "actions": actions,
+        "states": state_segment(node, has_click_action=has_click_action),
         "description": node_description(node, text_limit=text_limit),
         "placeholder": placeholder_text(node, text_limit=text_limit),
     }
@@ -1179,6 +1219,8 @@ def preferred_action_index(node):
         "toggle",
         "open",
     }
+    if safe(node.get_action_iface) is None:
+        return None
     count = int(safe(node.get_n_actions, 0) or 0)
     fallback = None
     for index in range(count):
