@@ -668,6 +668,16 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
     `Message Filters` 对话框照常打开、`Run Now/New…/Edit…/Delete` 可寻址，
     但点 `New…` 仍是纯语义 0 次合成、**无子窗口出现**。
     下次起点：先在 `combo box Filters for:` 里选中 `Local IMAP` 账户再点 `New…`。
+  - **⚠️ 途中暴露一个更要紧的问题：多顶层窗口时 `main_window()` 会选错。**
+    `Message Filters` 对话框开着时，`get_app_state` 返回的却是
+    `Inbox - Local IMAP` 主窗口——于是我按索引点 `New…`，实际点到的是**主窗口的
+    「新建邮件」**，弹出了 `Write: (no subject)`。
+    **这是"静默操作错误对象"那一类**，与陈旧 element_index 同源，但成因不同：
+    索引是新取的、没有过期，错的是**取状态时选错了窗口**。
+    `main_window()` 的顺序是 模态 > ACTIVE > SHOWING > 第一个，而
+    `Message Filters` 既不上报 MODAL 也不是 ACTIVE，就输给了主窗口。
+    **这条应当单独立项**：动作工具需要一种"指定窗口"的办法，
+    或 `main_window()` 要把"最近出现的顶层窗口"纳入判据。
   - **✅ 环境阻塞已解除（2026-07-30）**：`profiles.ini` 指向的
     `wtkk3c2w.default-release` 由 Thunderbird 启动时创建（这是我第一次找不到它的
     原因）。让它先建出来，再往 `prefs.js` 追加 8 条 pref 建一个
