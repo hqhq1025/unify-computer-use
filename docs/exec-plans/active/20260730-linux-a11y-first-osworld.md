@@ -657,6 +657,17 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
        任一时刻只暴露适用的那个，调用它就等于 toggle。不认这两个名字，
        Gecko 的复选框全部退回坐标点击，而设置类界面几乎全是复选框。
        修复后同一操作从坐标回落变成纯语义（0 次 synthesis）。
+  - **✅ 邮件列表批量操作（2 个任务）已通关（2026-07-30）**：
+    用 **dovecot（本机已装，`which` 查不到只因它在 `/usr/sbin`）** 起本地 IMAP，
+    配一个**一次性凭据** `mcptest`（`/etc/dovecot/users` 的 passwd-file passdb），
+    **全程不使用用户的真实密码**。投两封测试邮件到 `/var/mail/user` 后：
+    Thunderbird 树里出现 `tree item Local IMAP` → `Inbox`，点开（纯语义 0 次合成）
+    窗口变为 `Inbox - Local IMAP`，两封邮件均可寻址
+    （`tree item alice@example.com, 18:00, IMAP test message one, …`）。
+  - **消息过滤器（3 个任务）🔶 仍差最后一步**：有了真实收件账户后
+    `Message Filters` 对话框照常打开、`Run Now/New…/Edit…/Delete` 可寻址，
+    但点 `New…` 仍是纯语义 0 次合成、**无子窗口出现**。
+    下次起点：先在 `combo box Filters for:` 里选中 `Local IMAP` 账户再点 `New…`。
   - **✅ 环境阻塞已解除（2026-07-30）**：`profiles.ini` 指向的
     `wtkk3c2w.default-release` 由 Thunderbird 启动时创建（这是我第一次找不到它的
     原因）。让它先建出来，再往 `prefs.js` 追加 8 条 pref 建一个
