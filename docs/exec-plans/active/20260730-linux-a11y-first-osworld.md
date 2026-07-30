@@ -657,7 +657,16 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
        任一时刻只暴露适用的那个，调用它就等于 toggle。不认这两个名字，
        Gecko 的复选框全部退回坐标点击，而设置类界面几乎全是复选框。
        修复后同一操作从坐标回落变成纯语义（0 次 synthesis）。
-  - **仍待做（10 个任务）：本机环境阻塞，已实测确认而非假定**
+  - **✅ 环境阻塞已解除（2026-07-30）**：`profiles.ini` 指向的
+    `wtkk3c2w.default-release` 由 Thunderbird 启动时创建（这是我第一次找不到它的
+    原因）。让它先建出来，再往 `prefs.js` 追加 8 条 pref 建一个
+    **Local Folders 本地账户**（`mail.server.server1.type=none`），
+    重启后主窗口即变为 `Local Folders - Mozilla Thunderbird`。
+  - **文件夹面板（5 个任务）✅ 纯语义可用**：树里给出
+    `tree` → `tree item Local Folders [selected]` → `tree item Trash`，
+    点击 Trash **0 次合成**，`[selected focused]` 正确转移，
+    末尾焦点行确认 `tree item Trash`。
+  - **原先的记录（保留，因为过程有价值）：**
     - 消息过滤器（3 个）：AppMenu → Tools → `push button Message Filters`
       在树里可寻址、点击也执行了，但**没有任何新窗口出现**——
       Thunderbird 在没有任何账户时不打开该对话框（过滤器必须绑定账户/文件夹）。
