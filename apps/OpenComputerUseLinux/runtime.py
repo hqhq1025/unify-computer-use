@@ -555,10 +555,14 @@ def render_visible_cells(
                     round(cell_frame["width"]),
                     round(cell_frame["height"]),
                 )
+            # 用节点真实的 AT-SPI 角色，不要硬编码成 "cell"。角色保真度会影响
+            # 任何按角色做的裁剪：OSWorld 官方白名单里有 table-cell 却没有 cell，
+            # 实测中整批下拉选项就是因为这个不保真被判成无关角色丢掉的。
+            cell_role = record["localizedControlType"] or record["controlType"] or "table cell"
             lines.append(
                 ("\t" * (depth + 2))
-                + "{} cell R{}C{} {}{}".format(
-                    index, row, col, value, frame_segment
+                + "{} {} R{}C{} {}{}".format(
+                    index, cell_role, row, col, value, frame_segment
                 ).rstrip()
             )
             count += 1
