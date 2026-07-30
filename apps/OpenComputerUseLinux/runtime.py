@@ -494,7 +494,7 @@ def action_names(node):
     必须过滤掉 preferred_action_index() 会挑中的那些（click/press/activate/…），
     否则每个可点击节点都会显示 "Secondary Actions: click"，而那恰恰就是
     click 工具自己要调用的动作。重复列出会让模型误以为那是另一条备选路径，
-    进而在 click(element_index) 与 perform_secondary_action 之间反复摇摆，
+    进而在 click(element_index) 与 invoke_element_action 之间反复摇摆，
     甚至退回坐标点击。
 
     macOS 侧的 meaningfulActions() 出于同样理由过滤掉
@@ -952,7 +952,7 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
             ).rstrip()
         )
 
-        # 未展开的菜单：保留节点自身（它是 perform_secondary_action 的入口），
+        # 未展开的菜单：保留节点自身（它是 invoke_element_action 的入口），
         # 但不递归其子项。role 与 state 都走 libatspi 本地缓存，零 D-Bus 成本。
         if (
             depth > 0
@@ -2039,7 +2039,7 @@ def perform_operation(operation):
                 notes.append(SYNTHESIS + reason + UNVERIFIED_SYNTHESIS)
         else:
             raise RuntimeError("Invalid click_method '{}'".format(click_method))
-    elif tool == "perform_secondary_action":
+    elif tool == "invoke_element_action":
         action = operation.get("action", "")
         # 只有"开右键菜单"这类幂等动作才做校验+回落。做不到这一点的话，
         # 一个已经生效但观测不到的破坏性动作会被重复执行。
@@ -2057,7 +2057,7 @@ def perform_operation(operation):
                 # 实测 Nautilus：文件图标的 `menu` 动作**永远返回成功、永远不开
                 # 菜单**，与是否聚焦/选中无关。语义通道在这里是死路，只能合成。
                 x, y = screen_point(bounds, element_record, None, None)
-                require_window_focus(window, "perform_secondary_action")
+                require_window_focus(window, "invoke_element_action")
                 send_mouse_click(x, y, "right", 1)
                 notes.append(
                     SYNTHESIS

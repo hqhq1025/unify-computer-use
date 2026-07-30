@@ -168,7 +168,7 @@ def task_nautilus_rename(client, workdir):
     index = find_index(tree, r"canvas before\.txt")
     if index is None:
         return False, "树里找不到 before.txt"
-    client.call("perform_secondary_action",
+    client.call("invoke_element_action",
                 {"app": app, "element_index": index, "action": "menu"})
     time.sleep(2.5)
 

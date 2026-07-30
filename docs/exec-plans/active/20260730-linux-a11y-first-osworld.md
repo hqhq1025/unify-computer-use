@@ -1374,6 +1374,19 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
   （VS Code 的原生对话框、GIMP 必须看画布的 3/17 个任务），
   它们应当**单独计数**而不是混进平均值。
 
+**#27 工具命名** ✅ 已完成（2026-07-30，用户选定方案 C）
+- `perform_secondary_action` → **`invoke_element_action`**。用户拍板直接改名，
+  接受与官方 Codex Computer Use schema 及 macOS/Windows 的分歧。
+- 理由（本轮实测支撑）：工具名是模型选通道时**最强的信号**，比描述强。
+  旧名读起来像 fallback，而 a11y 语义动作恰恰是首选路径；而本轮反复证明
+  通道选对与否直接决定任务成败。
+- 描述同步重写：明说 "a first-class way to drive the UI, **not a fallback**"，
+  旧描述里"beyond the default one that click already performs"那种"附加项"
+  措辞已移除，并加断言防止回潮。
+- 范围：**只改 Linux**。Windows 侧维持原名——那是另一个平台的协议面，
+  不在本次授权范围内。
+- 真机验证：`tools/list` 返回 `invoke_element_action`，旧名在 Linux 侧 0 处残留。
+
 **#26 harness 跑通并产出四元组基线** ✅ 已完成　依赖：#25
 - `scripts/measure-baseline.py`。**首次基线（2026-07-30，3 个任务全通过）**：
 

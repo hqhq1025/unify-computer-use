@@ -764,7 +764,7 @@ func TestAutoClickRetriesWithSynthesisWhenSemanticDidNothing(t *testing.T) {
 
 	// 只对 click 生效：其它工具的重复执行可能有副作用。
 	other := request
-	other.Tool = "perform_secondary_action"
+	other.Tool = "invoke_element_action"
 	if shouldRetryWithSynthesis(other, semantic) {
 		t.Fatal("自动合成重试只对 click 开放")
 	}
@@ -845,5 +845,25 @@ func TestInstructionsDoNotClaimScreenshotsAreAlwaysCostlier(t *testing.T) {
 	}
 	if !strings.Contains(serverInstructions, "Do not assume it is also the cheaper one") {
 		t.Fatal("应当明确提醒不要假定 a11y 总是更省")
+	}
+}
+
+// 工具名本身就是引导：perform_secondary_action 读起来像 fallback，而 a11y
+// 语义动作恰恰是首选路径。实测中通道选对与否直接决定任务成败，而名字是模型
+// 选通道时最强的信号——比描述强。用户拍板改名（方案 C），接受与官方 schema
+// 及 macOS/Windows 的分歧。
+func TestSecondaryActionToolIsNamedForItsRealRole(t *testing.T) {
+	if strings.Contains(linuxRuntimeScript, "perform_secondary_action") {
+		t.Fatal("运行时不应再出现旧工具名")
+	}
+	tool := findToolDefinition(t, "invoke_element_action")
+	if strings.Contains(tool.Description, "additional accessibility action") {
+		t.Fatal("旧描述把它讲成 click 之外的附加项，不得回来")
+	}
+	if !strings.Contains(tool.Description, "not a fallback") {
+		t.Fatal("描述应当明说它不是 fallback")
+	}
+	if !strings.Contains(serverInstructions, "invoke_element_action") {
+		t.Fatal("instructions 的工具清单应当同步改名")
 	}
 }
