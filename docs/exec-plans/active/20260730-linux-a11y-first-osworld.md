@@ -335,7 +335,8 @@ H1 有最强的数据支持，建议先做。H4 潜在收益最大，但依赖 P
 
 7. 做不到的部分要明说。不要缩小范围然后当作完成了。
 
-完成标准：<该项的验收条件>，且以下全部通过并已提交：
+完成标准：待办清单里该项的**验收标准**（每项都写好了，直接抄），
+且以下全部通过并已提交：
   (cd apps/OpenComputerUseLinux && go vet ./... && go test ./... && python3 -m unittest runtime_test)
   scripts/verify-linux-input-chain.py --app <目标应用>
 ```
@@ -447,29 +448,77 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 - 观测检查：
   - 每次改动同时报告成功率 / 平均步数 / 平均 token，缺一不可
 
-## 进度记录
+## 已完成
 
-- [x] 修复 Linux 输入链路两处静默失败（选错可编辑控件、全局合成误投），并补齐回归防护
-- [x] 完成 10 个应用的 a11y 就绪度实测，产出基线表与观测成本构成
-- [x] `scripts/a11y-readiness-probe.py` 收进仓库
-- [x] P0：查证僵尸 AT-SPI 注册——不存在，原诊断错误，已在里程碑中撤销
-- [x] P0：修复"空壳 a11y 静默成功"（活应用只暴露窗口框时给出可执行诊断）
-- [x] 浏览器：验证 Playwright CDP attach 接管的是环境实例，脚本入库
-- [x] 抽样 OSWorld 8 个 domain 的真实任务，归纳所需操作类型
-- [x] 浏览器：接入 browser-use 0.13.7 并通过同一套 attach 判据（用户级 uv venv，Python 3.12.13）
-- [ ] 浏览器：确认 browser-use 的 file:// 放行策略（OSWorld 有大量本地文件任务）
-- [ ] P0：按 OSWorld 操作类型表逐类实测，先打 LibreOffice 的菜单->对话框链路
-- [ ] P0：9 个应用 × 7 个动作的系统性排查，产出失败面清单
-- [ ] P0：`click` / `press_key` 的效果判据
-- [ ] P0 并行：观测双轨拆分，a11y track 不带截图
-- [ ] P0 并行：对照 macOS 实现逐条补齐能力缺口（见缺口表）
-- [ ] P0 并行：引导 agent 走 a11y 通道（工具描述 / instructions / Note 纠偏）
-- [ ] P1：建立保留率 / 压缩率离线评测
-- [ ] P1：移植 shouldSkipChild / isPlainGenericTextContainer / placeholderValue
-- [ ] P1：验证 H1（可见性过滤）
+按时间顺序，每项都有对应的 history 或脚本可查：
+
+- [x] 修复输入链路两处静默失败（选错可编辑控件、全局合成误投），补齐回归防护
+- [x] `type_text` 改为 caret 插入 + 选区替换；`set_value` 回读确认；过滤 INT_MIN 哨兵坐标
+- [x] 动作结果附执行路径与是否已确认；复用缓存快照做无变化检测
+- [x] 10 个应用的 a11y 就绪度实测，产出基线表与观测成本构成 → `scripts/a11y-readiness-probe.py`
 - [x] 查阅 OSWorld / OSWorld-MCP 官方实现，确认 X11、观测/动作空间、官方裁剪启发式
-- [ ] P3：评估在 OSWorld-MCP 的 `run_multienv_e2e.py` 之上改造 vs 直接接 OSWorld
-- [ ] P3：OSWorld harness 跑通并产出四元组基线
+- [x] 查证"僵尸 AT-SPI 注册"——不存在，原诊断错误，已撤销并写明原委
+- [x] 修复"空壳 a11y 静默成功"（活应用只暴露窗口框时给出可执行诊断）
+- [x] 抽样 OSWorld 8 个 domain 的真实任务，归纳所需操作类型
+- [x] 接入 Playwright + browser-use，验证均为 attach 而非 launch → `scripts/verify-browser-cdp-attach.py`
+
+## 待办（按执行顺序）
+
+每项标注**依赖**、**验收标准**和粗略量级。验收标准可直接填进开工 prompt 的
+`<该项的验收条件>`。
+
+### 下一个动作
+
+**A1 · LibreOffice 菜单 → 对话框链路实测**　依赖：无　量级：中
+> OSWorld 的主导操作类型就是这一类，任务密度最高，也最能验证语义动作的真实能力。
+- 验收：用 `element_index` 语义调用走通 `格式 → 段落 → 行距 → 双倍`，
+  并用 AT-SPI 真值确认行距**真的改了**（不是工具报成功）；过程中的失败点列成清单
+
+### 可立即并行（互不阻塞）
+
+**B1 · 观测双轨拆分**　依赖：无　量级：中
+- 验收：a11y track 的返回**不含 image block**；截图有独立入口；
+  gedit 单次观测从 2922 token（1908 文本 + 1014 截图）降到约 1900
+
+**B2 · 对照 macOS 补齐能力缺口**　依赖：无　量级：大
+- 验收：缺口表里 9 个"缺失"项逐条有结论——**已移植** 或 **判定不可搬 + 理由**，
+  不允许留空
+
+**B3 · browser-use 的 `file://` 放行策略**　依赖：无　量级：小
+- 验收：确认能否放行；不能则给出 OSWorld 本地文件任务的替代路径
+  （HTTP 中转 / 该类任务改走 Playwright），结论写进本文档
+
+### 依赖前序
+
+**C1 · 9 应用 × 7 动作系统性排查**　依赖：A1　量级：大
+- 验收：产出 9×7 失败面矩阵，每格 PASS/FAIL 且**附 AT-SPI 真值证据**
+
+**C2 · `click` / `press_key` 的效果判据**　依赖：C1　量级：中
+- 验收：能区分"生效"与"送达但无响应"；有前失败后通过的回归测试
+
+**C3 · 引导 agent 走 a11y 通道**　依赖：B1（拆轨后才谈得上怎么描述两条轨）　量级：小到中
+- 验收：工具描述 / `serverInstructions` / 动作 Note 三处更新；
+  并有"语义调用 vs 坐标兜底"的计数机制
+
+### P1 裁剪与呈现
+
+**D1 · 保留率 / 压缩率离线评测**　依赖：轨迹数据（自驱动 agent 生成）　量级：中
+- 验收：给定任意裁剪方案，能算出保留率与压缩率两个数
+
+**D2 · 移植 `shouldSkipChild` / `isPlainGenericTextContainer` / `placeholderValue`**
+　依赖：D1 + B2　量级：中
+- 验收：保留率 100% 前提下，LibreOffice 观测 token 从 10.8k 显著下降
+
+**D3 · 验证 H1（可见性过滤）**　依赖：D1　量级：小
+- 验收：给出 GTK 系应用的实际压缩率与保留率，判定是否采纳
+
+### P3 OSWorld 接入
+
+**E1 · 评估在 OSWorld-MCP 之上改造 vs 直接接 OSWorld**　依赖：P0 基本完成　量级：中
+- 验收：给出选型结论与理由，写进决策记录
+
+**E2 · harness 跑通并产出四元组基线**　依赖：E1　量级：大
+- 验收：LibreOffice 子集上产出 成功率 / 步数 / token / a11y 通道使用率
 
 ## 决策记录
 
