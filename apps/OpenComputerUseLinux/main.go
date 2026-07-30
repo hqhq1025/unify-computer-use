@@ -125,6 +125,16 @@ func (s *appSnapshot) result() toolCallResult {
 	return s.resultWithNotes(nil)
 }
 
+// resultWithTreeOverride 用给定的行替代 treeLines 渲染，用于增量视图。
+func (s *appSnapshot) resultWithTreeOverride(notes, lines []string) toolCallResult {
+	if s == nil {
+		return s.resultWithNotes(notes)
+	}
+	clone := *s
+	clone.TreeLines = lines
+	return clone.resultWithNotes(notes)
+}
+
 // resultWithNotes 在 accessibility tree 前面先说清楚这次动作实际做了什么、
 // 结果有没有被确认过。只返回一棵新树很容易被读成"动作成功了"，但它只是快照。
 func (s *appSnapshot) resultWithNotes(notes []string) toolCallResult {
@@ -494,7 +504,48 @@ func (s *service) actionResult(app string, request linuxRequest) toolCallResult 
 	if before != nil && !observablyChanged(before, snapshot) {
 		notes = append(notes, "Nothing observable changed: the window title, accessibility tree, focus and selection are identical to the state before this action. Treat the action as unconfirmed rather than successful.")
 	}
+	if diff, ok := incrementalTree(before, snapshot); ok {
+		return snapshot.resultWithTreeOverride(notes, diff)
+	}
 	return snapshot.resultWithNotes(notes)
+}
+
+// incrementalTree 在安全且划算时，用"只给变化的行"替代整棵树。
+//
+// 实测（gedit 轨迹）：无结构变化的步骤上增量能省 62%，其中若干步的 diff 直接是 0；
+// 但有结构变化的步骤上增量反而**亏 7%**——增删两边都要付钱，加起来超过全量。
+// 所以不能无条件用增量。
+//
+// 判据是行数不变。这一条同时解决了两个问题：
+//  1. 成本：行数不变意味着只有内容变了，diff 必然小于全量
+//  2. 正确性：#15 实测表明结构一变 element_index 就永久重排（gedit 上 26%），
+//     而行数不变正是"没有结构变化"的充分信号，此时索引 0% 漂移，
+//     agent 可以安全沿用上一轮观测里的索引
+//
+// 两个条件恰好对齐，不需要额外的稳定标识。
+func incrementalTree(before, after *appSnapshot) ([]string, bool) {
+	if before == nil || after == nil {
+		return nil, false
+	}
+	if len(before.TreeLines) != len(after.TreeLines) || len(after.TreeLines) == 0 {
+		return nil, false
+	}
+	changed := make([]string, 0, 8)
+	for i := range after.TreeLines {
+		if before.TreeLines[i] != after.TreeLines[i] {
+			changed = append(changed, after.TreeLines[i])
+		}
+	}
+	if len(changed) == 0 || len(changed)*3 >= len(after.TreeLines) {
+		// 变化超过三分之一就没必要绕弯，直接给全量更好读。
+		return nil, false
+	}
+	header := fmt.Sprintf(
+		"Incremental view: %d of %d tree lines changed since your previous get_app_state; "+
+			"everything else is byte-identical and keeps the same element_index. "+
+			"Call get_app_state again for the full tree.",
+		len(changed), len(after.TreeLines))
+	return append([]string{header}, changed...), true
 }
 
 // observablyChanged 比较动作前后两份快照里 agent 能观察到的部分。

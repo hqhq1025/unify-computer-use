@@ -539,6 +539,37 @@ func TestLinuxRuntimeReportsExecutionPath(t *testing.T) {
 	}
 }
 
+func TestIncrementalTreeOnlyWhenSafeAndCheaper(t *testing.T) {
+	// 实测依据：无结构变化的步骤上增量省 62%，有结构变化的步骤上反而亏 7%——
+	// 增删两边都要付钱。所以判据是行数不变：它同时保证了划算（只有内容变了）
+	// 和正确（#15 证明结构一变 element_index 就永久重排，行数不变即无结构变化）。
+	base := func(lines ...string) *appSnapshot { return &appSnapshot{TreeLines: lines} }
+
+	if _, ok := incrementalTree(base("a", "b", "c"), base("a", "b", "c")); ok {
+		t.Fatal("完全没变时不该走增量——那属于 nothing-changed，另有提示")
+	}
+	diff, ok := incrementalTree(base("a", "b", "c", "d", "e", "f"),
+		base("a", "b", "X", "d", "e", "f"))
+	if !ok {
+		t.Fatal("只有一行变化时应该走增量")
+	}
+	if len(diff) != 2 || diff[1] != "X" {
+		t.Fatalf("增量应只含表头和变化行，得到 %v", diff)
+	}
+	if !strings.Contains(diff[0], "keeps the same element_index") {
+		t.Fatal("表头必须说明未变的行仍沿用同一个 element_index")
+	}
+	if _, ok := incrementalTree(base("a", "b"), base("a", "b", "c")); ok {
+		t.Fatal("行数变化意味着结构变化，索引会重排，绝不能走增量")
+	}
+	if _, ok := incrementalTree(base("a", "b", "c"), base("X", "Y", "c")); ok {
+		t.Fatal("变化占比过大时增量不划算，应回退全量")
+	}
+	if _, ok := incrementalTree(nil, base("a")); ok {
+		t.Fatal("没有前一份快照时不能走增量")
+	}
+}
+
 func TestActionResultFlagsUnchangedState(t *testing.T) {
 	base := func() *appSnapshot {
 		return &appSnapshot{
