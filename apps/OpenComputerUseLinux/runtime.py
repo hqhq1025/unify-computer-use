@@ -33,6 +33,11 @@ FOCUS_GRAB_CANDIDATES = 8
 # 合理屏幕坐标/尺寸的上限。超出这个量级的只可能是未渲染控件的 INT_MIN 哨兵值，
 # 再夸张的多显示器布局也到不了这个数量级。
 MAX_SANE_EXTENT = 100000
+# 预算用到这个比例之后，开始丢弃"无名 + 无动作 + 无值"的纯结构容器。
+# 深度优先截断等于按遍历顺序随机丢弃，先到的占满配额、后面的整片消失；
+# 而结构容器（filler / panel / separator）对 agent 没有可操作价值，
+# 是唯一可以安全牺牲的一类。
+BUDGET_PRESSURE_RATIO = 0.8
 
 
 def frame(x, y, width, height):
@@ -531,11 +536,29 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT, m
     records = []
     lines = []
 
+    dropped = {"count": 0}
+    pressure_at = max(1, int(max_tree_nodes * BUDGET_PRESSURE_RATIO))
+
+    def is_structural_filler(record):
+        """无名、无动作、无值的纯容器。对 agent 没有可操作价值。"""
+        return not (record["name"] or record["actions"] or record["value"])
+
     def visit(node, depth, path):
         if len(records) >= max_tree_nodes or depth > max_tree_depth or node is None:
+            if node is not None and len(records) >= max_tree_nodes:
+                dropped["count"] += 1
             return
         index = len(records)
         record = record_for(node, index, path, window_bounds, text_limit=text_limit)
+
+        # 预算吃紧时优先保住有名字/有动作/有值的节点。丢容器只丢它自己这一行，
+        # 仍然继续递归子节点——被丢的容器往往正是有价值控件的父节点。
+        if len(records) >= pressure_at and is_structural_filler(record) and depth > 0:
+            dropped["count"] += 1
+            for child_index in range(min(child_count(node), MAX_CHILD_FANOUT)):
+                visit(child_at(node, child_index), depth + 1, path + [child_index])
+            return
+
         records.append(record)
 
         role = record["localizedControlType"] or record["controlType"] or "element"
@@ -606,6 +629,15 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT, m
             visit(child, depth + 1, path + [child_index])
 
     visit(root, 0, root_path)
+    if dropped["count"]:
+        lines.append(
+            "({} node(s) omitted: {} — raise max_tree_nodes to see them)".format(
+                dropped["count"],
+                "structural containers with no name, action or value"
+                if len(records) < max_tree_nodes
+                else "node budget exhausted, remaining subtree not traversed",
+            )
+        )
     return records, lines
 
 

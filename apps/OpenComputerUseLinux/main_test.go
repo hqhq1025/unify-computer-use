@@ -19,6 +19,24 @@ func TestToolDefinitionCount(t *testing.T) {
 	}
 }
 
+func TestTruncationIsPrioritisedAndVisible(t *testing.T) {
+	// 深度优先截断等于按遍历顺序随机丢弃：先到的占满配额，后面的整片消失，
+	// 而且 agent 完全不知道树被砍过。
+	for _, fragment := range []string{
+		"BUDGET_PRESSURE_RATIO",
+		"def is_structural_filler(record):",
+		"node(s) omitted:",
+		"raise max_tree_nodes to see them",
+	} {
+		if !strings.Contains(linuxRuntimeScript, fragment) {
+			t.Fatalf("truncation must be prioritised and reported: missing %q", fragment)
+		}
+	}
+	if !strings.Contains(linuxRuntimeScript, "structural containers with no name, action or value") {
+		t.Fatal("the omission notice must say what was dropped, not just how many")
+	}
+}
+
 func TestBrowserRoutingRuleIsExplicit(t *testing.T) {
 	// 两个控制平面并存时，agent 会默认"看到 Chrome 就用 AT-SPI 操作它"，
 	// 然后在一个 a11y 默认关闭的应用上反复试错。规则必须显式写出来。
