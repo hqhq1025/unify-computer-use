@@ -645,6 +645,20 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
   通道分布：菜单/对话框/OK 走 semantic，下拉项走 auto 自动识别后的坐标点击，
   全选与保存走键盘。这条链路横跨 Calc/Impress/Writer ≥37 个任务。
   仍待做：Calc 的单元格与区域选择、Impress 的画布对象。
+- **Thunderbird 🔶 设置链路已通关**（2026-07-30，XUL/Gecko）：
+  - **判分器级验收**：AppMenu → Settings → 勾选「Auto hide tab bar」，
+    `~/.thunderbird/*/prefs.js` 出现 `user_pref("mail.tabs.autoHide", false)`。
+    （切回默认值时 Thunderbird 会删掉该行，所以来回切两次确认。）
+  - **修掉两个 Gecko 特有的动作名问题**：
+    1. `click ancestor`（**带空格**）——与 Chromium 的 `clickAncestor` 是同一
+       语义的不同拼法。只排掉驼峰那种，带空格的照样被子串兜底匹中，
+       16 个节点被误标成可点。判据已改为**归一化比对**（去掉大小写与分隔符）。
+    2. `check` / `uncheck`——Gecko 用**结果状态**给复选框动作命名而非 `toggle`，
+       任一时刻只暴露适用的那个，调用它就等于 toggle。不认这两个名字，
+       Gecko 的复选框全部退回坐标点击，而设置类界面几乎全是复选框。
+       修复后同一操作从坐标回落变成纯语义（0 次 synthesis）。
+  - 仍待做：消息过滤器（3 个任务）、文件夹面板（5 个）、邮件列表批量操作（2 个）
+    ——这几项需要真实账户，本机无网络账户。
 - **GIMP 🔶 三项最高频操作已通关**（2026-07-30，GTK/GAIL）：
   - **菜单导航（17/17 任务）✅ + 模态对话框填参数（12/17）✅**：
     Colors → Brightness-Contrast → 设 Brightness=80 → OK，全程语义通道。

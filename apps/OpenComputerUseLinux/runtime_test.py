@@ -1538,6 +1538,39 @@ class ElectronActionNamesTests(AtspiPatchedTestCase):
         self.assertFalse(has_click)
         self.assertIsNone(runtime.preferred_action_index(node))
 
+    def test_gecko_spells_it_with_a_space(self):
+        """回归：同一语义在不同工具包里拼法不同。
+
+        Chromium/Electron 叫 `clickAncestor`，Gecko/Thunderbird 叫
+        `click ancestor`（带空格）。只排掉其中一种，另一种照样被子串兜底匹中，
+        agent 又去点了祖先节点。实测两者都出现过。
+        """
+        node = self.make(["click ancestor"])
+        _, has_click = runtime.node_actions(node)
+
+        self.assertFalse(has_click)
+        self.assertIsNone(runtime.preferred_action_index(node))
+
+    def test_normalization_ignores_case_and_separators(self):
+        for spelling in ("clickAncestor", "click ancestor", "Click-Ancestor",
+                         "click_ancestor", "CLICKANCESTOR"):
+            node = self.make([spelling])
+            _, has_click = runtime.node_actions(node)
+            self.assertFalse(has_click, "{!r} 应当被判为非本元素动作".format(spelling))
+
+    def test_gecko_checkbox_state_named_actions_are_click_entries(self):
+        """回归：Gecko 用结果状态命名复选框动作——勾上时是 `uncheck`、
+        没勾时是 `check`，任一时刻只暴露适用的那个，调用它就等于 toggle。
+
+        不认这两个名字，Gecko 的复选框全部退回坐标点击，而设置类界面几乎
+        全是复选框（Thunderbird 5/14 个任务是账户设置、3/14 是消息过滤器）。
+        """
+        for spelling in ("check", "uncheck"):
+            node = self.make([spelling])
+            names, has_click = runtime.node_actions(node)
+            self.assertTrue(has_click, "{!r} 应当算作点击入口".format(spelling))
+            self.assertNotIn(spelling, names, "它就是 click 本身，不该再列进 More actions")
+
     def test_plain_click_still_works(self):
         node = self.make(["click", "showContextMenu"])
         _, has_click = runtime.node_actions(node)

@@ -218,6 +218,13 @@ CLICK_COVERED_ACTIONS = {
     # click_method "accessibility" 也会直接失败，整个 Electron 系应用
     # 在语义通道上等于不可点。
     "dodefault",
+    # Gecko/Thunderbird 用**结果状态**给复选框的动作命名，而不是 "toggle"：
+    # 勾上时提供 `uncheck`、没勾时提供 `check`，任一时刻只暴露适用的那一个。
+    # 因此调用它就等于 toggle，正是 click 该做的事。
+    # 不认这两个名字的话，Gecko 的复选框全部退回坐标点击——而设置类界面
+    # 几乎全是复选框（Thunderbird 5/14 个任务是账户设置、3/14 是消息过滤器）。
+    "check",
+    "uncheck",
 }
 
 # 名字里含 click/press/activate，但**作用对象不是这个元素本身**的动作。
@@ -226,6 +233,17 @@ CLICK_COVERED_ACTIONS = {
 # 实际点的是祖先节点——而且从返回值和树里都看不出来。
 # VS Code 实测有 14 个节点的动作表是 ('clickAncestor', 'showContextMenu')。
 NON_SELF_ACTIONS = {"clickancestor"}
+
+
+def normalized_action(label):
+    """把动作名归一到只剩字母数字，再做比对。
+
+    同一个语义在不同工具包里拼法不同：Chromium/Electron 叫 `clickAncestor`，
+    Gecko/Thunderbird 叫 `click ancestor`（带空格）。只排掉其中一种，
+    另一种照样会被子串兜底匹中，于是 agent 又去点了祖先节点。
+    实测两者都出现过——窄判据漏变体，这里按归一化比。
+    """
+    return "".join(ch for ch in str(label or "").lower() if ch.isalnum())
 
 # 未展开的菜单不递归其子项。实测默认配额 1200 下，LibreOffice 的菜单树会占掉
 # 100% 配额（一份完整菜单栏约 780 节点），表格单元格一个都进不来 —— 功能等于
@@ -458,7 +476,7 @@ def node_actions(node):
         # 与 preferred_action_index() 用同一套判据：精确命中，或含
         # activate/click/press 的兜底。两者必须一致，否则标记会撒谎。
         if lower in CLICK_COVERED_ACTIONS or (
-            lower not in NON_SELF_ACTIONS
+            normalized_action(lower) not in NON_SELF_ACTIONS
             and ("activate" in lower or "click" in lower or "press" in lower)
         ):
             has_click_entry = True
@@ -1294,7 +1312,7 @@ def preferred_action_index(node):
         lower = (name or description).lower()
         if lower in preferred_exact:
             return index
-        if lower in NON_SELF_ACTIONS:
+        if normalized_action(lower) in NON_SELF_ACTIONS:
             continue
         if fallback is None and (
             "activate" in lower or "click" in lower or "press" in lower
