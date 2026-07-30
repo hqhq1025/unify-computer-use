@@ -544,8 +544,17 @@ func TestLinuxRuntimeReportsExecutionPath(t *testing.T) {
 	if !strings.Contains(linuxRuntimeScript, "UNVERIFIED_SYNTHESIS") {
 		t.Fatal("Linux runtime should mark synthesis-based actions as unverified")
 	}
+	// 语义调用同样不能当成"生效"的证据：实测 Nautilus / LibreOffice / GIMP / VLC
+	// 四个应用的 AT-SPI 动作都会返回成功却什么都不做。工具必须把这一点说出来，
+	// 否则 agent 会据此推进下一步，而真实界面还停在原地。
+	if !strings.Contains(linuxRuntimeScript, "UNVERIFIED_SEMANTIC") {
+		t.Fatal("Linux runtime should mark semantic AT-SPI actions as unverified too")
+	}
+	if !strings.Contains(linuxRuntimeScript, "that is not evidence the action took effect") {
+		t.Fatal("semantic action notes must state that toolkit acceptance is not proof of effect")
+	}
 	for _, note := range []string{
-		"Invoked the element's AT-SPI accessibility action.",
+		"Invoked the element's AT-SPI accessibility action. ",
 		"Wrote the text through the AT-SPI editable-text API and read it back ",
 		"fell back to ",
 	} {

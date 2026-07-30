@@ -560,7 +560,11 @@ def state_segment(node):
     # 判据必须与 click 工具实际调用的入口同源（preferred_action_index），
     # 否则这个标记本身就成了新的谎言。
     if preferred_action_index(node) is not None:
-        marks.append("clickable")
+        # 措辞刻意是"有一个动作"而不是"点得动"。它保证的是 click 工具能在这个
+        # 元素上找到可调用的动作，**不保证那个动作生效**——实测 Nautilus /
+        # LibreOffice / GIMP / VLC 四个应用的动作都会返回成功却什么都不做。
+        # 叫 `clickable` 会被读成"点这里就行"，那就是工具在替 agent 打包票。
+        marks.append("has-click-action")
     if not marks:
         return ""
     return " [" + " ".join(marks) + "]"
@@ -1655,6 +1659,22 @@ UNVERIFIED_SYNTHESIS = (
     "global and reports success as soon as the event is queued."
 )
 
+# 语义调用同样不能当成"生效"的证据。这不是保守措辞，是实测结论：
+#   Nautilus  文件图标的 `menu`   -> do_action True，菜单一个都不弹（焦点/选中三种前置都试过）
+#   LibreOffice 确认框的 `Yes`    -> do_action True，对话框纹丝不动
+#   GIMP      图层 cell 的 `activate` -> do_action True，活动图层不变（截图 0 像素差异）
+#   VLC       单选按钮的 `Toggle`  -> CHECKED 真的翻转了，面板却不切换
+# 最后一条尤其要紧：**判据不能读被操作节点自身的状态**，状态会跟着变、行为没有。
+#
+# do_action 的返回值只说明工具包接受了这次调用，不说明界面发生了任何事。
+# 把它当成成功上报，等于向 agent 谎报事实——它会据此推进下一步，
+# 而真实界面还停在原地。
+UNVERIFIED_SEMANTIC = (
+    "The toolkit accepted the call; that is not evidence the action took effect. "
+    "AT-SPI actions on Linux routinely report success while doing nothing. "
+    "Confirm from the returned state before treating this as done."
+)
+
 # 走了坐标兜底时的即时纠偏。只在元素定向本可用时才有意义，所以由调用方决定是否附加。
 PREFER_ELEMENT_INDEX = (
     " This did not use element-targeted invocation. If the target appears in the "
@@ -1744,7 +1764,11 @@ def perform_operation(operation):
                 raise RuntimeError(
                     "click_method 'accessibility' could not click the requested element"
                 )
-            notes.append(SEMANTIC + "Invoked the element's AT-SPI accessibility action.")
+            notes.append(
+                SEMANTIC
+                + "Invoked the element's AT-SPI accessibility action. "
+                + UNVERIFIED_SEMANTIC
+            )
         elif click_method == "app_post":
             raise RuntimeError("click_method 'app_post' is not supported on Linux")
         elif click_method == "sky_click":
@@ -1778,7 +1802,11 @@ def perform_operation(operation):
             if element is not None and operation.get("mouse_button", "left") == "left":
                 handled = do_action_by_index(element, preferred_action_index(element))
             if handled:
-                notes.append("Invoked the element's AT-SPI accessibility action.")
+                notes.append(
+                SEMANTIC
+                + "Invoked the element's AT-SPI accessibility action. "
+                + UNVERIFIED_SEMANTIC
+            )
             else:
                 x, y = screen_point(
                     bounds,
@@ -1808,7 +1836,11 @@ def perform_operation(operation):
         opens_menu = str(action).lower() in CONTEXT_MENU_ACTIONS
         had_menu = context_menu_visible(app) if opens_menu else False
         invoke_secondary_action(element, action)
-        notes.append(SEMANTIC + "Invoked the '{}' AT-SPI action.".format(action))
+        notes.append(
+            SEMANTIC
+            + "Invoked the '{}' AT-SPI action. ".format(action)
+            + UNVERIFIED_SEMANTIC
+        )
         if opens_menu and not had_menu:
             time.sleep(MENU_SETTLE_SECONDS)
             if not context_menu_visible(app):

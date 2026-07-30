@@ -1305,7 +1305,7 @@ class ClickableMarkerTests(AtspiPatchedTestCase):
         return Node(role="push button", name="Home", x=1, y=1, w=5, h=5)
 
     def test_element_with_click_action_is_marked(self):
-        self.assertIn("clickable", runtime.state_segment(self.make(["click"])))
+        self.assertIn("has-click-action", runtime.state_segment(self.make(["click"])))
 
     def test_element_without_any_action_is_not_marked(self):
         """回归：Nautilus 侧边栏条目只有 component 接口，没有 Action 接口。
@@ -1314,7 +1314,7 @@ class ClickableMarkerTests(AtspiPatchedTestCase):
         action_names() 会隐藏 click 类动作，于是"有语义点击"和"根本点不了"
         被抹成同一个样子，agent 只好一律退回坐标，恰好背离 a11y 优先。
         """
-        self.assertNotIn("clickable", runtime.state_segment(self.make([])))
+        self.assertNotIn("has-click-action", runtime.state_segment(self.make([])))
 
     def test_marker_matches_what_click_would_actually_invoke(self):
         """标记必须与 click 工具真正调用的入口同源，否则它自己就是新的谎言。"""
@@ -1322,9 +1322,9 @@ class ClickableMarkerTests(AtspiPatchedTestCase):
         clickable = self.make(["activate"])
 
         self.assertIsNone(runtime.preferred_action_index(only_menu))
-        self.assertNotIn("clickable", runtime.state_segment(only_menu))
+        self.assertNotIn("has-click-action", runtime.state_segment(only_menu))
         self.assertIsNotNone(runtime.preferred_action_index(clickable))
-        self.assertIn("clickable", runtime.state_segment(clickable))
+        self.assertIn("has-click-action", runtime.state_segment(clickable))
 
 
 class ResolveAppRetryTests(AtspiPatchedTestCase):
