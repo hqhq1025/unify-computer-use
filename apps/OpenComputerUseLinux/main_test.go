@@ -191,6 +191,18 @@ func TestLinuxClickMethodSafetyAndPlatformSupport(t *testing.T) {
 		t.Fatalf("unauthorized global click result = %#v", result)
 	}
 
+	// 带 element_index 的 global 点击不再被闸门拦下。
+	//
+	// 这道闸门挡的是"把指针甩到屏幕任意一点"，而 auto 的回落分支合成的是同样
+	// 的坐标点击、且不受该开关约束——所以拦住带元素锚点的 global 并不增加安全性，
+	// 只是掐掉了唯一的逃生路径：实测有三处 AT-SPI 动作返回成功却不生效
+	// （Nautilus 的 menu、LibreOffice 的 Discard、行距下拉提交），
+	// 此时 auto 因 do_action 返回 True 而不回落，agent 无路可走。
+	result = service.click("Text Editor", "7", &x, &y, 1, "left", "global")
+	if strings.Contains(result.Content[0].Text, "OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS") {
+		t.Fatalf("element-anchored global click should not hit the pointer gate: %#v", result)
+	}
+
 	t.Setenv("OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS", "yes")
 	if !globalPointerFallbacksEnabled() {
 		t.Fatal("global pointer authorization should accept yes")

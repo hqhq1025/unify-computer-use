@@ -1764,7 +1764,13 @@ def perform_operation(operation):
                 SYNTHESIS
                 + "Synthesized a coordinate click at ({:.0f}, {:.0f}) after bringing the "
                 "window to the foreground. {}{}".format(
-                    x, y, UNVERIFIED_SYNTHESIS, PREFER_ELEMENT_INDEX
+                    x,
+                    y,
+                    UNVERIFIED_SYNTHESIS,
+                    # 调用方已经指定了元素，再劝它"改用 element_index"是答非所问：
+                    # 走到这里通常正是因为语义调用失效了（实测多个应用的
+                    # AT-SPI 动作返回成功却不生效），此时坐标是唯一出路。
+                    "" if element_record else PREFER_ELEMENT_INDEX,
                 )
             )
         elif click_method == "auto":

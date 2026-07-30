@@ -355,8 +355,21 @@ func (s *service) click(app, elementIndex string, x, y *float64, clickCount int,
 	if clickMethod == "sky_click" {
 		return textResult("click_method 'sky_click' is not supported on Linux", true)
 	}
-	if clickMethod == "global" && !globalPointerFallbacksEnabled() {
-		return textResult("click_method 'global' requires OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1 because it may move the system pointer and change foreground focus", true)
+	// 这道闸门原本挡的是"把指针甩到屏幕上任意一点"。但它挡不住 `auto`——
+	// auto 的回落分支合成的是同样的坐标点击，且不受该开关约束。于是实际效果
+	// 变成：只禁止 agent **主动选择**合成，不禁止合成本身。
+	//
+	// 这个不对称正好卡死了唯一的逃生路径。实测有三处 AT-SPI 动作
+	// **返回成功却不生效**（Nautilus 文件图标的 `menu`、LibreOffice 恢复
+	// 对话框的 `Discard`、行距下拉的选项提交）。这种情况下 `auto` 因为
+	// do_action 返回 True 而不会回落，`accessibility` 报成功，`global` 被拒——
+	// agent 手里没有任何一条能走通的路。
+	//
+	// 判据改成按**是否锚定到元素**来分：带 element_index 的坐标点击落点由
+	// 无障碍树给出，与 auto 的回落完全等价，没有额外风险；不带 element_index
+	// 的裸坐标才是这道闸门真正要拦的东西。
+	if clickMethod == "global" && elementIndex == "" && !globalPointerFallbacksEnabled() {
+		return textResult("click_method 'global' without element_index requires OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1 because it may move the system pointer anywhere on screen. Pass element_index to synthesize a click anchored to an accessibility element instead.", true)
 	}
 	snapshot := s.currentSnapshot(app)
 	if snapshot == nil {
