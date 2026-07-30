@@ -18,6 +18,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode"
 )
 
 var version = "0.3.0"
@@ -244,6 +245,7 @@ func (s *service) callTool(name string, args map[string]any) toolCallResult {
 		return s.click(
 			requiredString(args, "app"),
 			requiredElementIndex(args),
+			optionalString(args, "element"),
 			optionalFloat(args, "x"),
 			optionalFloat(args, "y"),
 			intValue(optionalFloat(args, "click_count"), 1),
@@ -262,6 +264,7 @@ func (s *service) callTool(name string, args map[string]any) toolCallResult {
 		return s.performSecondaryAction(
 			requiredString(args, "app"),
 			requiredElementIndex(args),
+			optionalString(args, "element"),
 			requiredString(args, "action"),
 		)
 	case "scroll":
@@ -269,6 +272,7 @@ func (s *service) callTool(name string, args map[string]any) toolCallResult {
 			requiredString(args, "app"),
 			requiredString(args, "direction"),
 			requiredElementIndex(args),
+			optionalString(args, "element"),
 			floatValue(optionalFloat(args, "pages"), 1),
 		)
 	case "drag_xy":
@@ -284,7 +288,7 @@ func (s *service) callTool(name string, args map[string]any) toolCallResult {
 	case "press_key":
 		return s.pressKey(requiredString(args, "app"), requiredString(args, "key"))
 	case "set_value":
-		return s.setValue(requiredString(args, "app"), requiredElementIndex(args), requiredString(args, "value"))
+		return s.setValue(requiredString(args, "app"), requiredElementIndex(args), optionalString(args, "element"), requiredString(args, "value"))
 	default:
 		return textResult(fmt.Sprintf("unsupportedTool(%q)", name), true)
 	}
@@ -347,7 +351,7 @@ func (s *service) getScreenshot(app string) toolCallResult {
 	}}
 }
 
-func (s *service) click(app, elementIndex string, x, y *float64, clickCount int, mouseButton, clickMethod string) toolCallResult {
+func (s *service) click(app, elementIndex, declared string, x, y *float64, clickCount int, mouseButton, clickMethod string) toolCallResult {
 	if app == "" {
 		return textResult("Missing required argument: app", true)
 	}
@@ -396,12 +400,15 @@ func (s *service) click(app, elementIndex string, x, y *float64, clickCount int,
 		if err != nil {
 			return textResult(err.Error(), true)
 		}
+		if mismatch := elementIntentMismatch(record, declared); mismatch != "" {
+			return textResult(mismatch, true)
+		}
 		request.Element = record
 	}
 	return s.actionResult(app, request)
 }
 
-func (s *service) performSecondaryAction(app, elementIndex, action string) toolCallResult {
+func (s *service) performSecondaryAction(app, elementIndex, declared, action string) toolCallResult {
 	if app == "" {
 		return textResult("Missing required argument: app", true)
 	}
@@ -419,10 +426,13 @@ func (s *service) performSecondaryAction(app, elementIndex, action string) toolC
 	if err != nil {
 		return textResult(err.Error(), true)
 	}
+	if mismatch := elementIntentMismatch(record, declared); mismatch != "" {
+		return textResult(mismatch, true)
+	}
 	return s.actionResult(app, linuxRequest{Tool: "invoke_element_action", App: app, Element: record, Action: action})
 }
 
-func (s *service) scroll(app, direction, elementIndex string, pages float64) toolCallResult {
+func (s *service) scroll(app, direction, elementIndex, declared string, pages float64) toolCallResult {
 	if app == "" {
 		return textResult("Missing required argument: app", true)
 	}
@@ -443,6 +453,9 @@ func (s *service) scroll(app, direction, elementIndex string, pages float64) too
 	record, err := lookupElement(snapshot, elementIndex)
 	if err != nil {
 		return textResult(err.Error(), true)
+	}
+	if mismatch := elementIntentMismatch(record, declared); mismatch != "" {
+		return textResult(mismatch, true)
 	}
 	return s.actionResult(app, linuxRequest{Tool: "scroll", App: app, Element: record, Direction: normalized, Pages: pages})
 }
@@ -520,7 +533,7 @@ func (s *service) pressKey(app, key string) toolCallResult {
 	return s.actionResult(app, linuxRequest{Tool: "press_key", App: app, Key: key})
 }
 
-func (s *service) setValue(app, elementIndex, value string) toolCallResult {
+func (s *service) setValue(app, elementIndex, declared, value string) toolCallResult {
 	if app == "" {
 		return textResult("Missing required argument: app", true)
 	}
@@ -534,6 +547,9 @@ func (s *service) setValue(app, elementIndex, value string) toolCallResult {
 	record, err := lookupElement(snapshot, elementIndex)
 	if err != nil {
 		return textResult(err.Error(), true)
+	}
+	if mismatch := elementIntentMismatch(record, declared); mismatch != "" {
+		return textResult(mismatch, true)
 	}
 	return s.actionResult(app, linuxRequest{Tool: "set_value", App: app, Element: record, Value: value})
 }
@@ -745,6 +761,97 @@ func lookupElement(snapshot *appSnapshot, elementIndex string) (*elementRecord, 
 		}
 	}
 	return nil, fmt.Errorf("unknown element_index %q", elementIndex)
+}
+
+// elementIntentMismatch 拿 agent 声明的意图去核对下标解析到的东西。
+// 匹配返回空串；明显不匹配则返回一句给 agent 看的解释。
+//
+// 修的是一类**静默**失败：下标是新取的、没过期，但它来自**上一份**快照。
+// 实测（LibreOffice Impress）F4 打开对话框后索引全变，用旧下标调
+// click(element_index=5) 时工具照点不误——本想点 Position Y，实际点到菜单，
+// 把对象高度误改成 16.26cm，全程没有一条报错。
+// `record_still_matches()` 只能拿"存下来的记录"比对，比不了"agent **想**点什么"。
+//
+// 抄的是 Playwright：它每个动作都带一个 element 参数
+// （"Human-readable element description used to obtain permission to interact
+// with the element"），本意是可读性与权限，副作用正好是**意图可核对**。
+//
+// 判据刻意宽松，因为**误拒比漏过更糟**——被误拒的 agent 会以为目标不存在。
+// 只在"声明里有实词、却与 role 和 name 都毫无交集"时才拒。
+func elementIntentMismatch(record *elementRecord, declared string) string {
+	declared = strings.TrimSpace(declared)
+	if declared == "" || record == nil {
+		return ""
+	}
+	// 只对**有名字**的元素校验。
+	//
+	// 第一版把 role 也算进可匹配范围，结果被最常见的词击穿：声明里几乎必然有
+	// "button"，而 role 里也几乎必然有 "button"，于是"声明 Save 却给了 New 的
+	// 下标"这种正要拦的情况照样放行（实测确认）。
+	//
+	// 反过来，无名元素的身份常常来自**旁边的标签**而不是自身属性——
+	// 实测 LibreOffice 的「位置和大小」对话框，四个 spin button 全都没有名字，
+	// "哪个是 Position Y" 只写在旁边的 label 上。这类元素上任何声明都匹配不了，
+	// 硬校验就是纯误伤。**判不了就别判。**
+	if strings.TrimSpace(record.Name) == "" {
+		return ""
+	}
+	if !containsASCIILetter(declared) {
+		// 声明是非 ASCII 文字（例如中文），而 name 通常是英文。判不了。
+		return ""
+	}
+	haystack := strings.ToLower(record.Name + " " + record.Description)
+	matched := false
+	specific := 0
+	for _, token := range strings.FieldsFunc(strings.ToLower(declared), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	}) {
+		if len([]rune(token)) < 2 || genericIntentWords[token] {
+			continue
+		}
+		specific++
+		if strings.Contains(haystack, token) {
+			matched = true
+			break
+		}
+	}
+	if specific == 0 || matched {
+		// 声明里没有区分性的实词（"the button"），或者对上了。
+		return ""
+	}
+	return fmt.Sprintf(
+		"element_index %d resolves to %s, which does not match what you said you were targeting (%q). "+
+			"This usually means the index came from an earlier snapshot — indices are renumbered whenever a dialog opens or closes. "+
+			"Call get_app_state again and re-read the index. If you really did mean this element, repeat the call with an `element` description that names it.",
+		record.Index, describeRecord(record), declared)
+}
+
+// 对任何元素都成立的词。拿它们判等于不判——而且第一版正是被 "button" 击穿的。
+var genericIntentWords = map[string]bool{
+	"the": true, "a": true, "an": true, "of": true, "in": true, "on": true,
+	"for": true, "to": true, "this": true, "that": true, "and": true, "with": true,
+	"button": true, "item": true, "box": true, "field": true, "menu": true,
+	"list": true, "cell": true, "pane": true, "panel": true, "window": true,
+	"dialog": true, "label": true, "icon": true, "tab": true, "bar": true,
+	"view": true, "control": true, "element": true, "text": true, "entry": true,
+	"checkbox": true, "check": true, "radio": true, "toggle": true, "spin": true,
+	"push": true, "click": true, "select": true, "option": true,
+}
+
+func containsASCIILetter(text string) bool {
+	for _, r := range text {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+			return true
+		}
+	}
+	return false
+}
+
+func describeRecord(record *elementRecord) string {
+	if record.Name != "" {
+		return fmt.Sprintf("%s %q", record.ControlType, record.Name)
+	}
+	return fmt.Sprintf("an unnamed %s", record.ControlType)
 }
 
 func runPython(request linuxRequest) (*linuxResponse, error) {
@@ -1405,6 +1512,7 @@ func toolDefinitions() []toolDefinition {
 			Description: "CHANNEL: ACCESSIBILITY. Click an element addressed by element_index from get_app_state. This invokes the element's own accessibility action when it has one, which does NOT steal focus from whatever the user is doing; when it has none, it synthesizes a click at coordinates taken FROM THE TREE, so the target is still identified rather than guessed. It does not accept x/y \u2014 for a click addressed by pixel, use click_xy. This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
+				"element":       stringProperty("Human-readable description of the element you intend to act on, e.g. \"the Save button\" or \"Position Y spin button\". Optional but strongly recommended: it is cross-checked against what element_index actually resolves to, which catches the common and otherwise SILENT failure of reusing an index from an earlier snapshot after the indices were renumbered."),
 				"app":           stringProperty("App name or bundle identifier"),
 				"element_index": stringProperty("Element index to click, from the most recent get_app_state"),
 				"click_count":   integerProperty("Number of clicks. Defaults to 1"),
@@ -1467,6 +1575,7 @@ func toolDefinitions() []toolDefinition {
 			Description: "CHANNEL: ACCESSIBILITY. Invoke a named accessibility action on an element — a first-class way to drive the UI, not a fallback. `click` already performs each element's default action; this tool reaches the other actions it exposes (e.g. menu, expand, increment). Like click-by-index it does not steal focus, and it is preferred over coordinate clicks whenever the action you need is listed under \"More actions\" in the accessibility tree. This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
+				"element":       stringProperty("Human-readable description of the element you intend to act on, e.g. \"the Save button\" or \"Position Y spin button\". Optional but strongly recommended: it is cross-checked against what element_index actually resolves to, which catches the common and otherwise SILENT failure of reusing an index from an earlier snapshot after the indices were renumbered."),
 				"app":           stringProperty("App name or bundle identifier"),
 				"element_index": stringProperty("Element identifier"),
 				"action":        stringProperty("Secondary accessibility action name"),
@@ -1486,6 +1595,7 @@ func toolDefinitions() []toolDefinition {
 			Description: "CHANNEL: KEYBOARD — element_index does NOT target the scroll. Page keys are synthesized to whatever widget holds focus inside the window; if the wrong region scrolled, click that region first. Scroll an element in a direction by a number of pages. This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
+				"element":       stringProperty("Human-readable description of the element you intend to act on, e.g. \"the Save button\" or \"Position Y spin button\". Optional but strongly recommended: it is cross-checked against what element_index actually resolves to, which catches the common and otherwise SILENT failure of reusing an index from an earlier snapshot after the indices were renumbered."),
 				"app":           stringProperty("App name or bundle identifier"),
 				"direction":     stringProperty("Scroll direction: up, down, left, or right"),
 				"element_index": stringProperty("Element identifier"),
@@ -1497,6 +1607,7 @@ func toolDefinitions() []toolDefinition {
 			Description: "CHANNEL: ACCESSIBILITY. Set the value of a settable accessibility element. This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
+				"element":       stringProperty("Human-readable description of the element you intend to act on, e.g. \"the Save button\" or \"Position Y spin button\". Optional but strongly recommended: it is cross-checked against what element_index actually resolves to, which catches the common and otherwise SILENT failure of reusing an index from an earlier snapshot after the indices were renumbered."),
 				"app":           stringProperty("App name or bundle identifier"),
 				"element_index": stringProperty("Element identifier"),
 				"value":         stringProperty("Value to assign"),

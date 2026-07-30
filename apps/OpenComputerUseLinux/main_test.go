@@ -202,23 +202,23 @@ func TestClickMethodSchemaAndParser(t *testing.T) {
 func TestLinuxClickMethodSafetyAndPlatformSupport(t *testing.T) {
 	service := newService()
 
-	result := service.click("Text Editor", "7", nil, nil, 1, "left", "app_post")
+	result := service.click("Text Editor", "7", "", nil, nil, 1, "left", "app_post")
 	if !result.IsError || result.Content[0].Text != "click_method 'app_post' is not supported on Linux" {
 		t.Fatalf("app_post click result = %#v", result)
 	}
 
-	result = service.click("Text Editor", "7", nil, nil, 1, "left", "sky_click")
+	result = service.click("Text Editor", "7", "", nil, nil, 1, "left", "sky_click")
 	if !result.IsError || result.Content[0].Text != "click_method 'sky_click' is not supported on Linux" {
 		t.Fatalf("sky_click result = %#v", result)
 	}
 
 	// click 不再接受 x/y——坐标点击是另一条通道，另一个工具。
 	x, y := 10.0, 20.0
-	result = service.click("Text Editor", "7", &x, &y, 1, "left", "auto")
+	result = service.click("Text Editor", "7", "", &x, &y, 1, "left", "auto")
 	if !result.IsError || !strings.Contains(result.Content[0].Text, "use click_xy") {
 		t.Fatalf("click 收到 x/y 应当指向 click_xy: %#v", result)
 	}
-	result = service.click("Text Editor", "", nil, nil, 1, "left", "auto")
+	result = service.click("Text Editor", "", "", nil, nil, 1, "left", "auto")
 	if !result.IsError || !strings.Contains(result.Content[0].Text, "click requires element_index") {
 		t.Fatalf("click 缺 element_index 应当明确报错: %#v", result)
 	}
@@ -907,5 +907,89 @@ func TestSecondaryActionToolIsNamedForItsRealRole(t *testing.T) {
 	}
 	if !strings.Contains(serverInstructions, "invoke_element_action") {
 		t.Fatal("instructions 的工具清单应当同步改名")
+	}
+}
+
+// 意图声明的交叉核对。抄自 Playwright 的 element 参数（"Human-readable element
+// description"），它本意是可读性与权限，副作用正好是**意图可核对**。
+//
+// 修的是实测踩过的一类**静默**失败：F4 打开对话框后索引全部重排，用上一份快照
+// 的下标调 click(element_index=5)，工具照点不误——本想点 Position Y，实际点到
+// 菜单，把对象高度误改成 16.26cm，全程没有一条报错。
+func TestElementIntentCrossCheck(t *testing.T) {
+	spin := &elementRecord{Index: 5, ControlType: "spin button", Description: "Enter the vertical distance"}
+	menu := &elementRecord{Index: 5, ControlType: "menu", Name: "Insert"}
+
+	// 就是那次实测：声明"Position Y spin button"，下标却解析到 menu Insert。
+	mismatch := elementIntentMismatch(menu, "Position Y spin button")
+	if mismatch == "" {
+		t.Fatal("下标解析到完全不同的控件时必须拒绝")
+	}
+	for _, fragment := range []string{`menu "Insert"`, "Position Y spin button", "earlier snapshot"} {
+		if !strings.Contains(mismatch, fragment) {
+			t.Fatalf("拒绝信息要把两边都说清并给出原因，缺 %q: %s", fragment, mismatch)
+		}
+	}
+
+	// 回归：第一版把 role 也算进可匹配范围，被最常见的词击穿——声明里几乎必然
+	// 有 "button"，role 里也几乎必然有 "button"，于是正要拦的情况照样放行。
+	// 实测确认过：声明 "the Save button"、给的却是 New 的下标，当时放行了。
+	if elementIntentMismatch(&elementRecord{Index: 8, ControlType: "push button", Name: "New",
+		Description: "Create a new document"}, "the Save button") == "" {
+		t.Fatal("通用词 button 不得让校验失效")
+	}
+
+	// 无名元素的身份常来自旁边的 label，自身属性里没有可比对的东西——
+	// 实测 LibreOffice「位置和大小」的四个 spin button 全无名字，
+	// "哪个是 Position Y" 只写在旁边的 label 上。这类**判不了就别判**。
+	if got := elementIntentMismatch(spin, "Position Y spin button"); got != "" {
+		t.Fatalf("无名元素不该校验（否则纯误伤）: %s", got)
+	}
+
+	// 同一句声明对上正确的元素时不得拒绝。
+	if got := elementIntentMismatch(&elementRecord{ControlType: "push button", Name: "Save",
+		Description: "Save the current file"}, "the Save button"); got != "" {
+		t.Fatalf("声明与元素相符不该拒绝: %s", got)
+	}
+
+	// **误拒比漏过更糟**：被误拒的 agent 会以为目标根本不存在。
+	// 以下都必须放行。
+	for _, ok := range []struct {
+		record   *elementRecord
+		declared string
+		why      string
+	}{
+		{menu, "", "没声明就是没开启这个校验，维持旧行为"},
+		{menu, "插入菜单", "非 ASCII 声明比不了英文 role/name，判不了就别拒"},
+		{menu, "the", "只有虚词，没有可比对的实词"},
+		{&elementRecord{ControlType: "push button", Name: "OK"}, "OK", "名字完全命中"},
+		{&elementRecord{ControlType: "push button", Name: "Save"}, "save button", "大小写不敏感"},
+		{&elementRecord{ControlType: "table cell", Name: "A1"}, "the A1 cell", "虚词之外有实词命中"},
+		{&elementRecord{ControlType: "spin button"}, "spin button with no name", "无名元素跳过校验"},
+		{&elementRecord{ControlType: "push button", Name: "OK"}, "the button", "只有通用词，没有区分性实词"},
+	} {
+		if got := elementIntentMismatch(ok.record, ok.declared); got != "" {
+			t.Fatalf("误拒（%s）: declared=%q -> %s", ok.why, ok.declared, got)
+		}
+	}
+}
+
+// element 必须出现在所有按 element_index 寻址的工具上，否则这道校验会有缺口，
+// 而缺口正好落在 agent 最容易搞错的地方。
+func TestIntentDeclarationOfferedOnEveryAccessibilityTool(t *testing.T) {
+	for _, name := range []string{"click", "invoke_element_action", "set_value", "scroll"} {
+		tool := findToolDefinition(t, name)
+		props, _ := tool.InputSchema["properties"].(map[string]any)
+		if _, ok := props["element"]; !ok {
+			t.Fatalf("%s 缺少 element 意图声明", name)
+		}
+	}
+	// GUI 通道没有元素可声明，不该有这个参数。
+	for _, name := range []string{"click_xy", "drag_xy"} {
+		tool := findToolDefinition(t, name)
+		props, _ := tool.InputSchema["properties"].(map[string]any)
+		if _, ok := props["element"]; ok {
+			t.Fatalf("%s 是坐标通道，不该有 element 参数", name)
+		}
 	}
 }
