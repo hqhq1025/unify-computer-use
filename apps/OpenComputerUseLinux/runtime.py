@@ -1712,6 +1712,39 @@ def snapshot_diagnostics(records):
     ]
 
 
+def is_dropdown_item(node, window):
+    """这个元素是不是"下拉列表里的一项"。
+
+    这类元素上的语义调用有一个特殊的坏处：**它会关掉弹窗，但不提交值**。
+    实测 LibreOffice 7.3「格式 → 段落 → 行距」下拉，点 `table cell Double`：
+
+        do_action  -> 返回 True，下拉关闭，控件仍然显示 Single
+        坐标点击   -> 下拉关闭，控件显示 Double            （截图核实）
+
+    比"不生效"更糟的是**事后无法校验**：弹窗连同那个元素一起消失了，
+    动作前后的树必然不同，通用的"什么都没变就重试"判据在这里不会触发；
+    而 LibreOffice 对话框里的 combo box 是个不上报值的幻影节点
+    （没有 frame、text 为空），想读回来确认也读不到。
+    所以只能在**调用之前**就避开语义通道。
+
+    影响面不小：调研 OSWorld 官方 370 个任务后，下拉/调色板提交横跨
+    Calc / Impress / Writer 三个应用 ≥37 个任务，是 LibreOffice 侧的头号阻塞。
+
+    判据刻意收得很窄——弹出窗口里的 `table cell`：
+    - 菜单项不在此列。Nautilus 右键菜单的 `menu item Rename…` 实测
+      do_action 完全正常，一并改掉会把好路也堵死。
+    - 主窗口里的表格单元格不在此列。Calc 的单元格用的就是这个角色，
+      它们不是下拉项，语义调用没有这个问题。
+    """
+    if node is None or window is None:
+        return False
+    if node_role(node) != "table cell":
+        return False
+    # 下拉在 X11 上是独立顶层窗口，角色 `window` 且没有标题；
+    # 应用主窗口是 `frame`，对话框是 `dialog`/`alert`，都带名字。
+    return node_role(window) == "window" and not node_name(window)
+
+
 def perform_operation(operation):
     tool = operation.get("tool")
     if tool == "list_apps":
@@ -1798,7 +1831,11 @@ def perform_operation(operation):
             )
         elif click_method == "auto":
             handled = False
-            if element is not None and operation.get("mouse_button", "left") == "left":
+            if (
+                element is not None
+                and operation.get("mouse_button", "left") == "left"
+                and not is_dropdown_item(element, window)
+            ):
                 handled = do_action_by_index(element, preferred_action_index(element))
             if handled:
                 notes.append(
@@ -1820,12 +1857,23 @@ def perform_operation(operation):
                     operation.get("mouse_button", "left"),
                     operation.get("click_count", 1),
                 )
-                notes.append(
-                    SYNTHESIS
-                    + "No usable AT-SPI action was available, so this fell back to a "
-                    "coordinate click at ({:.0f}, {:.0f}) after bringing the window to "
-                    "the foreground. {}".format(x, y, UNVERIFIED_SYNTHESIS)
-                )
+                if is_dropdown_item(element, window):
+                    # 说清楚为什么没走语义通道。不解释的话这条 Note 读起来像
+                    # "这个元素没有动作"，与事实相反——它有，只是那个动作会
+                    # 关掉下拉却不提交值，而且关掉之后连校验的机会都没有。
+                    reason = (
+                        "This element is an item inside a drop-down popup, where the "
+                        "AT-SPI action closes the popup without committing the value "
+                        "and leaves nothing to verify against, so this went straight to "
+                        "a coordinate click at ({:.0f}, {:.0f}). ".format(x, y)
+                    )
+                else:
+                    reason = (
+                        "No usable AT-SPI action was available, so this fell back to a "
+                        "coordinate click at ({:.0f}, {:.0f}) after bringing the window "
+                        "to the foreground. ".format(x, y)
+                    )
+                notes.append(SYNTHESIS + reason + UNVERIFIED_SYNTHESIS)
         else:
             raise RuntimeError("Invalid click_method '{}'".format(click_method))
     elif tool == "perform_secondary_action":

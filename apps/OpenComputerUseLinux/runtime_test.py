@@ -143,6 +143,12 @@ class FakeNode:
     def get_name(self):
         return ""
 
+    def get_role_name(self):
+        # 真实 AT-SPI 节点一律实现这个方法。假节点缺了它会让 node_role()
+        # 在属性访问阶段就抛 AttributeError——safe() 收的是可调用对象，
+        # 拦不住这一步。
+        return ""
+
 
 class FakeAtspiText:
     @staticmethod
@@ -1388,6 +1394,46 @@ class ResolveAppRetryTests(AtspiPatchedTestCase):
         runtime.resolve_app("soffice")
 
         self.assertEqual(self.slept, [])
+
+
+class DropdownItemTests(AtspiPatchedTestCase):
+    """下拉项上的语义调用会关掉弹窗却不提交值，且事后无从校验。"""
+
+    def popup(self):
+        return _TreeNode(role="window", name="")
+
+    def test_table_cell_in_unnamed_popup_is_a_dropdown_item(self):
+        """回归：LibreOffice 行距下拉，点 `table cell Double`。
+
+        实测 do_action 返回 True、下拉关闭、控件仍显示 Single（截图核实）；
+        换坐标点击才真正提交。比"不生效"更糟的是事后无法校验——弹窗连同元素
+        一起消失，动作前后的树必然不同，通用的"什么都没变就重试"不会触发；
+        而对话框里的 combo box 是不上报值的幻影节点，读回来确认也读不到。
+        """
+        cell = _TreeNode(role="table cell", name="Double", x=3, y=71, w=358, h=21)
+
+        self.assertTrue(runtime.is_dropdown_item(cell, self.popup()))
+
+    def test_menu_item_is_not_treated_as_dropdown_item(self):
+        """菜单项不在此列：Nautilus 右键菜单的 `Rename…` 实测 do_action 完全正常，
+        一并改掉会把好路也堵死。"""
+        item = _TreeNode(role="menu item", name="Rename…", x=7, y=189, w=304, h=25)
+
+        self.assertFalse(runtime.is_dropdown_item(item, self.popup()))
+
+    def test_table_cell_in_main_frame_is_not_a_dropdown_item(self):
+        """Calc 的单元格用的就是 table cell 这个角色，它们不是下拉项。"""
+        cell = _TreeNode(role="table cell", name="A1", x=10, y=10, w=80, h=20)
+        frame = _TreeNode(role="frame", name="untitled - Calc", w=900, h=600)
+
+        self.assertFalse(runtime.is_dropdown_item(cell, frame))
+
+    def test_table_cell_in_named_dialog_is_not_a_dropdown_item(self):
+        """对话框有标题、角色是 dialog；下拉是无名的 window。"""
+        cell = _TreeNode(role="table cell", name="calc-test.csv", x=41, y=157, w=332, h=21)
+        dialog = _TreeNode(role="dialog", name="Document Recovery", w=578, h=406)
+
+        self.assertFalse(runtime.is_dropdown_item(cell, dialog))
 
 
 class _NoSleep:
