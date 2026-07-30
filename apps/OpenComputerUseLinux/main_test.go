@@ -19,6 +19,20 @@ func TestToolDefinitionCount(t *testing.T) {
 	}
 }
 
+func TestBrowserRoutingRuleIsExplicit(t *testing.T) {
+	// 两个控制平面并存时，agent 会默认"看到 Chrome 就用 AT-SPI 操作它"，
+	// 然后在一个 a11y 默认关闭的应用上反复试错。规则必须显式写出来。
+	for _, fragment := range []string{
+		"Browsers are NOT handled by these tools",
+		"separate control plane",
+		"handoff point between the two planes is the filesystem",
+	} {
+		if !strings.Contains(serverInstructions, fragment) {
+			t.Fatalf("server instructions must state the browser routing rule: missing %q", fragment)
+		}
+	}
+}
+
 func TestObservationChannelsAreSeparate(t *testing.T) {
 	shot := findToolDefinition(t, "get_screenshot")
 	if !strings.Contains(shot.Description, "ONLY when the accessibility tree is insufficient") {

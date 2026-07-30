@@ -125,6 +125,16 @@
 - AT-SPI event synthesis 是全局的：按键落到当前输入焦点窗口、坐标点击落到该位置最上层窗口，都与 tool call 里的 `app` 参数无关。因此 `press_key`、`scroll`、`drag`、coordinate `click` 以及 `type_text` 退化到键盘合成时，都会先把目标窗口抬到前台（frame 自身 `grab_focus` 在 GTK 上恒失败，实际是对窗口内 FOCUSABLE 子控件抓焦点），抬不上来就直接报错，而不是把输入投递给当时恰好持有焦点的其它应用。**这是一处有意为之的平台分歧**：macOS 侧靠 `CGEvent.postToPid` 做进程定向投递以避免抢前台，Linux 没有等价能力，只能在"非侵入"和"确保送达"之间选后者——不抢焦点的代价是本该给目标应用的输入会静默进入用户当前窗口（例如终端）。共享桌面的使用者会明显感到焦点被抢，这是已知代价。
 - `type_text` 优先走 AT-SPI `EditableText` 直写，这条路径不依赖窗口焦点。选择目标控件时必须同时要求 `EDITABLE` 状态并优先 `FOCUSED` / `SHOWING`：只按 EditableText 接口是否存在取树序第一个，会命中 GTK app 里的隐藏占位控件，而 `Atspi.EditableText.insert_text()` 对这类控件同样返回 `True`。写入点按"非空选区起点 > caret > 末尾追加"决定，有选区时先删掉再插入，和真的在键盘上打字保持一致；只有控件不支持 caret 查询才退回末尾追加。写入后会回读字符数确认真的落地，没落地才退化到键盘合成。`set_value` 同理回读确认，`set_text_contents` 返回 `True` 同样不可信。
 - 动作类工具会在 accessibility tree 前面附上 `Note:` 行，说明这次实际走了哪条路径、结果有没有被确认：AT-SPI 语义动作和直写属于已确认，坐标点击 / 按键合成一律标注 `not verified`。Go 侧还会拿动作前已缓存的快照和动作后的新快照比对窗口标题、tree、焦点和选区（截图不参与比较，光标闪烁会让它永远"有变化"），完全相同就追加一条"什么都没变"的提示。因为动作工具契约本就要求先调 `get_app_state`，这个比对不需要额外遍历一次树。
+- 浏览器不由本 runtime 操作。Chrome / Chromium 交给独立的控制平面（Playwright / browser-use over CDP），
+  `serverInstructions` 里显式写明了这条路由规则——否则 agent 会对着一个 a11y 默认关闭的应用反复试错。
+  两个平面的交接点是文件系统：浏览器下载落到 `~/Downloads`，再由本 runtime 打开。
+  接管必须用 `connect_over_cdp` 连环境里已有的 Chrome，不能自己 launch，
+  否则 OSWorld 中检查 Chrome profile 的验证器会什么都查不到（见 `scripts/verify-browser-cdp-attach.py`）。
+- `type_text` 在 Linux 上插入到 caret 并替换选区，与 macOS 侧"追加到末尾再写回 AXValue"**有意分歧**。
+  理由是 Linux 侧走的是 `Atspi.EditableText.insert_text(offset, ...)`，本来就按偏移量写入，
+  取 caret 偏移量与取末尾偏移量成本相同；而 agent 常在 `click` 定位光标之后才调 `type_text`，
+  追加到末尾会直接忽略它刚做的定位。macOS 侧受 `AXValue` 整体读写的约束，改动代价与风险都更高，
+  故不强行对齐；若后续要统一，应以 caret 语义为准。
 - `extents()` 会同时过滤异常尺寸和异常原点：未渲染控件在 GTK 上返回 INT_MIN 量级的坐标但尺寸看着正常（常见 1x1），只查尺寸拦不住，这些坐标进了元素树会让 coordinate click / drag 打到无意义的位置。
 - Linux runtime 需要运行在已登录桌面用户 session 里。缺少 `XDG_RUNTIME_DIR`、`DBUS_SESSION_BUS_ADDRESS` 或 display 环境时，Go runtime 会在启动 Python AT-SPI bridge 前尝试从 `/run/user/<uid>` 和常见桌面进程自动发现当前用户的 session bus、display / Wayland 值；纯 SSH tty 如果找不到已登录桌面 session，可以启动二进制，但不能直接 inspect 或操作 GUI session。
 - `get_app_state` 的 accessibility tree 在 GTK/GNOME app 上可能很深，Linux bridge 使用与 macOS / Windows 一致的 1200 节点、64 层默认 tree budget，并支持显式提高 `max_tree_nodes` / `max_tree_depth`。截图通过 GDK root window best-effort capture；GNOME Wayland 可能返回黑图，bridge 会检测全黑采样并省略 image block。

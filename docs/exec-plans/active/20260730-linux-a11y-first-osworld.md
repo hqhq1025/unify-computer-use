@@ -656,9 +656,12 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 > 浏览器下载 → `~/Downloads` → GUI 应用打开。这类任务最易碎。
 - 验收：至少一条完整交接链路端到端跑通并有证据
 
-**#21 路由规则写进 system prompt**　依赖：无
-- 验收：Chrome 归 Playwright / 其余归本 MCP 的规则显式存在，
-  且验证 agent 不会再用 AT-SPI 去操作 Chrome
+**#21 路由规则写进 system prompt** ✅ 已完成　依赖：无
+> `serverInstructions` 现在显式写明：浏览器不由本 MCP 操作，Chrome/Chromium 归
+> 独立控制平面（Playwright/browser-use over CDP）；浏览器之外的应用归本 MCP；
+> **两个平面的交接点是文件系统**（下载落 `~/Downloads` 再用本 MCP 打开）。
+> 并说明了为什么不能碰：Chrome 的 a11y 默认关闭，对它调 `get_app_state` 只会
+> 在一个看不见的应用上烧回合。Go 侧有断言测试守住这三段措辞。
 
 ### 环境与仓库
 
@@ -683,9 +686,15 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 > 这在本计划开始前就是失败的。CI 守不住，记录质量迟早滑坡。
 - 验收：`./scripts/ci.sh` 全绿
 
-**#24 `insert_text` 追加 vs caret 的跨平台分歧**　依赖：无
-> Linux 已改为 caret 插入，macOS 侧仍是追加到末尾。
-- 验收：给出是否要让 macOS 对齐的结论，或明确记录为有意分歧
+**#24 `insert_text` 追加 vs caret 的跨平台分歧** ✅ 已完成　依赖：无
+> 结论：**记录为有意分歧，不强行对齐**，理由写入 `docs/ARCHITECTURE.md`。
+>
+> Linux 侧改 caret 插入是对的：它走的是 `Atspi.EditableText.insert_text(offset, ...)`，
+> 本来就按偏移量写入，取 caret 偏移与取末尾偏移**成本完全相同**；而 agent 常常
+> 先用 `click` 定位光标再调 `type_text`，追加到末尾会直接作废它刚做的定位。
+>
+> macOS 侧受 `AXValue` 整体读写的约束（读出全部内容、拼接、整体写回），
+> 改成 caret 语义的代价与风险都高得多。若后续要统一，应以 caret 语义为准。
 
 ### OSWorld 接入
 
