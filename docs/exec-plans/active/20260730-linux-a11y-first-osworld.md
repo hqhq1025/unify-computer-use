@@ -687,8 +687,12 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
     - 邮件列表批量操作（2 个）🔶：往 `Mail/Local Folders/Inbox` 写了一个含两封
       邮件的 mbox，重启后 `tree item Inbox` **确实出现在文件夹树里**且可纯语义
       选中（0 次合成），但**邮件本身没有出现在树里**。
-      推测需要 Thunderbird 重建 `.msf` 索引（可试「右键文件夹 → Properties →
-      Repair Folder」）。**不标完成**，落点记于此。
+      **已进一步定位**：目录里只有 `Inbox`（388 字节的 mbox），
+      **没有 `Inbox.msf`**——Thunderbird 根本没有解析这个 mbox，
+      所以邮件列表面板也不存在于树里（树里只有文件夹树 `50 tree`）。
+      **不标完成。** 下次起点：让 Thunderbird 生成索引——
+      「右键 Inbox → Properties → Repair Folder」，
+      或确认 mbox 的 `From ` 分隔行格式被它接受。
     - **尝试过的解法与结果**：想不联网建一个本地账户来解锁这 10 个任务。
       `AppMenu → Account Settings` 能打开（语义可达），里面有
       `push button Account Actions`，但点击后未展开预期菜单。
