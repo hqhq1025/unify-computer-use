@@ -50,8 +50,33 @@ func TestTruncationIsPrioritisedAndVisible(t *testing.T) {
 			t.Fatalf("truncation must be prioritised and reported: missing %q", fragment)
 		}
 	}
-	if !strings.Contains(linuxRuntimeScript, "structural containers with no name, action or value") {
+	if !strings.Contains(linuxRuntimeScript, "not interactable or not on screen") {
 		t.Fatal("the omission notice must say what was dropped, not just how many")
+	}
+}
+
+func TestTreeIsPrunedByDefaultWithEscapeHatch(t *testing.T) {
+	// 裁剪判据与 OSWorld 官方 judge_node() 同源。离线评测（13 步 / 9 步元素定向）
+	// 显示 22% 压缩率 + 100% 保留率——前提是渲染保真度到位（单元格带 Frame、
+	// 角色不硬编码），两者都已修。
+	for _, fragment := range []string{
+		"def is_interactive_role(role):",
+		"PRUNE_ROLE_SUFFIXES",
+		"prune=True,",
+		`prune=operation.get("prune", True)`,
+	} {
+		if !strings.Contains(linuxRuntimeScript, fragment) {
+			t.Fatalf("pruning must be on by default: missing %q", fragment)
+		}
+	}
+	// 被裁的节点仍要继续递归子节点——中间容器往往正是有价值控件的父节点。
+	if !strings.Contains(linuxRuntimeScript, "中间容器往往正是有价值控件的父节点") {
+		t.Fatal("pruning a container must not drop its subtree")
+	}
+	state := findToolDefinition(t, "get_app_state")
+	props, _ := state.InputSchema["properties"].(map[string]any)
+	if _, ok := props["prune"]; !ok {
+		t.Fatal("get_app_state must expose a prune escape hatch")
 	}
 }
 

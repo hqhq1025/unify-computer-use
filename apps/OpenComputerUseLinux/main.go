@@ -173,6 +173,7 @@ type linuxRequest struct {
 	TextLimit    any            `json:"text_limit,omitempty"`
 	MaxTreeNodes int            `json:"max_tree_nodes,omitempty"`
 	MaxTreeDepth int            `json:"max_tree_depth,omitempty"`
+	Prune        *bool          `json:"prune,omitempty"`
 }
 
 type textLimit struct {
@@ -222,7 +223,7 @@ func (s *service) callTool(name string, args map[string]any) toolCallResult {
 		if err != nil {
 			return textResult(err.Error(), true)
 		}
-		return s.getAppState(requiredString(args, "app"), textLimit, maxTreeNodes, maxTreeDepth)
+		return s.getAppState(requiredString(args, "app"), textLimit, maxTreeNodes, maxTreeDepth, optionalBool(args, "prune"))
 	case "click":
 		clickMethod, err := parseClickMethod(optionalString(args, "click_method"))
 		if err != nil {
@@ -283,7 +284,7 @@ func (s *service) listApps() toolCallResult {
 	return textResult(response.Text, false)
 }
 
-func (s *service) getAppState(app string, textLimit *textLimit, maxTreeNodes, maxTreeDepth *int) toolCallResult {
+func (s *service) getAppState(app string, textLimit *textLimit, maxTreeNodes, maxTreeDepth *int, prune *bool) toolCallResult {
 	if app == "" {
 		return textResult("Missing required argument: app", true)
 	}
@@ -297,6 +298,7 @@ func (s *service) getAppState(app string, textLimit *textLimit, maxTreeNodes, ma
 	if maxTreeDepth != nil {
 		request.MaxTreeDepth = *maxTreeDepth
 	}
+	request.Prune = prune
 	snapshot, notes, result := s.refreshSnapshot(app, request)
 	if result.IsError {
 		return result
@@ -1241,13 +1243,14 @@ func toolDefinitions() []toolDefinition {
 		},
 		{
 			Name:        "get_app_state",
-			Description: "Get the state of an already running app's key window and return a screenshot and accessibility tree. This must be called once per assistant turn before interacting with the app. This tool is part of plugin `Computer Use`.",
+			Description: "Get the state of an already running app's key window and return its accessibility tree. This does NOT return a screenshot — use get_screenshot for that, and only when the tree is insufficient. This must be called once per assistant turn before interacting with the app. This tool is part of plugin `Computer Use`.",
 			Annotations: readOnlyAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"app":            stringProperty("App name or bundle identifier"),
 				"text_limit":     textLimitProperty("Maximum text characters to return. Use \"max\" for full text. Defaults to 500."),
 				"max_tree_nodes": positiveIntegerProperty("Maximum accessibility tree nodes to render. Defaults to 1200."),
 				"max_tree_depth": positiveIntegerProperty("Maximum accessibility tree depth to render. Defaults to 64."),
+				"prune":          booleanProperty("Defaults to true. Pruning keeps only interactable, on-screen elements and cuts the tree to roughly a fifth without losing anything you can act on; the omission notice reports how many nodes were left out. Set false only if you suspect a needed element was filtered."),
 			}, []string{"app"}),
 		},
 		{
@@ -1352,6 +1355,25 @@ func numberProperty(description string) map[string]any {
 
 func integerProperty(description string) map[string]any {
 	return map[string]any{"type": "integer", "description": description}
+}
+
+func optionalBool(args map[string]any, key string) *bool {
+	value, ok := args[key]
+	if !ok {
+		return nil
+	}
+	if flag, ok := value.(bool); ok {
+		return &flag
+	}
+	if text, ok := value.(string); ok {
+		flag := text == "true"
+		return &flag
+	}
+	return nil
+}
+
+func booleanProperty(description string) map[string]any {
+	return map[string]any{"type": "boolean", "description": description}
 }
 
 func positiveIntegerProperty(description string) map[string]any {

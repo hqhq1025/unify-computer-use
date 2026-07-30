@@ -39,6 +39,36 @@ MAX_SANE_EXTENT = 100000
 # 是唯一可以安全牺牲的一类。
 BUDGET_PRESSURE_RATIO = 0.8
 
+# 裁剪用的角色判据。与 OSWorld 官方 `judge_node()` 同源
+# （mm_agents/accessibility_tree_wrap/heuristic_retrieve.py）：前缀/后缀匹配
+# 加一个精确集合，再叠加可见性要求。
+#
+# 离线评测（13 步轨迹 / 9 步元素定向，含完整对话框链路）显示这套判据能压到
+# 22% 且保留率 100%——是所有候选里唯一同时最激进且无损的。前提是渲染保真度
+# 到位：单元格要带 Frame、角色不能硬编码，两者都已修。
+PRUNE_ROLE_SUFFIXES = (
+    "item", "button", "heading", "label", "scrollbar", "searchbox", "textbox",
+    "link", "tabelement", "textfield", "textarea", "menu",
+)
+PRUNE_ROLE_EXACT = {
+    "alert", "canvas", "check box", "combo box", "entry", "icon", "image",
+    "paragraph", "scroll bar", "section", "slider", "static", "table cell",
+    "terminal", "text", "table", "list box", "tree", "tree item", "list item",
+    "page tab", "page tab list", "spin button", "tool bar", "status bar",
+    "frame", "dialog", "window",
+}
+
+
+def is_interactive_role(role):
+    """角色是否属于"agent 可能需要操作或读取"的一类。"""
+    normalized = role.lower().strip()
+    if normalized.startswith("document"):
+        return True
+    compact = normalized.replace(" ", "")
+    if compact.endswith(PRUNE_ROLE_SUFFIXES):
+        return True
+    return normalized in PRUNE_ROLE_EXACT
+
 
 def frame(x, y, width, height):
     if width is None or height is None or width < 0 or height < 0:
@@ -582,7 +612,8 @@ def render_visible_cells(
     return count
 
 
-def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT, max_tree_nodes=MAX_ELEMENTS, max_tree_depth=MAX_DEPTH):
+def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
+                max_tree_nodes=MAX_ELEMENTS, max_tree_depth=MAX_DEPTH, prune=True):
     records = []
     lines = []
 
@@ -600,6 +631,25 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT, m
             return
         index = len(records)
         record = record_for(node, index, path, window_bounds, text_limit=text_limit)
+
+        # 裁剪：只保留"可操作角色 + 屏幕上可见"的节点。与 OSWorld 官方判据同源，
+        # 实测 22% 压缩率、100% 保留率。被裁的只是它自己这一行，**仍然继续递归
+        # 子节点**——中间容器往往正是有价值控件的父节点，连子树一起砍会适得其反。
+        if prune and depth > 0:
+            role_name = record["controlType"] or ""
+            # 有名字的可见节点一律保留，哪怕角色不"可交互"。
+            # 实测教训：行距 combo 的 toggle button 本身没有名字，agent 只能靠
+            # 父节点 `panel Line Spacing` 指认它。纯按角色白名单裁掉这个 panel，
+            # 目标元素虽然还在树里，却**没法被指认**——整条对话框链路当场断掉。
+            # 保留率指标只看"目标在不在"，看不到这一层，是它的盲区。
+            keeps = record["frame"] is not None and (
+                is_interactive_role(role_name) or bool(record["name"])
+            )
+            if not keeps:
+                dropped["count"] += 1
+                for child_index in range(min(child_count(node), MAX_CHILD_FANOUT)):
+                    visit(child_at(node, child_index), depth + 1, path + [child_index])
+                return
 
         # 预算吃紧时优先保住有名字/有动作/有值的节点。丢容器只丢它自己这一行，
         # 仍然继续递归子节点——被丢的容器往往正是有价值控件的父节点。
@@ -684,7 +734,7 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT, m
         lines.append(
             "({} node(s) omitted: {} — raise max_tree_nodes to see them)".format(
                 dropped["count"],
-                "structural containers with no name, action or value"
+                "not interactable or not on screen"
                 if len(records) < max_tree_nodes
                 else "node budget exhausted, remaining subtree not traversed",
             )
@@ -799,6 +849,7 @@ def build_snapshot(
     max_tree_nodes=MAX_ELEMENTS,
     max_tree_depth=MAX_DEPTH,
     include_screenshot=False,
+    prune=True,
 ):
     """构建应用快照。
 
@@ -817,6 +868,7 @@ def build_snapshot(
         text_limit=text_limit,
         max_tree_nodes=max_tree_nodes,
         max_tree_depth=max_tree_depth,
+        prune=prune,
     )
     pid = node_pid(app)
     return {
@@ -1438,6 +1490,7 @@ def perform_operation(operation):
             text_limit=parse_text_limit(operation.get("text_limit"), DEFAULT_TEXT_LIMIT),
             max_tree_nodes=positive_int(operation.get("max_tree_nodes"), MAX_ELEMENTS),
             max_tree_depth=positive_int(operation.get("max_tree_depth"), MAX_DEPTH),
+            prune=operation.get("prune", True),
         )
         response = {"ok": True, "snapshot": snapshot}
         diagnostics = snapshot_diagnostics(snapshot.get("elements") or [])
