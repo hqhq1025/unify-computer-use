@@ -684,7 +684,11 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
     - 消息过滤器（3 个）：AppMenu → Tools → `push button Message Filters`
       在树里可寻址、点击也执行了，但**没有任何新窗口出现**——
       Thunderbird 在没有任何账户时不打开该对话框（过滤器必须绑定账户/文件夹）。
-    - 文件夹面板（5 个）、邮件列表批量操作（2 个）：同理需要账户与邮件数据。
+    - 邮件列表批量操作（2 个）🔶：往 `Mail/Local Folders/Inbox` 写了一个含两封
+      邮件的 mbox，重启后 `tree item Inbox` **确实出现在文件夹树里**且可纯语义
+      选中（0 次合成），但**邮件本身没有出现在树里**。
+      推测需要 Thunderbird 重建 `.msf` 索引（可试「右键文件夹 → Properties →
+      Repair Folder」）。**不标完成**，落点记于此。
     - **尝试过的解法与结果**：想不联网建一个本地账户来解锁这 10 个任务。
       `AppMenu → Account Settings` 能打开（语义可达），里面有
       `push button Account Actions`，但点击后未展开预期菜单。
