@@ -1,0 +1,11 @@
+# 供 dependency-review-action 使用：拦截高危漏洞与不兼容许可证。
+fail-on-severity: high
+allow-licenses:
+  - Apache-2.0
+  - BSD-2-Clause
+  - BSD-3-Clause
+  - ISC
+  - MIT
+  - MPL-2.0
+  - Unlicense
+comment-summary-in-pr: on-failure

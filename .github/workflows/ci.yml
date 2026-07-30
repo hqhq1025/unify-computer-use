@@ -1,0 +1,56 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
+        with:
+          go-version-file: apps/OpenComputerUseLinux/go.mod
+      - name: Linux runtime
+        working-directory: apps/OpenComputerUseLinux
+        run: |
+          gofmt -l . | tee /tmp/fmt
+          test ! -s /tmp/fmt
+          go vet ./...
+          go test ./...
+      - name: Windows runtime
+        working-directory: apps/OpenComputerUseWindows
+        run: go test ./...
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+      - name: 安装 AT-SPI 绑定
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-gi gir1.2-atspi-2.0
+      - name: 语法检查
+        run: |
+          python3 -m py_compile apps/OpenComputerUseLinux/runtime.py
+          find apps/OpenComputerUseLinux/tests -name '*.py' -print0 2>/dev/null | xargs -0 -r -n1 python3 -m py_compile
+          python3 -m py_compile scripts/verify-linux-input-chain.py scripts/a11y-readiness-probe.py
+      - name: Linux runtime 单测
+        working-directory: apps/OpenComputerUseLinux
+        # 用假的 AT-SPI 节点驱动，不需要桌面会话
+        run: python3 -m unittest runtime_test
+
+  scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: '22'
+      - name: mjs 语法
+        run: find scripts -type f -name '*.mjs' -print0 | xargs -0 -r -n1 node --check

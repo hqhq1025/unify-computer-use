@@ -1,0 +1,33 @@
+name: Bug 报告
+description: 报告一个可复现的缺陷
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 现象
+      description: 实际发生了什么，以及你期望发生什么
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      description: 尽量给出最小复现路径
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 证据
+      description: >
+        命令输出、日志、截图。若涉及 Computer Use 工具，请说明工具返回的
+        isError 与实际观察到的状态是否一致——本项目已知存在"报成功但没生效"的
+        缺陷类型，两者的差异是关键信息。
+  - type: input
+    id: environment
+    attributes:
+      label: 环境
+      placeholder: "例如：Ubuntu 22.04 / X11 / at-spi2-core 2.44 / LibreOffice 7.3"
+    validations:
+      required: true

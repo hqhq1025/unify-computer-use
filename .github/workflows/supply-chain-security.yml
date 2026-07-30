@@ -1,0 +1,16 @@
+name: supply-chain-security
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+      - uses: actions/dependency-review-action@da24556b548a50705dd671f47852072ea4c105d9
+        with:
+          config-file: ./.github/dependency-review-config.yml

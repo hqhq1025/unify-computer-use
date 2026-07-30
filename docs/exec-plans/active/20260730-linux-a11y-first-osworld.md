@@ -461,6 +461,10 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 - [x] 修复"空壳 a11y 静默成功"（活应用只暴露窗口框时给出可执行诊断）
 - [x] 抽样 OSWorld 8 个 domain 的真实任务，归纳所需操作类型
 - [x] 接入 Playwright + browser-use，验证均为 attach 而非 launch → `scripts/verify-browser-cdp-attach.py`
+- [x] #1 LibreOffice 菜单→对话框链路实测；修复模态对话框对 agent 不可见
+- [x] #1b combo box 路径攻关：定位到 combo 是 INT_MIN 幻影、真实控件是 toggle button；
+      下拉弹窗已可见，但提交仍无解（详见实测发现小节）
+- [x] #23 补齐 11 个仓库卫生文件，`./scripts/ci.sh` 现已完整跑通
 
 ## 实测发现：LibreOffice「菜单 → 对话框」链路（2026-07-30，待办 #1）
 
@@ -627,7 +631,7 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
 - 验收：Chrome/Electron 的 `--force-renderer-accessibility` 与独立
   `user-data-dir`、snap 应用的限制等，形成可直接用于环境搭建的清单
 
-**#23 修复 `make ci` 跑不到底**　依赖：无
+**#23 修复 `make ci` 跑不到底** ✅ 已完成　依赖：无
 > `check-repo-hygiene.sh` 缺 `.editorconfig`、`.github/workflows/ci.yml` 等 11 个文件，
 > 这在本计划开始前就是失败的。CI 守不住，记录质量迟早滑坡。
 - 验收：`./scripts/ci.sh` 全绿

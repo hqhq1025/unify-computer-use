@@ -1,0 +1,23 @@
+# 统一跨编辑器的基础格式，避免因缩进/换行差异产生噪音 diff。
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.{py,swift}]
+indent_size = 4
+
+[*.go]
+indent_style = tab
+
+[Makefile]
+indent_style = tab
+
+[*.md]
+# Markdown 里行尾双空格是换行语义，不能裁掉
+trim_trailing_whitespace = false
