@@ -699,10 +699,14 @@ OSWorld 验证器查不到任何东西、静默判 0 分）。
       **已排除点击通道**：语义选中（`[selected focused]` 正确转移）与元素锚定
       `global` 坐标点击**都试过**，`.msf` 始终没有生成。
       所以问题不在"文件夹没被真正打开"，**在 mbox 文件本身没被解析**。
-      下次起点（已缩小到一个具体假设）：Thunderbird 的 mbox 需要
-      `X-Mozilla-Status` / `X-Mozilla-Status2` 头，我写的两封邮件没有；
-      补上再试，或干脆用 Thunderbird 自己「新建消息 → 保存为草稿」生成一封，
-      再照它的格式反推。
+      **`X-Mozilla-Status` 假设已证伪**：补上 `X-Mozilla-Status: 0001` /
+      `X-Mozilla-Status2: 00000000` 两个头、重启、并在新实例里两条通道各点一次
+      Inbox——`.msf` 仍然不生成，邮件仍不出现。
+      **下次起点（搜索空间已缩到很小）**：不要再手写 mbox。
+      用 Thunderbird 自己产生一封真消息（新建消息 → 保存为草稿，
+      或 `Local Folders → 右键 → New Folder` 后拖入），
+      再拿它生成的文件反推格式差异。手写 mbox 这条路本轮已花掉三次尝试，
+      性价比不高。
     - **尝试过的解法与结果**：想不联网建一个本地账户来解锁这 10 个任务。
       `AppMenu → Account Settings` 能打开（语义可达），里面有
       `push button Account Actions`，但点击后未展开预期菜单。
