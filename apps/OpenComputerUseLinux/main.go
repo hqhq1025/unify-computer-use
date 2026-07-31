@@ -579,7 +579,7 @@ func (s *service) performSecondaryAction(app, elementIndex, declared, action str
 	if mismatch := elementIntentMismatch(record, declared); mismatch != "" {
 		return textResult(mismatch, true)
 	}
-	return s.actionResult(app, linuxRequest{Tool: "invoke_element_action", App: app, Element: record, Action: action})
+	return s.actionResult(app, linuxRequest{Tool: "invoke_element_action", App: app, Element: record, Action: action, WindowBounds: snapshot.WindowBounds})
 }
 
 func (s *service) scroll(app, direction, elementIndex, declared string, pages float64) toolCallResult {
@@ -607,7 +607,7 @@ func (s *service) scroll(app, direction, elementIndex, declared string, pages fl
 	if mismatch := elementIntentMismatch(record, declared); mismatch != "" {
 		return textResult(mismatch, true)
 	}
-	return s.actionResult(app, linuxRequest{Tool: "scroll", App: app, Element: record, Direction: normalized, Pages: pages})
+	return s.actionResult(app, linuxRequest{Tool: "scroll", App: app, Element: record, Direction: normalized, Pages: pages, WindowBounds: snapshot.WindowBounds})
 }
 
 // clickXY 是 GUI 通道的点击：按屏幕像素定位，树完全不参与。
@@ -701,7 +701,7 @@ func (s *service) setValue(app, elementIndex, declared, value string) toolCallRe
 	if mismatch := elementIntentMismatch(record, declared); mismatch != "" {
 		return textResult(mismatch, true)
 	}
-	return s.actionResult(app, linuxRequest{Tool: "set_value", App: app, Element: record, Value: value})
+	return s.actionResult(app, linuxRequest{Tool: "set_value", App: app, Element: record, Value: value, WindowBounds: snapshot.WindowBounds})
 }
 
 // deliveryWasVerified：这次动作在合成之前是否确认过目标窗口处于活动状态。

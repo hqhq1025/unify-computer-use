@@ -1537,3 +1537,40 @@ func TestContextMenuPrefersTheKeyboardRouteOverSyntheticRightClick(t *testing.T)
 		t.Fatal("合成右键要保留作为最后兜底")
 	}
 }
+
+func TestActionsReResolveGeometryAtActionTime(t *testing.T) {
+	// Playwright 的 locator 每次动作重新解析。我们其实早就在 find_element 里
+	// 解析出了活节点，却仍拿 Go 缓存的旧记录去算坐标——同一次调用里两套事实。
+	// 实测：VS Code 里由外部收起侧栏后，click(element_index=21) 合成在 (572,38)，
+	// 正是缓存框 {547,28,50,19} 的中心，而界面那时已经重排。
+	if !strings.Contains(linuxRuntimeScript, "def current_geometry(") {
+		t.Fatal("动作路径必须在解析出活节点之后重新取一次几何")
+	}
+	if !strings.Contains(linuxRuntimeScript, "element_record, moved_note = current_geometry(") {
+		t.Fatal("重算的几何必须真的被后续动作使用，而不是算完丢掉")
+	}
+	// 位移发生了就必须说——这是 agent 判断"我读到的坐标还能不能用"的唯一依据
+	if !strings.Contains(linuxRuntimeScript, "The element MOVED since the snapshot") {
+		t.Fatal("元素移动过要如实告知，否则 agent 会继续用快照里的旧坐标")
+	}
+	// 按元素定位的动作都要把**快照当时**的窗口矩形送下去：少了它，运行时只能
+	// 拿"现在的窗口位置"解释"快照当时的元素框"，两个坐标空间一混就会凭空报警。
+	for _, fragment := range []string{
+		`Tool: "invoke_element_action", App: app, Element: record, Action: action, WindowBounds: snapshot.WindowBounds`,
+		`Tool: "scroll", App: app, Element: record, Direction: normalized, Pages: pages, WindowBounds: snapshot.WindowBounds`,
+		`Tool: "set_value", App: app, Element: record, Value: value, WindowBounds: snapshot.WindowBounds`,
+	} {
+		if !strings.Contains(mainGoSource(t), fragment) {
+			t.Fatalf("按元素定位的动作缺少快照窗口矩形: %s", fragment)
+		}
+	}
+}
+
+func mainGoSource(t *testing.T) string {
+	t.Helper()
+	data, err := os.ReadFile("main.go")
+	if err != nil {
+		t.Fatalf("读不到 main.go: %v", err)
+	}
+	return string(data)
+}

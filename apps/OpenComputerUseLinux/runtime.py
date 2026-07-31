@@ -1899,6 +1899,48 @@ def window_relative(window_bounds, x, y):
     return x - window_bounds["x"], y - window_bounds["y"]
 
 
+def current_geometry(element, element_record, window_bounds):
+    """把记录里的几何换成**活节点此刻的位置**，并说明它挪了多少。
+
+    Playwright 的 locator 在每次动作时重新解析，这是同一件事的桌面版。
+    我们其实早就在 find_element 里重新解析出了活节点，却仍然拿 Go 缓存里的
+    那份旧记录去算坐标——于是同一次调用里有两套事实：语义路径作用在活节点上，
+    合成路径打在快照拍摄时的位置上。
+
+    实测：VS Code 里由外部收起侧栏后，click(element_index=21) 把坐标合成在
+    (572,38)，正是缓存框 {547,28,50,19} 的中心，而界面那时已经重排。
+
+    桌面比浏览器更需要这一条：这里没有"页面加载完成"这种事件，界面可以在
+    两次工具调用之间被动画、异步加载、甚至**别的进程**移动。
+
+    返回 (记录, 位移说明)。活节点取不到位置时原样退回旧记录——宁可用旧坐标，
+    也好过没有坐标。
+    """
+    if element is None or not element_record:
+        return element_record, None
+    live = safe(lambda: relative_frame(element, window_bounds))
+    if live is None:
+        return element_record, None
+    old = element_record.get("frame")
+    updated = dict(element_record)
+    updated["frame"] = live
+    if not old:
+        return updated, None
+    dx = live["x"] - old["x"]
+    dy = live["y"] - old["y"]
+    if abs(dx) <= 2 and abs(dy) <= 2:
+        # 1–2 像素的抖动是子像素取整，不是移动。报了只会变成噪声。
+        return updated, None
+    return updated, (
+        "The element MOVED since the snapshot: it was at {{{:.0f},{:.0f}}} and is now "
+        "at {{{:.0f},{:.0f}}} (window-relative). This action used its CURRENT position, "
+        "not the one in the tree you read. Any other coordinate you took from that "
+        "snapshot is stale by the same amount.".format(
+            old["x"], old["y"], live["x"], live["y"]
+        )
+    )
+
+
 def screen_point(window_bounds, element=None, x=None, y=None):
     if element is not None:
         f = element.get("frame")
@@ -2619,12 +2661,18 @@ def perform_operation(operation):
     pixels_before = safe(lambda: capture_window_pixels(bounds))
     element_record = operation.get("element")
     element = find_element(app, element_record)
+    # 重新解析出活节点之后，**立刻**把几何也刷新成它当前的位置。
+    # 不这么做的话，语义路径用活节点、合成路径用旧几何，是同一次调用里的两套事实。
+    element_record, moved_note = current_geometry(element, element_record, bounds)
     # 动作之前先记下顶层窗口集合。动作之后要靠它判断有没有开出/关掉窗口，
     # 从而决定该不该多等焦点落定——详见 wait_for_ui_to_settle。
     windows_before = safe(lambda: window_identity_set(app))
     # 每个动作都要说清楚实际走了哪条路径、结果有没有被校验过。返回一棵新的
     # accessibility tree 看着像执行确认，其实只是快照，不能当成动作生效的证据。
     notes = []
+    if moved_note:
+        # 通道标签后面要有空格，否则渲染成 `[a11y]The element MOVED`。
+        notes.append(A11Y_CHANNEL + " " + moved_note)
 
     if tool == "click_xy":
         # GUI 通道：纯坐标，树完全没有参与定位。
