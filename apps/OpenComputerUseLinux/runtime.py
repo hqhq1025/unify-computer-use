@@ -1948,6 +1948,61 @@ def window_relative(window_bounds, x, y):
     return x - window_bounds["x"], y - window_bounds["y"]
 
 
+# 稳定判据：两次采样一致即认为停住了。Playwright 等的是"连续两个动画帧内
+# bounding box 不变"，这里是同一件事的桌面版。
+STABLE_SAMPLE_SECONDS = 0.08
+
+
+def stable_timeout_seconds():
+    """等元素停住的上限，可调。
+
+    默认 1 秒是折中：够长，能盖住实测里绝大多数一次性重排；够短，遇到永远在
+    动的东西（进度条、动画）也不会把一次点击拖成几秒。动画重的应用可以调大，
+    追求最低延迟的场景可以调小到 0——那等于关掉这项等待。
+    """
+    raw = os.environ.get("OPEN_COMPUTER_USE_STABLE_TIMEOUT_MS", "").strip()
+    if not raw:
+        return 1.0
+    try:
+        return max(0.0, float(raw) / 1000.0)
+    except ValueError:
+        return 1.0
+
+
+def wait_until_stable(element, window_bounds, first=None):
+    """等元素停止移动再动手。返回 (最终 frame, 采样次数, 是否稳定下来)。
+
+    **只做 stable，不做 enabled。** Playwright 的可操作性检查里还有"等元素
+    enabled"，那一条在 Linux 上不能照搬：本仓库实测 Nautilus 的文件图标根本
+    不设 ENABLED / SENSITIVE，状态里只有 SHOWING / VISIBLE / FOCUSABLE，却带着
+    open / menu 两个动作、完全可点。拿 ENABLED 当门禁会让 agent 直接跳过可用
+    目标。宁可不等这一项，也不能用一个不可靠的信号去拦住真实可用的元素。
+    同理不做 "receives events" 的命中测试门禁——本仓库实测命中率
+    gedit 11/11、Nautilus 19/25、LibreOffice 12/25，拿它当门禁会拦掉一半
+    LibreOffice 的正常点击。
+
+    `first` 让调用方把已经取过的那次采样传进来，省掉一次重复读取。
+    """
+    if element is None:
+        return None, 0, True
+    previous = first if first is not None else safe(
+        lambda: relative_frame(element, window_bounds)
+    )
+    samples = 1
+    deadline = time.monotonic() + stable_timeout_seconds()
+    while True:
+        time.sleep(STABLE_SAMPLE_SECONDS)
+        current = safe(lambda: relative_frame(element, window_bounds))
+        samples += 1
+        if current is None or previous is None or same_frame(previous, current):
+            return current or previous, samples, True
+        previous = current
+        if time.monotonic() >= deadline:
+            # 超时**不阻止动作**：一个一直在动的元素（进度条、动画）照样可能
+            # 是正确的目标。这里只把事实说出来，让 agent 自己判断。
+            return current, samples, False
+
+
 def current_geometry(element, element_record, window_bounds):
     """把记录里的几何换成**活节点此刻的位置**，并说明它挪了多少。
 
@@ -1970,6 +2025,9 @@ def current_geometry(element, element_record, window_bounds):
     live = safe(lambda: relative_frame(element, window_bounds))
     if live is None:
         return element_record, None
+    live, samples, settled = wait_until_stable(element, window_bounds, first=live)
+    if live is None:
+        return element_record, None
     old = element_record.get("frame")
     updated = dict(element_record)
     updated["frame"] = live
@@ -1977,9 +2035,24 @@ def current_geometry(element, element_record, window_bounds):
         return updated, None
     dx = live["x"] - old["x"]
     dy = live["y"] - old["y"]
+    # 稳定与否都要说采样次数。只在"不稳定"时才说，等于把"我等过、等到了"
+    # 这条信息藏起来——而那正是 agent 判断该不该信任这次坐标的依据。
+    unsettled = (
+        " Waited for it to hold still first: {} position samples {:.0f}ms apart, "
+        "and it settled.".format(samples, STABLE_SAMPLE_SECONDS * 1000)
+        if settled
+        else (
+            " The element was STILL MOVING when this action ran: across {} samples "
+            "{:.0f}ms apart it never held the same position. The click went to wherever "
+            "it was at that instant, which may not be where it ended up.".format(
+                samples, STABLE_SAMPLE_SECONDS * 1000
+            )
+        )
+    )
     if abs(dx) <= 2 and abs(dy) <= 2:
-        # 1–2 像素的抖动是子像素取整，不是移动。报了只会变成噪声。
-        return updated, None
+        # 1–2 像素的抖动是子像素取整，不是移动。位置没变时也不必报"等稳了"，
+        # 那是每次动作都会出现的常态，只会淹没真正的信号。
+        return updated, (None if settled else unsettled.strip())
     return updated, (
         "The element MOVED since the snapshot: it was at {{{:.0f},{:.0f}}} and is now "
         "at {{{:.0f},{:.0f}}} (window-relative). This action used its CURRENT position, "
@@ -1987,6 +2060,7 @@ def current_geometry(element, element_record, window_bounds):
         "snapshot is stale by the same amount.".format(
             old["x"], old["y"], live["x"], live["y"]
         )
+        + unsettled
     )
 
 
@@ -2475,7 +2549,44 @@ def context_menu_visible(app):
     return False
 
 
-def scroll_element(direction, pages):
+# 一"页"折算成多少次滚轮。滚轮一格通常是 3 行，这里取 5 格 ≈ 15 行。
+# 这是**近似**，真实距离取决于应用自己的滚动设置——所以 Note 里要说是近似，
+# 不能让 agent 以为 pages=1 精确等于一次 Page_Down。
+WHEEL_CLICKS_PER_PAGE = 5
+
+
+def scroll_element(direction, pages, point=None):
+    """滚动。有元素坐标就用滚轮按位置滚，没有就退回往焦点发 Page 键。
+
+    此前这里**只有**后一条路：element_index 是必填参数却完全不参与，键盘
+    事件落到当前焦点上。工具描述里如实标注了这一点——但如实说明一个缺陷
+    不等于修好它。
+
+    滚轮是真的按位置生效，实测（gedit 打开 600 行文件，在文本区中心发 6 次
+    b5c）：
+        对照组（什么都不做）  文本区 0% 像素变化
+        实验组（滚轮 x6）     文本区 23% 像素变化
+
+    要说清它**滚的是谁**：滚轮作用在指针下方的可滚动祖先上，不一定是你指定
+    的那个元素本身。这正是"在这个位置滚"的语义，但和"滚动这个控件"不完全
+    等同，Note 里要讲明白。
+
+    横向滚动仍然走 Left/Right 键：滚轮的横向按钮（b6/b7）我没有实测过，
+    不测就不发——这个仓库里没测过的路径不该以"应该能work"的名义上线。
+
+    返回实际走的路线，让 Note 说实话。
+    """
+    repeat = max(1, int(math.ceil(float(pages or 1))))
+    horizontal = direction in ("left", "right")
+    if point is not None and not horizontal:
+        x, y = point
+        Atspi.generate_mouse_event(int(round(x)), int(round(y)), "abs")
+        event = "b4c" if direction == "up" else "b5c"
+        for _ in range(repeat * WHEEL_CLICKS_PER_PAGE):
+            Atspi.generate_mouse_event(int(round(x)), int(round(y)), event)
+            time.sleep(0.03)
+        return "wheel"
+
     key = "Page_Down"
     if direction == "up":
         key = "Page_Up"
@@ -2483,10 +2594,10 @@ def scroll_element(direction, pages):
         key = "Left"
     elif direction == "right":
         key = "Right"
-    repeat = max(1, int(math.ceil(float(pages or 1))))
     for _ in range(repeat):
         send_key(key)
         time.sleep(0.04)
+    return "keys"
 
 
 # 每条动作 Note 都带**两个正交的标签**，因为这是两件不同的事，
@@ -2831,8 +2942,10 @@ def perform_operation(operation):
                 else:
                     reason = (
                         "No usable AT-SPI action was available, so this fell back to a "
-                        "coordinate click at ({:.0f}, {:.0f}) after bringing the window "
-                        "to the foreground. ".format(x, y)
+                        "coordinate click at ({:.0f}, {:.0f}) in window-relative pixels "
+                        "after bringing the window to the foreground. ".format(
+                            *window_relative(bounds, x, y)
+                        )
                     )
                 notes.append(
                     addressing_channel(element_record)
@@ -2918,16 +3031,45 @@ def perform_operation(operation):
                     )
     elif tool == "scroll":
         require_window_focus(window, "scroll")
-        scroll_element(operation.get("direction", "down"), operation.get("pages", 1))
-        notes.append(
-            KEY_CHANNEL
-            + SYNTHESIS
-            + "Scrolled by synthesizing page keys after bringing the window to the "
-            "foreground. NOTE: element_index did NOT target this scroll — the keys go "
-            "to whatever widget currently holds focus inside the window. If the wrong "
-            "region scrolled, focus that region first (click it) and scroll again. "
-            "{}".format(UNVERIFIED_SYNTHESIS)
-        )
+        direction = operation.get("direction", "down")
+        pages = operation.get("pages", 1)
+        # 有元素几何就按位置滚。element_index 从"必填但没人用"变成真的参与定位。
+        point = None
+        if element_record and element_record.get("frame"):
+            point = screen_point(bounds, element_record, None, None)
+        route = scroll_element(direction, pages, point)
+        if route == "wheel":
+            wx, wy = window_relative(bounds, *point)
+            notes.append(
+                A11Y_CHANNEL
+                + SYNTHESIS
+                + "Scrolled with {} wheel notch(es) at ({:.0f}, {:.0f}) in "
+                "window-relative pixels — the position came from element_index, so "
+                "this scroll IS targeted. Two caveats. First, the wheel acts on the "
+                "scrollable ancestor under that point, which is not necessarily the "
+                "element you named. Second, one page is APPROXIMATED as {} notches; "
+                "the real distance is whatever the application's scroll settings say, "
+                "so do not treat pages=1 as exactly one Page_Down. This also moves the "
+                "real pointer. {}".format(
+                    int(math.ceil(float(pages or 1))) * WHEEL_CLICKS_PER_PAGE,
+                    wx,
+                    wy,
+                    WHEEL_CLICKS_PER_PAGE,
+                    UNVERIFIED_SYNTHESIS,
+                )
+            )
+        else:
+            notes.append(
+                KEY_CHANNEL
+                + SYNTHESIS
+                + "Scrolled by synthesizing page keys after bringing the window to the "
+                "foreground. NOTE: element_index did NOT target this scroll — the keys "
+                "go to whatever widget currently holds focus inside the window. This "
+                "route is used when the element has no usable geometry, and for "
+                "horizontal scrolling, whose wheel buttons this project has not "
+                "measured. If the wrong region scrolled, focus that region first "
+                "(click it) and scroll again. {}".format(UNVERIFIED_SYNTHESIS)
+            )
     elif tool == "drag_xy":
         from_x, from_y = screen_point(
             bounds, None, operation.get("from_x"), operation.get("from_y")

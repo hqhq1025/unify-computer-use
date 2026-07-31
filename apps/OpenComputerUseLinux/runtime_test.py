@@ -493,7 +493,9 @@ class ChannelTaggingTests(AtspiPatchedTestCase):
             ("send_text", lambda t: None),
             ("send_mouse_click", lambda *a: None),
             ("send_drag", lambda *a: None),
-            ("scroll_element", lambda d, p: None),
+            # scroll_element 现在收第三个参数（元素坐标）并**返回走了哪条路线**，
+            # Note 的措辞依赖这个返回值。桩子跟着改，否则测的是一个不存在的签名。
+            ("scroll_element", lambda d, p, point=None: "keys"),
             ("time", _NoSleep()),
         ):
             original = getattr(runtime, name)

@@ -1702,3 +1702,56 @@ func mainGoSource(t *testing.T) string {
 	}
 	return string(data)
 }
+
+func TestStabilityWaitPortsOnlyWhatLinuxCanSupport(t *testing.T) {
+	// Playwright 动作前等三件事：visible、enabled、stable（外加命中测试）。
+	// 这里**只**照搬 stable，另外两条不能照搬，理由都是本仓库自己的实测：
+	//   enabled —— Nautilus 的文件图标根本不设 ENABLED / SENSITIVE，状态里
+	//              只有 SHOWING/VISIBLE/FOCUSABLE，却带着 open / menu 两个动作、
+	//              完全可点。拿它当门禁会让 agent 跳过可用目标。
+	//   命中测试 —— 实测命中率 gedit 11/11、Nautilus 19/25、LibreOffice 12/25，
+	//              当门禁会拦掉一半 LibreOffice 的正常点击。
+	if !strings.Contains(linuxRuntimeScript, "def wait_until_stable(") {
+		t.Fatal("动作前要等元素停止移动")
+	}
+	for _, fragment := range []string{
+		"只做 stable，不做 enabled",
+		"STILL MOVING",
+	} {
+		if !strings.Contains(linuxRuntimeScript, fragment) {
+			t.Fatalf("缺少 %q：既要实现，也要写清为什么只port这一条", fragment)
+		}
+	}
+	// 等不稳**不能阻止动作**：一直在动的元素（进度条、动画）照样可能是正确目标。
+	if !strings.Contains(linuxRuntimeScript, "超时**不阻止动作**") {
+		t.Fatal("超时必须只报告、不拦截")
+	}
+	// 上限要可调：动画重的应用需要更久，追求低延迟的场景要能关掉
+	if !strings.Contains(linuxRuntimeScript, "OPEN_COMPUTER_USE_STABLE_TIMEOUT_MS") {
+		t.Fatal("稳定等待的上限要可配置")
+	}
+}
+
+func TestScrollActuallyUsesTheElementIndex(t *testing.T) {
+	// 此前 scroll 要求 element_index 却完全不用它，只往焦点发 Page 键。
+	// 如实标注一个缺陷不等于修好它。滚轮按位置生效，实测（gedit 600 行文件，
+	// 文本区中心 6 次 b5c）：对照组 0% 像素变化，实验组 23%。
+	if !strings.Contains(linuxRuntimeScript, `"b4c" if direction == "up" else "b5c"`) {
+		t.Fatal("纵向滚动要用滚轮按位置滚")
+	}
+	if !strings.Contains(linuxRuntimeScript, "this scroll IS targeted") {
+		t.Fatal("按元素滚动之后，Note 要说清它现在是定位过的")
+	}
+	// 横向仍走按键：滚轮横向按钮没实测过，没测过的路径不上线
+	if !strings.Contains(linuxRuntimeScript, "whose wheel buttons this project has not") {
+		t.Fatal("横向滚动没实测过就要如实说明，不能默认它能work")
+	}
+	// 工具描述必须跟着改——描述还写着"不定位元素"就是在骗 agent
+	scroll := findToolDefinition(t, "scroll")
+	if strings.Contains(scroll.Description, "element_index does NOT target the scroll") {
+		t.Fatal("scroll 的描述仍在说它不定位元素，与实现不符")
+	}
+	if !strings.Contains(scroll.Description, "APPROXIMATED as 5 notches") {
+		t.Fatal("一页折算成几格滚轮是近似值，必须说明，否则 agent 会当成精确的 Page_Down")
+	}
+}

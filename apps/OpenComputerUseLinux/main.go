@@ -2885,7 +2885,7 @@ func allToolDefinitions() []toolDefinition {
 		},
 		{
 			Name:        "scroll",
-			Description: "CHANNEL: KEYBOARD — element_index does NOT target the scroll. Page keys are synthesized to whatever widget holds focus inside the window; if the wrong region scrolled, click that region first. Scroll an element in a direction by a number of pages. This tool is part of plugin `Computer Use`.",
+			Description: "CHANNEL: ACCESSIBILITY for vertical scrolling, KEYBOARD for horizontal. Scroll by a number of pages. Vertical scrolling moves the pointer over the element addressed by element_index and sends wheel notches there, so it IS targeted — measured on gedit with a 600-line file, six notches changed 23% of the text area while doing nothing changed 0%. Two things to keep in mind: the wheel acts on the scrollable ancestor under that point, which is not necessarily the element you named; and one page is APPROXIMATED as 5 notches, so pages=1 is not exactly one Page_Down. Horizontal scrolling still synthesizes Left/Right keys to whatever holds focus and does NOT target the element — the wheel's horizontal buttons are untested here, and this project does not ship paths it has not measured. This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"element":       stringProperty("Human-readable description of the element you intend to act on, e.g. \"the Save button\" or \"Position Y spin button\". Optional but strongly recommended: it is cross-checked against what element_index actually resolves to, which catches the common and otherwise SILENT failure of reusing an index from an earlier snapshot after the indices were renumbered."),
