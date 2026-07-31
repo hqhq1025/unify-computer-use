@@ -83,7 +83,29 @@ class LocalController:
             return None
 
     def get_vm_directory_tree(self, path):
-        raise NotImplementedError("get_vm_directory_tree is not shimmed yet")
+        """目录树，形状照抄官方 server 的 /list_directory。
+
+        实测第 5 题（用 Chrome 的"创建快捷方式"在桌面上放一个图标）就卡在这里：
+        快捷方式**确确实实创建好了**（桌面上有 chrome-Play_Puzzle_Game_2048.desktop），
+        判分却因为这个方法没实现而抛异常记 0.0。又一次"仪器给假阴性"。
+        """
+        if not os.path.isdir(path):
+            return None
+
+        def node(current):
+            entry = {"name": os.path.basename(current) or current,
+                     "type": "directory" if os.path.isdir(current) else "file"}
+            if entry["type"] == "directory":
+                children = []
+                try:
+                    for name in sorted(os.listdir(current)):
+                        children.append(node(os.path.join(current, name)))
+                except OSError:
+                    pass
+                entry["children"] = children
+            return entry
+
+        return node(path)
 
     def get_accessibility_tree(self):
         # 走本仓库自己的运行时，而不是 OSWorld 的 server。
@@ -157,6 +179,33 @@ def _download(url, dest):
     os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
     shutil.copy(cached, dest)
     return dest
+
+
+def _chrome_activate_tab(url):
+    """把某个 URL 的标签切到前台，走 CDP。"""
+    import urllib.error
+    deadline = time.time() + 40
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen("http://localhost:9222/json", timeout=5) as r:
+                targets = json.loads(r.read().decode("utf-8"))
+        except (urllib.error.URLError, OSError):
+            time.sleep(1)
+            continue
+        for target in targets:
+            if target.get("type") != "page":
+                continue
+            got = (target.get("url") or "").rstrip("/")
+            if got.startswith(url.rstrip("/")) or url.rstrip("/").startswith(got) and got:
+                try:
+                    urllib.request.urlopen(
+                        "http://localhost:9222/json/activate/" + target["id"],
+                        timeout=5).read()
+                    return True
+                except Exception:
+                    return False
+        time.sleep(1)
+    return False
 
 
 def _chrome_close_tabs(urls):
@@ -275,6 +324,14 @@ def apply_config(task, log=print):
                     ["google-chrome", "--remote-debugging-port=1337"] + urls,
                     start_new_session=True,
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                # 打开之后必须把目标标签**切到前台**。很多题的指令说的是
+                # "this site" / "我正在看的这个网页"——那句话是题面的一部分，
+                # 前台停在新标签页就等于题面不成立。
+                # 实测第 5 题（用 Chrome 内置功能建桌面快捷方式）：cc 看到的是
+                # Bing 新标签页，于是如实汇报"这不是一个网站，我停下来了"——
+                # 它没做错任何事，是环境没把题布置对。
+                if urls:
+                    _chrome_activate_tab(urls[-1])
                 log("  Chrome 打开 {} 个标签".format(len(urls)))
             elif kind == "chrome_close_tabs":
                 # 通过 CDP 关标签页。这道题（"把我刚关掉的标签页恢复回来"）的

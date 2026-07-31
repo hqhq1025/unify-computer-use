@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **4** / 369 |
-| 我手工通过 | 3 / 4 |
-| cc 通过 | **2 / 4** |
-| cc 平均步数 | 11.7 |
-| cc 平均观测 token | 32412 |
-| cc 平均用时 | 128s |
-| 执行轴 a11y 占比 | 47% （20/43）|
+| 已跑题数 | **5** / 369 |
+| 我手工通过 | 4 / 5 |
+| cc 通过 | **3 / 5** |
+| cc 平均步数 | 11.0 |
+| cc 平均观测 token | 26725 |
+| cc 平均用时 | 121s |
+| 执行轴 a11y 占比 | 53% （29/55）|
 
 ## 逐题
 
@@ -37,6 +37,7 @@
 | 2 | chrome | Can you help me clean up my computer by getting rid  | ✅ | ✅ | 12 | 27367 | 147.5s |
 | 3 | chrome | Can you make my computer bring back the last tab I s | ✅ | ✗ 0.0 | 12 | 23787 | 152.5s |
 | 4 | chrome | Computer, can you turn the webpage I'm looking at in | ✗ 0.0 | ✗ 0.9 | 25 | 12376 | 257.3s |
+| 5 | chrome | Hey, I need a quick way back to this site. Could you | ✅ | ✅ | 9 | 15191 | 85.7s |
 
 ## 每题的过程记录
 
@@ -69,4 +70,12 @@
 - **我手工**（第 1 次，得分 0.0）：手工：ctrl+p → More settings → Margins 下拉 open + 选 None → Save → **保存对话框属于 xdg-desktop-portal-gnome 这个另一个进程**，要对它 get_app_state → 点 _Save Save
 - **我手工**（第 1 次，得分 0.0）：我手工未完成，但从这一题挖出四个真缺陷并全部修掉：(1) 下拉框的当前值在树里完全看不见——Chrome 打印对话框的 Margins/Destination/Scale 全是有名无值，而任务恰恰要求把边距设成 None；已实现从后代 menu item 的 SELECTED 状态读，且下拉关着也读得到。(2) 保存对话框属于 xdg-desktop-portal-gnome 这个**另一个进程**，get_app_state(chrome) 永远看不到它；已加另一个应用在前台的提示并指名该问哪个 app。(3) 无名窗口标题是空串。(4) **焦点守卫在门户对话框上让整条 GUI 通道不可用**——那类窗口状态位是 MODAL+VISIBLE，既无 ACTIVE 也无 SHOWING，click_xy 被一律拒绝；已加 X11 同进程兜底。剩下的拦路虎是那个文件已存在，是否替换二级确认框——它无名、握着焦点、**在 a11y 树里根本不存在**，只能靠坐标点，而我没估准坐标。
 - **cc**（第 1 次，得分 0.9380815331090999）：cc 第一次（已修四个缺陷）
+### 第 5 题 · 35253b65
+
+> Hey, I need a quick way back to this site. Could you whip up a shortcut on my desktop for me using Chrome's built-in feature?
+
+- **我手工**（第 1 次，得分 0.0）：手工：三点菜单（因有待更新而显示为 Finish update）→ Cast, save and share → Create shortcut… → Create
+- **我手工**（第 2 次，得分 1.0）：补上 get_vm_directory_tree 垫片后重新判分
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **cc**（第 2 次，得分 1.0）：cc 第二次（修好前台标签页之后）
 
