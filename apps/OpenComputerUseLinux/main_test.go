@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -1753,5 +1754,77 @@ func TestScrollActuallyUsesTheElementIndex(t *testing.T) {
 	}
 	if !strings.Contains(scroll.Description, "APPROXIMATED as 5 notches") {
 		t.Fatal("一页折算成几格滚轮是近似值，必须说明，否则 agent 会当成精确的 Page_Down")
+	}
+}
+
+func TestRuntimeStderrIsSurfacedOnTheSuccessPath(t *testing.T) {
+	// 原本 stderr 只在 err != nil 时看，成功就丢。于是 pyatspi 的 DBus 超时、
+	// GTK 警告这类信息永远看不到——树可能因为一次超时而残缺，而响应里一个字
+	// 都不提。实测过才敢加：gedit / GIMP / VS Code / LibreOffice 四个应用的
+	// 成功调用，stderr 全部是 0 字节，所以这不是给输出加噪声。
+	if runtimeStderrNote("") != "" || runtimeStderrNote("   \n  \n") != "" {
+		t.Fatal("没有 stderr 就不该产生 note")
+	}
+	note := runtimeStderrNote("DBus timeout while reading extents")
+	if !strings.Contains(note, "[runtime stderr]") ||
+		!strings.Contains(note, "DBus timeout while reading extents") {
+		t.Fatalf("stderr 必须原样带出来，得到 %q", note)
+	}
+
+	// 重复行压成一条：一次遍历几千个节点，同一句警告可能出现上千次，
+	// 原样带出来会把真正的信息淹掉。
+	repeated := strings.Repeat("same warning\n", 500) + "unique warning\n"
+	note = runtimeStderrNote(repeated)
+	if strings.Count(note, "same warning") != 1 {
+		t.Fatalf("重复行要压成一条，得到 %q", note)
+	}
+	if !strings.Contains(note, "(x500)") {
+		t.Fatal("压掉重复之后要说清它出现了多少次，否则丢掉了严重程度")
+	}
+	if !strings.Contains(note, "unique warning") {
+		t.Fatal("压重复不能顺手吃掉别的行")
+	}
+
+	// 行数要封顶，否则一条 note 能比整棵树还长
+	many := ""
+	for i := 0; i < 40; i++ {
+		many += fmt.Sprintf("distinct line %d\n", i)
+	}
+	note = runtimeStderrNote(many)
+	if !strings.Contains(note, "and 32 more distinct line(s)") {
+		t.Fatalf("行数要封顶并说明省略了多少，得到 %q", note)
+	}
+}
+
+func TestErrorContextIsOnByDefaultAndDisableable(t *testing.T) {
+	// 和 --output-mode file 相反的默认值，理由也相反：那个改变的是成功路径上
+	// 每次调用的形态，这个只在失败时触发——而失败时没有任何别的手段能事后复盘，
+	// 响应里只剩一行错误，现场早就没了。
+	t.Setenv("OPEN_COMPUTER_USE_ERROR_CONTEXT", "")
+	if !errorContextEnabled() {
+		t.Fatal("失败现场默认要落盘")
+	}
+	t.Setenv("OPEN_COMPUTER_USE_ERROR_CONTEXT", "off")
+	if errorContextEnabled() {
+		t.Fatal("显式关掉时必须真的关掉")
+	}
+	t.Setenv("OPEN_COMPUTER_USE_ERROR_CONTEXT", "OFF")
+	if errorContextEnabled() {
+		t.Fatal("开关取值不该区分大小写")
+	}
+}
+
+func TestErrorContextNeedsAnAppAndNeverMasksTheOriginalError(t *testing.T) {
+	service := newService()
+	t.Setenv("OPEN_COMPUTER_USE_ERROR_CONTEXT", "")
+	// 没有 app 就没有现场可抓。这条同时防住 list_apps 这种无 app 的工具
+	// 在失败时去做一次毫无意义的快照。
+	if note := service.writeErrorContext("", "click", "boom"); note != "" {
+		t.Fatalf("没有 app 时不该落盘，得到 %q", note)
+	}
+	// 抓现场自己失败时返回空串，绝不制造第二层错误——一个诊断设施
+	// 在诊断失败时又抛一个错，只会把原始错误埋掉。
+	if note := service.writeErrorContext("no-such-app-xyzzy", "click", "boom"); note != "" {
+		t.Fatalf("抓不到现场时要静默放弃，得到 %q", note)
 	}
 }

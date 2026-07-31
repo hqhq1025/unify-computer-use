@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -325,7 +326,90 @@ func newService() *service {
 	return &service{snapshots: map[string]*appSnapshot{}}
 }
 
+// errorContextEnabled 失败时落一份现场文件，默认**开**。
+//
+// 和 --output-mode file 相反的默认值，理由也相反：那个改变的是成功路径上每次
+// 调用的形态（会把"一次拿到全部"变成"两次"），这个只在失败时触发，而失败时
+// 没有任何别的手段能事后复盘——响应里只剩一行错误，现场早就没了。
+func errorContextEnabled() bool {
+	return !strings.EqualFold(
+		strings.TrimSpace(os.Getenv("OPEN_COMPUTER_USE_ERROR_CONTEXT")), "off")
+}
+
+// writeErrorContext 在失败时把**失败当时**的现场写到磁盘，返回可读的说明。
+//
+// 照 Playwright 的 error-context.md：失败时它会连同页面快照一起落盘，
+// 因为一行错误信息没法复盘。桌面上更是如此——界面下一秒就变了，
+// 而我们连"当时树长什么样"都没有留。
+//
+// 现场是**重新抓的**，不是缓存里那份：失败往往正是因为界面已经不是快照里的
+// 样子了，拿缓存去当现场等于把要查的东西本身丢掉。代价只在失败路径上付。
+//
+// 抓现场自己也可能失败（应用已经退出、a11y 总线断了）。那种情况下**不做任何
+// 补救**，直接返回空串——一个诊断设施不该在诊断失败时再制造一层新错误。
+func (s *service) writeErrorContext(app, tool, message string) string {
+	if !errorContextEnabled() || strings.TrimSpace(app) == "" {
+		return ""
+	}
+	noRefs := false
+	response, err := runPython(linuxRequest{
+		Tool: "get_app_state", App: app, Boxes: &noRefs,
+	})
+	if err != nil || response == nil || !response.OK || response.Snapshot == nil {
+		return ""
+	}
+	dir := outputDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return ""
+	}
+	stamp := time.Now().UnixNano()
+	snapshot := response.Snapshot
+	var body strings.Builder
+	fmt.Fprintf(&body, "# error context\n\ntool: %s\napp: %s\ncaptured: %s\n\n",
+		tool, app, time.Now().Format(time.RFC3339Nano))
+	fmt.Fprintf(&body, "## error\n\n%s\n\n", message)
+	fmt.Fprintf(&body, "## window\n\n%s\n\n", snapshot.WindowTitle)
+	fmt.Fprintf(&body, "## tree at failure time\n\n%s\n", snapshot.renderedText())
+	textPath := filepath.Join(dir, fmt.Sprintf("error-context-%d.md", stamp))
+	if err := os.WriteFile(textPath, []byte(body.String()), 0o644); err != nil {
+		return ""
+	}
+	parts := []string{textPath}
+	if snapshot.ScreenshotPNGBase64 != "" {
+		if raw, decodeErr := base64.StdEncoding.DecodeString(snapshot.ScreenshotPNGBase64); decodeErr == nil {
+			shotPath := filepath.Join(dir, fmt.Sprintf("error-context-%d.png", stamp))
+			if os.WriteFile(shotPath, raw, 0o644) == nil {
+				parts = append(parts, shotPath)
+			}
+		}
+	}
+	return fmt.Sprintf(
+		"\n\n[error context written to %s \u2014 the tree and screenshot as they were "+
+			"AFTER this failure, re-captured rather than taken from the cached "+
+			"snapshot, because the failure usually means the UI is no longer what "+
+			"the snapshot said. Set OPEN_COMPUTER_USE_ERROR_CONTEXT=off to disable.]",
+		strings.Join(parts, " and "))
+}
+
 func (s *service) callTool(name string, args map[string]any) toolCallResult {
+	result := s.dispatch(name, args)
+	// 失败现场统一在这里落盘：错误从十几个地方返回，逐个去加只会漏。
+	if result.IsError {
+		app := requiredString(args, "app")
+		message := ""
+		for _, item := range result.Content {
+			if item.Type == "text" {
+				message += item.Text
+			}
+		}
+		if note := s.writeErrorContext(app, name, message); note != "" {
+			result.Content = append(result.Content, contentItem{Type: "text", Text: note})
+		}
+	}
+	return result
+}
+
+func (s *service) dispatch(name string, args map[string]any) toolCallResult {
 	if !toolIsEnabled(name) {
 		// 工具已经从 tools/list 里摘掉了，但硬调仍然要拒——而且要说清是**通道被
 		// 关掉了**，不是工具不存在。含糊的报错会让 agent 去猜是不是名字写错了。
@@ -2106,7 +2190,64 @@ func runPython(request linuxRequest) (*linuxResponse, error) {
 	if err := json.Unmarshal(output, &response); err != nil {
 		return nil, fmt.Errorf("Linux runtime returned invalid JSON: %w: %s", err, strings.TrimSpace(string(output)))
 	}
+	if note := runtimeStderrNote(stderr.String()); note != "" {
+		response.Notes = append(response.Notes, note)
+	}
 	return &response, nil
+}
+
+// runtimeStderrNote 把运行时在**成功路径**上写到 stderr 的东西带出来。
+//
+// 这里原本只在 err != nil 时看 stderr，成功就直接丢掉。于是 pyatspi 的 DBus
+// 超时、GTK 的警告这类信息我们**永远看不到**——树可能因为一次超时而残缺，
+// 而响应里一个字都不会提。
+//
+// 会不会变成噪声？实测过才敢说：gedit / GIMP / VS Code / LibreOffice 四个应用
+// 的成功调用，stderr **全部是 0 字节**。所以这不是在给输出加噪声，
+// 是在补一条现在完全没有的诊断通道。如果将来真出现每次都刷的良性警告，
+// 那时再按实测加过滤规则——现在凭空写一份过滤名单，等于给没见过的东西定罪。
+//
+// 重复行压成一条：一次遍历几千个节点，同一句警告可能出现上千次，
+// 原样带出来会把真正的信息淹掉。
+func runtimeStderrNote(raw string) string {
+	text := strings.TrimSpace(raw)
+	if text == "" {
+		return ""
+	}
+	seen := map[string]int{}
+	order := []string{}
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if _, ok := seen[line]; !ok {
+			order = append(order, line)
+		}
+		seen[line]++
+	}
+	if len(order) == 0 {
+		return ""
+	}
+	var out strings.Builder
+	out.WriteString("[runtime stderr] the Linux runtime succeeded but wrote diagnostics. " +
+		"A partial or stale tree can come from these, so read them before trusting a " +
+		"surprising snapshot:")
+	for index, line := range order {
+		if index == 8 {
+			fmt.Fprintf(&out, "\n  … and %d more distinct line(s)", len(order)-8)
+			break
+		}
+		if len(line) > 200 {
+			line = line[:200] + "…"
+		}
+		if seen[line] > 1 {
+			fmt.Fprintf(&out, "\n  %s (x%d)", line, seen[line])
+		} else {
+			fmt.Fprintf(&out, "\n  %s", line)
+		}
+	}
+	return out.String()
 }
 
 func linuxRuntimeEnvironment(base []string) []string {
