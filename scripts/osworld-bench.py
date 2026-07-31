@@ -118,6 +118,8 @@ def cmd_deploy(args):
     print("第 {} 题  [{}]  {}".format(index + 1, app, task_id))
     print("指令: {}".format(task["instruction"]))
     print("=" * 70)
+    if not (task.get("config") or []):
+        local.ensure_app_running(app)
     if local._touches_chrome(task):
         local.snapshot_state(task)
         local.clean_chrome_session()
@@ -202,11 +204,19 @@ def summarize(path):
     }
 
 
+# 关键词表**必须靠实测扩充，不能靠想象**。第 11 题上它就漏过一次：
+# cc 的自述开头是 "I can't complete this, for two separate reasons."，
+# 而表里只有 "can't do"——判据给出假阴性，把一次正确的拒绝记成了失败。
+# 仪器给假阴性比没有仪器更糟，这条在本仓库已经犯过四次。
 REFUSAL_MARKERS = (
-    "not possible", "no longer possible", "cannot be done", "can't be done",
-    "cannot do", "can't do", "infeasible", "does not exist", "doesn't exist",
-    "no such", "was removed", "has been removed", "not available",
-    "no longer available", "unable to", "there is no",
+    "not possible", "no longer possible", "isn't possible", "is not possible",
+    "cannot be done", "can't be done", "cannot do", "can't do",
+    "cannot complete", "can't complete", "unable to complete",
+    "cannot be completed", "can't be completed",
+    "infeasible", "does not exist", "doesn't exist", "no such",
+    "was removed", "has been removed", "not available", "no longer available",
+    "unable to", "there is no", "there's no", "not supported",
+    "isn't supported", "is not supported", "no way to",
 )
 
 
@@ -234,6 +244,8 @@ def cmd_agent(args):
     print("指令: {}".format(task["instruction"]))
 
     if not args.skip_config:
+        if not (task.get("config") or []):
+            local.ensure_app_running(app)
         if local._touches_chrome(task):
             local.snapshot_state(task)
             local.clean_chrome_session()

@@ -307,6 +307,35 @@ def clean_chrome_session(log=print):
     return removed
 
 
+def ensure_app_running(app_group, log=print):
+    """config 为空的题，目标应用得由我们保证在跑。
+
+    OSWorld 的空 config 意味着"虚拟机快照里这个应用本来就开着"。我们没有快照，
+    不补这一步的后果实测过：第 11 题（把 Chrome 界面语言改成一门虚构语言）
+    交给 cc 时 Chrome 根本没在跑，它如实回了"Chrome 不在这台机器上"——
+    那是对的，但它回答的是另一个问题，而这道题问的是别的。
+    """
+    launchers = {
+        "chrome": ["google-chrome", "--remote-debugging-port=1337"],
+        "vlc": ["vlc"],
+        "thunderbird": ["thunderbird"],
+        "gimp": ["gimp"],
+        "vs_code": ["code"],
+    }
+    command = launchers.get(app_group)
+    if not command:
+        return False
+    probe = subprocess.run(["pgrep", "-c", os.path.basename(command[0])],
+                           capture_output=True, text=True)
+    if (probe.stdout or "0").strip() not in ("", "0"):
+        return False
+    subprocess.Popen(command, start_new_session=True,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    log("  config 为空，替它启动 {}".format(command[0]))
+    time.sleep(12)
+    return True
+
+
 def apply_config(task, log=print):
     """执行一道题的 config 段。返回 (是否就绪, 跳过的步骤说明)。
 

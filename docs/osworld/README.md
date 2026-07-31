@@ -21,12 +21,12 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **10** / 369 |
-| 我手工通过 | 8 / 10 |
-| cc 通过 | **8 / 10** |
-| cc 平均步数 | 11.5 |
-| cc 平均观测 token | 33462 |
-| cc 平均用时 | 141s |
+| 已跑题数 | **11** / 369 |
+| 我手工通过 | 9 / 11 |
+| cc 通过 | **9 / 11** |
+| cc 平均步数 | 10.4 |
+| cc 平均观测 token | 29027 |
+| cc 平均用时 | 127s |
 | 执行轴 a11y 占比 | 40% （41/103）|
 
 ## 逐题
@@ -43,6 +43,7 @@
 | 8 | chrome | Lately I have changed my English name to Thomas. I w | ✅ | ✅ | 23 | 50653 | 332.7s |
 | 9 | chrome | I do not like the design of the new 2023 chrome UI.  | ✅ | ✅ | 10 | 16463 | 143.2s |
 | 10 | chrome | My grandmother has been using the Chrome lately and  | ✅ | ✅ | 11 | 7830 | 137.0s |
+| 11 | chrome | I am from the country of Atlantis, and my mother ton | ✅ | ✅ | 2 | 191 | 24.8s |
 
 ## 每题的过程记录
 
@@ -117,4 +118,11 @@
 
 - **我手工**（第 1 次，得分 1.0）：手工一步到位：set_value 到 combo box「Font size」= Very large。新加的合成降级（聚焦→全选→打字）在下拉框上等价于首字母跳转，直接选中了。下拉当前值可见让我一眼确认 Medium→Very large。
 - **cc**（第 1 次，得分 1.0）：cc 第一次
+### 第 11 题 · 3720f614
+
+> I am from the country of Atlantis, and my mother tongue is Xenothian. Please change the Google Chrome interface language to Xenothian using only Chrome’s built-in settings.
+
+- **我手工**（第 1 次，得分 1.0）：手工确认做不到：chrome://settings/languages 里 find 搜 'xenothian' 零命中（208 个元素全扫）。Xenothian 是虚构语言，与官方 infeasible 标注一致。
+- **cc**（第 1 次，得分 0.0）：cc 第一次（infeasible）
+- **cc**（第 2 次，得分 1.0）：cc 第二次（修好判据关键词 + 空 config 也启动应用）
 
