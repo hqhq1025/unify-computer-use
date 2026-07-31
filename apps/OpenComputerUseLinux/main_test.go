@@ -1028,7 +1028,7 @@ func TestNotesLearnedFromTheRealAgentRun(t *testing.T) {
 
 // 把那句 Note 单独取出来，测试才不用去猜它藏在哪个分支里。
 func deliveredButIgnoredNote() string {
-	return strings.Join(unchangedNotes(true, pixelsUnknown), " ")
+	return strings.Join(unchangedNotes(true, pixelsUnknown, false), " ")
 }
 
 // P4：选择器要能替代数字下标，语法与快照行**逐字一致**。
@@ -1143,25 +1143,25 @@ func TestChannelCapabilitySwitch(t *testing.T) {
 // 树看不见整类效果（格式改动、文件状态、画布像素），所以"树没变"推不出
 // "没生效"——但配上"屏幕也没变"就推得出。
 func TestPixelEvidenceStrengthensTheUnchangedVerdict(t *testing.T) {
-	changed := strings.Join(unchangedNotes(true, pixelsChanged), " ")
+	changed := strings.Join(unchangedNotes(true, pixelsChanged, false), " ")
 	if !strings.Contains(changed, "SCREEN DID change") ||
 		!strings.Contains(changed, "Do NOT treat this as a failure") {
 		t.Fatalf("树没变但屏幕变了，必须明说这不是失败: %s", changed)
 	}
 
-	identical := strings.Join(unchangedNotes(true, pixelsIdentical), " ")
+	identical := strings.Join(unchangedNotes(true, pixelsIdentical, false), " ")
 	if !strings.Contains(identical, "STRONG evidence") ||
 		!strings.Contains(identical, "Two independent signals agree") {
 		t.Fatalf("两个信号都说没变，才算强证据: %s", identical)
 	}
 	// 送达没被单独确认时，结论要更弱一档——不能把两种不确定说成一种。
-	weaker := strings.Join(unchangedNotes(false, pixelsIdentical), " ")
+	weaker := strings.Join(unchangedNotes(false, pixelsIdentical, false), " ")
 	if !strings.Contains(weaker, "delivery was not separately verified") {
 		t.Fatalf("送达未确认时结论要更弱: %s", weaker)
 	}
 
 	// 比不了的时候**不许假装比过**，退回原来的弱措辞。
-	unknown := strings.Join(unchangedNotes(true, pixelsUnknown), " ")
+	unknown := strings.Join(unchangedNotes(true, pixelsUnknown, false), " ")
 	if !strings.Contains(unknown, "WEAK evidence, not proof of failure") {
 		t.Fatalf("像素比不了时应退回弱措辞: %s", unknown)
 	}
@@ -1219,5 +1219,65 @@ func TestSelectorFallsBackToDescription(t *testing.T) {
 	if _, err := lookupElement(ambiguous, `"Close"`); err == nil ||
 		!strings.Contains(err.Error(), "ambiguous") {
 		t.Fatalf("description 命中多个也要报歧义：%v", err)
+	}
+}
+
+// 格式属性比对：**能说出"什么变成了什么"**，而不是"有事发生"。
+//
+// 这条通道是查 Playwright 时反推出来的。它的 aria snapshot 只渲染一小撮语义属性，
+// "查任意样式属性"是 toHaveCSS 这类**断言**的事——快照是摘要，断言是精确查询，
+// 两者不必是同一套字段。顺着这条思路回头查 AT-SPI，才发现
+// Atspi.Text.get_default_attributes() 一直能读到 justification / size / weight。
+//
+// **此前记进文档的"改段落对齐后 a11y 树字节不变"是错的**：树不变是因为我们
+// 没取这些字段，不是信息不存在。真机验证 ctrl+r 报出 `justification: left -> right`。
+func TestTextAttributeChanges(t *testing.T) {
+	before := &appSnapshot{Elements: []elementRecord{
+		{Index: 26, RuntimeID: []int{0, 0, 1}, ControlType: "paragraph",
+			TextAttributes: map[string]string{"justification": "left", "weight": "400"}},
+		{Index: 49, RuntimeID: []int{0, 0, 2}, ControlType: "text",
+			TextAttributes: map[string]string{"bg-color": "64764,64764,64764"}},
+	}}
+	after := &appSnapshot{Elements: []elementRecord{
+		{Index: 26, RuntimeID: []int{0, 0, 1}, ControlType: "paragraph",
+			TextAttributes: map[string]string{"justification": "right", "weight": "400"}},
+		{Index: 49, RuntimeID: []int{0, 0, 2}, ControlType: "text",
+			TextAttributes: map[string]string{"bg-color": "64764,64764,64764"}},
+	}}
+
+	changes := textAttributeChanges(before, after)
+	if len(changes) != 1 {
+		t.Fatalf("只有段落变了，应当只报一条：%v", changes)
+	}
+	if !strings.Contains(changes[0], "justification: left -> right") {
+		t.Fatalf("要说出什么变成了什么：%s", changes[0])
+	}
+	// 没变的属性不许混进来。
+	if strings.Contains(changes[0], "weight") {
+		t.Fatalf("没变的属性不该出现：%s", changes[0])
+	}
+
+	// 回归：第一版按 role+name 配对，而 LibreOffice 侧栏有四个无名 `text` 节点，
+	// key 全撞成 `text\x00""`，于是某个节点的悬停高亮被张冠李戴到别人头上，
+	// **连空操作都报出"格式变了"**。按 runtimeId 路径配对就没有这个问题。
+	collide := &appSnapshot{Elements: []elementRecord{
+		{Index: 1, RuntimeID: []int{0, 1}, ControlType: "text",
+			TextAttributes: map[string]string{"bg-color": "a"}},
+		{Index: 2, RuntimeID: []int{0, 2}, ControlType: "text",
+			TextAttributes: map[string]string{"bg-color": "b"}},
+	}}
+	same := &appSnapshot{Elements: []elementRecord{
+		{Index: 1, RuntimeID: []int{0, 1}, ControlType: "text",
+			TextAttributes: map[string]string{"bg-color": "a"}},
+		{Index: 2, RuntimeID: []int{0, 2}, ControlType: "text",
+			TextAttributes: map[string]string{"bg-color": "b"}},
+	}}
+	if got := textAttributeChanges(collide, same); len(got) != 0 {
+		t.Fatalf("同名无名节点不得互相串味：%v", got)
+	}
+
+	// 缺一份快照时不许编。
+	if got := textAttributeChanges(nil, after); got != nil {
+		t.Fatalf("没有动作前的快照就不该报变化：%v", got)
 	}
 }

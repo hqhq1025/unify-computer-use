@@ -71,20 +71,21 @@ func (f frame) renderedLocalFrame() string {
 }
 
 type elementRecord struct {
-	Index                int      `json:"index"`
-	RuntimeID            []int    `json:"runtimeId,omitempty"`
-	AutomationID         string   `json:"automationId,omitempty"`
-	Name                 string   `json:"name,omitempty"`
-	ControlType          string   `json:"controlType,omitempty"`
-	LocalizedControlType string   `json:"localizedControlType,omitempty"`
-	ClassName            string   `json:"className,omitempty"`
-	Value                string   `json:"value,omitempty"`
-	NativeWindowHandle   int64    `json:"nativeWindowHandle,omitempty"`
-	Frame                *frame   `json:"frame,omitempty"`
-	Actions              []string `json:"actions,omitempty"`
-	States               string   `json:"states,omitempty"`
-	Description          string   `json:"description,omitempty"`
-	Placeholder          string   `json:"placeholder,omitempty"`
+	Index                int               `json:"index"`
+	RuntimeID            []int             `json:"runtimeId,omitempty"`
+	AutomationID         string            `json:"automationId,omitempty"`
+	Name                 string            `json:"name,omitempty"`
+	ControlType          string            `json:"controlType,omitempty"`
+	LocalizedControlType string            `json:"localizedControlType,omitempty"`
+	ClassName            string            `json:"className,omitempty"`
+	Value                string            `json:"value,omitempty"`
+	NativeWindowHandle   int64             `json:"nativeWindowHandle,omitempty"`
+	Frame                *frame            `json:"frame,omitempty"`
+	Actions              []string          `json:"actions,omitempty"`
+	States               string            `json:"states,omitempty"`
+	Description          string            `json:"description,omitempty"`
+	TextAttributes       map[string]string `json:"textAttributes,omitempty"`
+	Placeholder          string            `json:"placeholder,omitempty"`
 }
 
 type appSnapshot struct {
@@ -579,7 +580,11 @@ func (s *service) setValue(app, elementIndex, declared, value string) toolCallRe
 // （同一轮还实测到右对齐生效而树字节不变）。所以"树没变"在这里推不出
 // "没生效"，只能推出"树看不见"。截图现在恒带，那才是这类效果的可判之处
 // ——把 agent 指过去，而不是替它下一个会错的结论。
-func unchangedNotes(deliveryVerified bool, pixels pixelVerdict) []string {
+func unchangedNotes(deliveryVerified bool, pixels pixelVerdict, attrsChanged bool) []string {
+	if attrsChanged {
+		// 格式属性直接报出了"什么变成了什么"，没有再讨论的余地。
+		return []string{"The accessibility TREE STRUCTURE is unchanged, but the element's text attributes are not (see the [text-attrs] note above) — the action took effect. Structure and formatting are separate things in AT-SPI; only the former is rendered in the snapshot."}
+	}
 	// 「树没变」单独一条是**弱证据**，配上像素比对才有强弱之分。
 	//
 	// 这是踩出来的：ctrl+s 之后树字节不变，工具断言"送达但被忽略"，而文件其实
@@ -609,6 +614,92 @@ const (
 	pixelsIdentical
 	pixelsChanged
 )
+
+// readTextAttributeChange 看运行时有没有报出格式属性的变化。
+//
+// 这是**最强**的一档证据：它直接说出"justification 从 left 变成 right"，
+// 而像素只能说"0.1% 变了"。有它在就不必再谈"树没变所以可能失败"。
+// textAttributeChanges 比对两份快照里同一元素的格式属性。
+//
+// 这条通道是查 Playwright 时反推出来的：它的 aria snapshot 只渲染一小撮语义属性
+// （[checked] [level=1]），"查任意样式属性"是 toHaveCSS 这类**断言**的事——
+// **快照是给 agent 看的摘要，断言是精确查询，两者不必是同一套字段。**
+//
+// 顺着这条思路回头查 AT-SPI，才发现 Atspi.Text.get_default_attributes() 一直
+// 能读到 justification / size / weight / fg-color。此前记进文档的
+// "改段落对齐后 a11y 树字节不变"**是错的**——树不变是因为我们没取这些字段，
+// 不是信息不存在。整场"像素噪声和光标闪烁同量级"的仗，本可以绕过去。
+//
+// 比对不花额外的 AT-SPI 调用：属性跟着 record 走，而动作前的快照 Go 侧本来
+// 就缓存着。按 element 身份配对（automationId 优先，其次 role+name），
+// 不按下标——下标每次快照都会重排。
+func textAttributeChanges(before, after *appSnapshot) []string {
+	if before == nil || after == nil {
+		return nil
+	}
+	// 按 **runtimeId（树里的路径）** 配对，不按 role+name。
+	//
+	// 第一版用 role+name，实测当场翻车：LibreOffice 侧栏有四个无名 `text` 节点，
+	// key 全是 `text\x00""` 撞成一个，于是某个节点的悬停高亮（bg-color）
+	// 被张冠李戴到别人头上，连空操作都报出"格式变了"。
+	// 路径在同一份 UI 的两次快照之间是稳定且唯一的。
+	key := func(r elementRecord) string {
+		if len(r.RuntimeID) == 0 {
+			return "idx:" + strconv.Itoa(r.Index)
+		}
+		parts := make([]string, 0, len(r.RuntimeID))
+		for _, n := range r.RuntimeID {
+			parts = append(parts, strconv.Itoa(n))
+		}
+		return "path:" + strings.Join(parts, ".")
+	}
+	old := map[string]map[string]string{}
+	for _, record := range before.Elements {
+		if len(record.TextAttributes) > 0 {
+			old[key(record)] = record.TextAttributes
+		}
+	}
+	var changes []string
+	seen := map[string]bool{}
+	for _, record := range after.Elements {
+		if len(record.TextAttributes) == 0 {
+			continue
+		}
+		k := key(record)
+		previous, ok := old[k]
+		if !ok || seen[k] {
+			continue
+		}
+		seen[k] = true
+		var diffs []string
+		for name, value := range record.TextAttributes {
+			if was, had := previous[name]; !had || was != value {
+				from := was
+				if !had {
+					from = "unset"
+				}
+				diffs = append(diffs, fmt.Sprintf("%s: %s -> %s", name, from, value))
+			}
+		}
+		if len(diffs) == 0 {
+			continue
+		}
+		sort.Strings(diffs)
+		label := describeRecord(&record)
+		changes = append(changes, fmt.Sprintf("%s — %s", label, strings.Join(diffs, "; ")))
+	}
+	sort.Strings(changes)
+	return changes
+}
+
+func readTextAttributeChange(notes []string) bool {
+	for _, note := range notes {
+		if strings.HasPrefix(note, "[text-attrs]") {
+			return true
+		}
+	}
+	return false
+}
 
 // readPixelVerdict 从运行时的 `[pixels]` Note 里读出屏幕到底变没变。
 func readPixelVerdict(notes []string) pixelVerdict {
@@ -665,6 +756,18 @@ func (s *service) actionResult(app string, request linuxRequest) toolCallResult 
 	snapshot, notes, result := s.refreshSnapshot(app, request)
 	if result.IsError {
 		return result
+	}
+	// 格式属性的变化排在最前面：它说得出**什么变成了什么**，
+	// 而像素只说得出**有事发生**、树只说得出**结构没变**。
+	if changes := textAttributeChanges(before, snapshot); len(changes) > 0 {
+		shown := changes
+		if len(shown) > 4 {
+			shown = append(append([]string{}, shown[:4]...),
+				fmt.Sprintf("… and %d more", len(changes)-4))
+		}
+		notes = append([]string{"[text-attrs] Formatting changed, read straight from the AT-SPI text attributes: " +
+			strings.Join(shown, " | ") +
+			". This is direct evidence the action took effect — the snapshot renders structure, not formatting, so the tree can look unchanged while this does not."}, notes...)
 	}
 	if before != nil && !observablyChanged(before, snapshot) {
 		// 语义调用返回成功却什么都没发生——实测这不是罕见情况，Nautilus 文件
@@ -727,9 +830,9 @@ func (s *service) actionResult(app string, request linuxRequest) toolCallResult 
 			// 不能推出"没生效"，只能推出"树看不见"。
 			// 截图现在恒带，那才是这类效果的可判之处——把 agent 指过去，
 			// 而不是替它下一个会错的结论。
-			notes = append(notes, unchangedNotes(true, readPixelVerdict(notes))...)
+			notes = append(notes, unchangedNotes(true, readPixelVerdict(notes), readTextAttributeChange(notes))...)
 		} else {
-			notes = append(notes, unchangedNotes(false, readPixelVerdict(notes))...)
+			notes = append(notes, unchangedNotes(false, readPixelVerdict(notes), readTextAttributeChange(notes))...)
 		}
 	}
 	if diff, ok := incrementalTree(before, snapshot); ok {

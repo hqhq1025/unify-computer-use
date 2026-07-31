@@ -884,6 +884,13 @@ def record_for(node, index, path, window_bounds, text_limit=DEFAULT_TEXT_LIMIT):
         "states": state_segment(node, has_click_action=has_click_action),
         "description": node_description(node, text_limit=text_limit),
         "placeholder": placeholder_text(node, text_limit=text_limit),
+        # 格式属性跟着记录走，**不单独遍历**。树渲染本来就在访问每个节点，
+        # 而 Go 侧已经缓存着动作前的快照，两份一比就是零额外 AT-SPI 调用。
+        #
+        # 走过一版弯路：先按"焦点文本节点"取，结果 LibreOffice 的 root pane
+        # **自带 FOCUSED 位**（这个坑仓库里早记过），取到的永远是它；
+        # 改成扫全树又要 551ms 且漏掉目标段落。跟着 record 走两个问题都没有。
+        "textAttributes": text_attributes(node),
     }
 
 
@@ -1273,6 +1280,40 @@ def pixel_change(before, after):
         result["box"] = (min_x, min_y, max_x - min_x + PIXEL_DIFF_STRIDE,
                          max_y - min_y + PIXEL_DIFF_STRIDE)
     return result
+
+
+# 动作前后要比对的文本属性。**只挑格式类**，不是全量——全量里大半是
+# writing-mode / variant 这种恒定值，比了也没信息。
+#
+# 这条能力是查 Playwright 时反推出来的：它的 aria snapshot 只渲染一小撮语义属性
+# （[checked] [level=1]），而"查任意样式属性"是 `toHaveCSS` 这类**断言**的事——
+# **快照是给 agent 看的摘要，断言是精确查询，两者不必是同一套字段。**
+#
+# 顺着这个思路回头查 AT-SPI，才发现 `Atspi.Text.get_default_attributes()`
+# 一直都能读到 justification / size / weight / fg-color 这些东西。
+# 我此前写进文档的"改段落对齐后 a11y 树字节不变"**是错的**——
+# 树不变是因为**我们没渲染这些字段**，不是信息不存在。
+# 实测取一次 0.10–0.41ms/节点（对比 record_for 在 GIMP 上是 8.45ms），近乎免费。
+TEXT_ATTRIBUTES_OF_INTEREST = (
+    "justification", "size", "weight", "style", "underline", "strikethrough",
+    "family-name", "fg-color", "bg-color", "line-height", "indent",
+    "left-margin", "right-margin", "text-decoration",
+)
+
+
+def text_attributes(node):
+    """读一个节点的格式属性；读不到就返回 None（**不返回空字典冒充读到了**）。"""
+    iface = safe(node.get_text_iface)
+    if iface is None:
+        return None
+    raw = safe(lambda: Atspi.Text.get_default_attributes(iface))
+    if not raw:
+        return None
+    try:
+        table = dict(raw)
+    except Exception:
+        return None
+    return {k: table[k] for k in TEXT_ATTRIBUTES_OF_INTEREST if k in table}
 
 
 def persistent_pixel_change(before, after_one, after_two):
