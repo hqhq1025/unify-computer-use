@@ -863,6 +863,57 @@ def state_segment(node, has_click_action=False):
     return " [" + " ".join(marks) + "]"
 
 
+class StableIndexer:
+    """给元素发编号，让编号**跨快照存活**。
+
+    照抄 Playwright 的 `ariaSnapshot.ts`：
+
+        let ariaRef = element._ariaRef;
+        if (!ariaRef || ariaRef.role !== role || ariaRef.name !== name) {
+          ariaRef = { role, name, ref: 'e' + (++lastRef) };
+          element._ariaRef = ariaRef;
+        }
+
+    **ref 不是遍历序号，是挂在元素身上、以 (role, name) 为失效条件的缓存 id。**
+    同一个元素只要 role 和 name 都没变，跨多少次快照都是同一个号；
+    role 或 name 变了就重新发号（因为它已经不是"同一个东西"了）。
+
+    我们没法往 AT-SPI 对象上挂属性（每次操作都是新进程），但 Go 侧本来就缓存着
+    上一份快照，把 `路径 -> (编号, role, name)` 传进来就等价了。
+
+    修的是实测踩过的最贵的一类失败：F4 打开对话框后索引全部重排，用旧下标调
+    click 时工具照点不误——本想点 Position Y，实际点到菜单，把对象高度误改成
+    16.26cm，**全程零报错**。有了稳定编号，对话框关掉之后主窗口的控件会**拿回
+    原来的号**，旧引用要么仍然正确、要么明确报"不存在"。
+    """
+
+    def __init__(self, known):
+        # known: {"0.1.2": {"index": 7, "role": "push button", "name": "Save"}}
+        self.known = known or {}
+        self.next_free = 0
+        for entry in self.known.values():
+            try:
+                self.next_free = max(self.next_free, int(entry.get("index", 0)) + 1)
+            except (TypeError, ValueError):
+                pass
+        self.used = set()
+
+    def index_for(self, path, role, name):
+        key = ".".join(str(p) for p in path)
+        entry = self.known.get(key)
+        if entry is not None and entry.get("role") == role and entry.get("name") == name:
+            index = entry.get("index")
+            if isinstance(index, int) and index not in self.used:
+                self.used.add(index)
+                return index
+        while self.next_free in self.used:
+            self.next_free += 1
+        index = self.next_free
+        self.used.add(index)
+        self.next_free += 1
+        return index
+
+
 def record_for(node, index, path, window_bounds, text_limit=DEFAULT_TEXT_LIMIT):
     bounds = relative_frame(node, window_bounds)
     role = node_role(node)
@@ -996,9 +1047,13 @@ def render_visible_cells(
                 # 没验证通过的操作不写进给 agent 的提示里。
                 empty += 1
                 continue
-            index = len(records)
+            # 单元格用 (行, 列) 当路径后缀——它比遍历序号稳，滚动之后同一个格子
+            # 还是同一个号。
+            cell_path = path + [row, col]
+            index = (indexer.index_for(cell_path, node_role(cell), "")
+                     if indexer is not None else len(records))
             record = record_for(
-                cell, index, path + [index], window_bounds, text_limit=text_limit
+                cell, index, cell_path, window_bounds, text_limit=text_limit
             )
             records.append(record)
             # 必须带上 Frame。这些单元格是**屏幕上真实可见**的（它们正是坐标
@@ -1046,7 +1101,7 @@ def render_visible_cells(
 
 
 def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
-                boxes=True,
+                boxes=True, indexer=None,
                 max_tree_nodes=MAX_ELEMENTS, max_tree_depth=MAX_DEPTH, prune=True):
     records = []
     lines = []
@@ -1075,7 +1130,11 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
             if node is not None and len(records) >= max_tree_nodes:
                 dropped["count"] += 1
             return
-        index = len(records)
+        # 编号要**跨快照存活**，所以不能用 len(records) 这种遍历序号——
+        # 插入一个元素就会把它后面所有元素的号全推走。见 StableIndexer。
+        index = (indexer.index_for(path, node_role(node),
+                                   limit_text(node_name(node), text_limit=text_limit))
+                 if indexer is not None else len(records))
 
         # 裁剪：只保留"可操作角色 + 屏幕上可见"的节点。与 OSWorld 官方判据同源，
         # 实测 22% 压缩率、100% 保留率。被裁的只是它自己这一行，**仍然继续递归
@@ -1505,6 +1564,7 @@ def build_snapshot(
     include_screenshot=None,
     prune=True,
     boxes=False,
+    known_refs=None,
 ):
     """构建应用快照。
 
@@ -1544,6 +1604,7 @@ def build_snapshot(
         max_tree_depth=max_tree_depth,
         prune=prune,
         boxes=boxes,
+        indexer=StableIndexer(known_refs),
     )
     pid = node_pid(app)
     return {
@@ -1561,6 +1622,14 @@ def build_snapshot(
         "focusedSummary": focused_summary(pid, text_limit=text_limit),
         "selectedText": selected_text(pid, text_limit=text_limit),
         "elements": records,
+        # 把 路径 -> (编号, role, name) 回给 Go，下次请求原样传回来，
+        # 编号就能跨快照存活。见 StableIndexer。
+        "refs": {
+            ".".join(str(p) for p in r["runtimeId"]): {
+                "index": r["index"], "role": r["controlType"], "name": r["name"],
+            }
+            for r in records
+        },
     }
 
 
@@ -2436,6 +2505,7 @@ def perform_operation(operation):
             max_tree_depth=positive_int(operation.get("max_tree_depth"), MAX_DEPTH),
             prune=operation.get("prune", True),
             boxes=bool(operation.get("boxes", False)),
+            known_refs=operation.get("knownRefs"),
         )
         response = {"ok": True, "snapshot": snapshot}
         diagnostics = snapshot_diagnostics(snapshot.get("elements") or [])
@@ -2705,6 +2775,7 @@ def perform_operation(operation):
             # 动作后的快照按当前策略带图；`SCREENSHOT_REQUIRED_TOOLS` 里的
             # 工具无视策略，因为它们的效果树里根本看不出来。
             include_screenshot=True if tool in SCREENSHOT_REQUIRED_TOOLS else None,
+            known_refs=operation.get("knownRefs"),
         ),
     }
     # 第二张动作后画面放在**建完快照之后**抓：resolve_app 自己就要 0.15–0.3s，

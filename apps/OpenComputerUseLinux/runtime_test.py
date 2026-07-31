@@ -1760,6 +1760,58 @@ class PruneCostTests(AtspiPatchedTestCase):
         self.assertIn("Line Spacing", [r["name"] for r in records])
 
 
+class StableIndexTests(unittest.TestCase):
+    """编号要跨快照存活。照抄 Playwright 的 ariaSnapshot.ts。
+
+    修的是实测踩过的最贵一类失败：F4 打开对话框后索引全部重排，用旧下标调
+    click 时工具照点不误——本想点 Position Y，实际点到菜单，把对象高度误改成
+    16.26cm，**全程零报错**。
+    """
+
+    def test_same_element_keeps_its_number(self):
+        known = {"0.1": {"index": 7, "role": "push button", "name": "Save"}}
+        indexer = runtime.StableIndexer(known)
+        self.assertEqual(indexer.index_for([0, 1], "push button", "Save"), 7)
+
+    def test_role_or_name_change_invalidates_the_number(self):
+        """失效条件照抄 Playwright：role 或 name 变了就重新发号——
+        因为它已经不是"同一个东西"了。"""
+        known = {"0.1": {"index": 7, "role": "push button", "name": "Save"}}
+        self.assertNotEqual(
+            runtime.StableIndexer(known).index_for([0, 1], "push button", "Saved"), 7)
+        self.assertNotEqual(
+            runtime.StableIndexer(known).index_for([0, 1], "menu item", "Save"), 7)
+
+    def test_inserting_an_element_does_not_shift_the_others(self):
+        """这是遍历序号最致命的毛病：插一个元素，它后面所有编号全推走。"""
+        known = {
+            "0.0": {"index": 0, "role": "frame", "name": "W"},
+            "0.1": {"index": 1, "role": "push button", "name": "A"},
+            "0.2": {"index": 2, "role": "push button", "name": "B"},
+        }
+        indexer = runtime.StableIndexer(known)
+        self.assertEqual(indexer.index_for([0, 0], "frame", "W"), 0)
+        # 中间插进来一个新元素——它拿新号，不占用别人的
+        fresh = indexer.index_for([0, 1, 5], "push button", "NEW")
+        self.assertEqual(indexer.index_for([0, 1], "push button", "A"), 1)
+        self.assertEqual(indexer.index_for([0, 2], "push button", "B"), 2)
+        self.assertGreaterEqual(fresh, 3)
+
+    def test_numbers_are_never_reused_within_one_snapshot(self):
+        """同一份快照里两个元素拿到同一个号 = 静默指错对象。"""
+        known = {"0.1": {"index": 3, "role": "text", "name": ""},
+                 "0.2": {"index": 3, "role": "text", "name": ""}}
+        indexer = runtime.StableIndexer(known)
+        first = indexer.index_for([0, 1], "text", "")
+        second = indexer.index_for([0, 2], "text", "")
+        self.assertNotEqual(first, second)
+
+    def test_without_prior_knowledge_it_numbers_from_zero(self):
+        indexer = runtime.StableIndexer(None)
+        self.assertEqual(indexer.index_for([0], "frame", "W"), 0)
+        self.assertEqual(indexer.index_for([0, 0], "push button", "A"), 1)
+
+
 class SnapshotGrammarTests(unittest.TestCase):
     """快照文法。借鉴 Playwright 的 aria snapshot（`- role "name" [attr=value]`）。
 

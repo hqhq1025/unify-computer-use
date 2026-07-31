@@ -88,15 +88,25 @@ type elementRecord struct {
 	Placeholder          string            `json:"placeholder,omitempty"`
 }
 
+// elementRef 是一个元素的稳定编号及其失效条件。
+// 照 Playwright 的 ariaSnapshot.ts：role 或 name 变了就重新发号，
+// 因为它已经不是"同一个东西"了。
+type elementRef struct {
+	Index int    `json:"index"`
+	Role  string `json:"role"`
+	Name  string `json:"name"`
+}
+
 type appSnapshot struct {
-	App                 appDescriptor   `json:"app"`
-	WindowTitle         string          `json:"windowTitle,omitempty"`
-	WindowBounds        *frame          `json:"windowBounds,omitempty"`
-	ScreenshotPNGBase64 string          `json:"screenshotPngBase64,omitempty"`
-	TreeLines           []string        `json:"treeLines,omitempty"`
-	FocusedSummary      string          `json:"focusedSummary,omitempty"`
-	SelectedText        string          `json:"selectedText,omitempty"`
-	Elements            []elementRecord `json:"elements,omitempty"`
+	App                 appDescriptor         `json:"app"`
+	WindowTitle         string                `json:"windowTitle,omitempty"`
+	WindowBounds        *frame                `json:"windowBounds,omitempty"`
+	ScreenshotPNGBase64 string                `json:"screenshotPngBase64,omitempty"`
+	TreeLines           []string              `json:"treeLines,omitempty"`
+	FocusedSummary      string                `json:"focusedSummary,omitempty"`
+	SelectedText        string                `json:"selectedText,omitempty"`
+	Elements            []elementRecord       `json:"elements,omitempty"`
+	Refs                map[string]elementRef `json:"refs,omitempty"`
 
 	// 下面两个字段由 Go 侧在缓存时补上，不来自 Python。
 	// 快照有多旧是**我们特有的必需信息**：浏览器里 DOM 变化通常伴随可观测事件，
@@ -195,6 +205,8 @@ type linuxRequest struct {
 	MaxTreeDepth int            `json:"max_tree_depth,omitempty"`
 	Prune        *bool          `json:"prune,omitempty"`
 	Boxes        *bool          `json:"boxes,omitempty"`
+	// 上一份快照的 路径 -> (编号, role, name)。原样带给运行时，让编号跨快照存活。
+	KnownRefs map[string]elementRef `json:"knownRefs,omitempty"`
 }
 
 type textLimit struct {
@@ -912,6 +924,9 @@ func (s *service) currentSnapshot(app string) *appSnapshot {
 }
 
 func (s *service) refreshSnapshot(app string, request linuxRequest) (*appSnapshot, []string, toolCallResult) {
+	if previous := s.currentSnapshot(app); previous != nil && len(previous.Refs) > 0 {
+		request.KnownRefs = previous.Refs
+	}
 	response, err := runPython(request)
 	if err != nil {
 		return nil, nil, textResult(err.Error(), true)
