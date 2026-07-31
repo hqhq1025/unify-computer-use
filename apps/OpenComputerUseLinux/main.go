@@ -235,7 +235,13 @@ func (s *appSnapshot) resultWithTreeOverride(notes, lines []string) toolCallResu
 // resultWithNotes 在 accessibility tree 前面先说清楚这次动作实际做了什么、
 // 结果有没有被确认过。只返回一棵新树很容易被读成"动作成功了"，但它只是快照。
 func (s *appSnapshot) resultWithNotes(notes []string) toolCallResult {
-	text := s.renderedText()
+	return s.textWithNotes(s.renderedText(), notes)
+}
+
+// textWithNotes 走和整棵树完全相同的出口：诊断在前、正文在后、超阈值落盘。
+// find 的输出必须和 get_app_state 共用这条路径，否则"树太大"这个问题
+// 会在 find 上原样复发一遍——命中 300 个元素时它一样是一份大输出。
+func (s *appSnapshot) textWithNotes(text string, notes []string) toolCallResult {
 	if len(notes) > 0 {
 		lines := make([]string, 0, len(notes)+1)
 		for _, note := range notes {
@@ -285,6 +291,8 @@ type linuxRequest struct {
 	MaxTreeDepth int            `json:"max_tree_depth,omitempty"`
 	Prune        *bool          `json:"prune,omitempty"`
 	Boxes        *bool          `json:"boxes,omitempty"`
+	// nil = 按运行时的默认策略。find / verify 显式传 false 省掉视觉 token。
+	IncludeScreenshot *bool `json:"includeScreenshot,omitempty"`
 	// 上一份快照的 路径 -> (编号, role, name)。原样带给运行时，让编号跨快照存活。
 	KnownRefs map[string]elementRef `json:"knownRefs,omitempty"`
 }
@@ -344,6 +352,40 @@ func (s *service) callTool(name string, args map[string]any) toolCallResult {
 			return textResult(err.Error(), true)
 		}
 		return s.getAppState(requiredString(args, "app"), textLimit, maxTreeNodes, maxTreeDepth, optionalBool(args, "prune"), optionalBool(args, "boxes"))
+	case "find":
+		limit, err := optionalPositiveInt(args, "limit")
+		if err != nil {
+			return textResult(err.Error(), true)
+		}
+		return s.find(
+			requiredString(args, "app"),
+			optionalString(args, "role"),
+			optionalString(args, "name"),
+			optionalString(args, "text"),
+			optionalString(args, "state"),
+			intValue(optionalFloat(args, "limit"), func() int {
+				if limit != nil {
+					return *limit
+				}
+				return 20
+			}()),
+		)
+	case "verify":
+		timeout, err := optionalPositiveInt(args, "timeout_ms")
+		if err != nil {
+			return textResult(err.Error(), true)
+		}
+		goal := verifyGoal{
+			state:         optionalString(args, "state"),
+			valueContains: optionalString(args, "value_contains"),
+			textContains:  optionalString(args, "text_contains"),
+			exists:        optionalBool(args, "exists"),
+		}
+		timeoutMS := 5000
+		if timeout != nil {
+			timeoutMS = *timeout
+		}
+		return s.verify(requiredString(args, "app"), requiredElementIndex(args), goal, timeoutMS)
 	case "click":
 		clickMethod, err := parseClickMethod(optionalString(args, "click_method"))
 		if err != nil {
@@ -1291,6 +1333,328 @@ func describeRecord(record *elementRecord) string {
 	return fmt.Sprintf("an unnamed %s", record.ControlType)
 }
 
+// ---------------------------------------------------------------------------
+// find：不用先把整棵树拉下来就能定位
+//
+// 这是我们与 Playwright 之间**身份级**的差距，不是体验问题。Playwright 的
+// locator（`getByRole('button', {name:'OK'})`）从不要求你先 dump 一份 DOM；
+// 我们此前只有"整棵拉下来再挑一个"这一条路——VS Code 的树 15342 字符，
+// 为了点一个按钮让 agent 把这些读完，是纯粹的浪费。
+//
+// **必须说清它不省什么**：运行时那边照样遍历一整棵 AT-SPI 树，机器成本一分没少。
+// 省的是 agent 的上下文。桌面上不存在 CSS 选择器那种能下推给引擎的查询，
+// 遍历避不掉——这一点写进工具描述，免得调用方以为 find 比 get_app_state "快"。
+// ---------------------------------------------------------------------------
+
+// linesByIndex 把渲染好的树行按行首编号建索引。
+//
+// 刻意**复用 Python 渲染的原文**，而不在 Go 里再写一个渲染器：文法只有一份，
+// 两份实现迟早会漂移，而 find 的输出和 get_app_state 的输出必须逐字同构——
+// 否则 agent 得学两套读法。截断提示行（"… 12 more"）行首不是数字，自然被跳过。
+func linesByIndex(snapshot *appSnapshot) map[int]string {
+	out := map[int]string{}
+	for _, line := range snapshot.TreeLines {
+		trimmed := strings.TrimLeft(line, " \t")
+		head := trimmed
+		if space := strings.IndexByte(trimmed, ' '); space > 0 {
+			head = trimmed[:space]
+		}
+		index, err := strconv.Atoi(head)
+		if err != nil {
+			continue
+		}
+		if _, seen := out[index]; !seen {
+			out[index] = line
+		}
+	}
+	return out
+}
+
+func containsFold(haystack, needle string) bool {
+	return strings.Contains(strings.ToLower(haystack), strings.ToLower(needle))
+}
+
+// recordMatches 判一条记录是否满足查询。多个条件是**与**关系。
+func recordMatches(record *elementRecord, role, name, text, state string) bool {
+	if role != "" &&
+		!containsFold(record.ControlType, role) &&
+		!containsFold(record.LocalizedControlType, role) {
+		return false
+	}
+	if name != "" && !containsFold(record.Name, name) {
+		return false
+	}
+	if state != "" && !containsFold(record.States, state) {
+		return false
+	}
+	if text != "" {
+		// text 是"我不知道这串字出现在哪个字段"时的兜底：名字、描述、值、
+		// 占位符都扫。桌面上同一句话落在哪个字段**极不稳定**——实测同一个
+		// 搜索框在 GTK 里是 placeholder、在 Electron 里是 name。
+		if !containsFold(record.Name, text) &&
+			!containsFold(record.Description, text) &&
+			!containsFold(record.Value, text) &&
+			!containsFold(record.Placeholder, text) {
+			return false
+		}
+	}
+	return true
+}
+
+func describeQuery(role, name, text, state string) string {
+	parts := []string{}
+	for _, pair := range [][2]string{
+		{"role", role}, {"name", name}, {"text", text}, {"state", state},
+	} {
+		if pair[1] != "" {
+			parts = append(parts, fmt.Sprintf("%s~%q", pair[0], pair[1]))
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+func (s *service) find(app, role, name, text, state string, limit int) toolCallResult {
+	if app == "" {
+		return textResult("Missing required argument: app", true)
+	}
+	if role == "" && name == "" && text == "" && state == "" {
+		return textResult("find needs at least one of role, name, text, or state. To see the whole tree, call get_app_state.", true)
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	noScreenshot := false
+	snapshot, notes, result := s.refreshSnapshot(app, linuxRequest{
+		Tool:              "get_app_state",
+		App:               app,
+		IncludeScreenshot: &noScreenshot,
+	})
+	if result.IsError {
+		return result
+	}
+
+	lines := linesByIndex(snapshot)
+	matched := []elementRecord{}
+	for _, record := range snapshot.Elements {
+		if recordMatches(&record, role, name, text, state) {
+			matched = append(matched, record)
+		}
+	}
+
+	query := describeQuery(role, name, text, state)
+	var out strings.Builder
+	if len(matched) == 0 {
+		// 零命中**不是错误**，是一个如实的答案。Playwright 在动作时找不到元素才
+		// 报错，查询本身返回空集是正常的。这里给的是收敛线索，不是失败。
+		fmt.Fprintf(&out, "No element in %q matches %s.\n", snapshot.WindowTitle, query)
+		fmt.Fprintf(&out, "Searched %d elements. ", len(snapshot.Elements))
+		out.WriteString("All filters are ANDed and matched as case-insensitive substrings — drop one, or call get_app_state to see what is actually there.")
+		hintFrom := name
+		if hintFrom == "" {
+			hintFrom = text
+		}
+		if near := closestElements(snapshot, hintFrom, 5); len(near) > 0 {
+			out.WriteString("\nClosest by name:\n")
+			for _, line := range near {
+				out.WriteString("  " + line + "\n")
+			}
+		}
+		return snapshot.textWithNotes(out.String(), notes)
+	}
+
+	shown := matched
+	if len(shown) > limit {
+		shown = shown[:limit]
+	}
+	fmt.Fprintf(&out, "%d element(s) in %q match %s", len(matched), snapshot.WindowTitle, query)
+	if len(shown) < len(matched) {
+		fmt.Fprintf(&out, " — showing the first %d, raise `limit` for the rest", len(shown))
+	}
+	out.WriteString(".\nLines are verbatim from the tree, so element_index below is directly usable by click / set_value / invoke_element_action.\n\n")
+	for _, record := range shown {
+		if line, ok := lines[record.Index]; ok {
+			// 去掉缩进：命中集是**平的**，保留缩进会暗示一个并不存在的父子关系。
+			out.WriteString(strings.TrimLeft(line, " \t") + "\n")
+		} else {
+			fmt.Fprintf(&out, "%d %s\n", record.Index, describeRecord(&record))
+		}
+	}
+	return snapshot.textWithNotes(out.String(), notes)
+}
+
+// ---------------------------------------------------------------------------
+// verify：带自动重试的断言
+//
+// 此前 `grep -c '"verify_'` = 0——一个断言工具都没有。动作后的状态回读是
+// **被动**的：它只告诉你"这次动作之后树里变了什么"。agent 想主动确认一件事
+// （"保存对话框关掉了没有"）只能再拉一棵树自己比对，而那是**一次性**判定，
+// 早一拍就得到错的答案。
+//
+// Playwright 的 `expect(...).toBeVisible()` 之所以可靠，关键不在断言本身，
+// 在于它**在超时窗口内反复重查**。桌面上这一点只会更重要：UI 变化没有
+// load 事件，settle 等待有实测过的边界（0.12s 之后才出现的窗口抓不到）。
+// 轮询正是那条边界的补救。
+//
+// 代价要如实说：每一轮都是一次完整的 AT-SPI 遍历，不便宜。所以默认超时压在
+// 5 秒、轮询间隔 400ms，且**第一轮一定会执行**——GIMP 单次快照实测就要 30s，
+// 若按"先判超时再取样"写，那种应用上 verify 会一次都不采样就报失败。
+// ---------------------------------------------------------------------------
+
+type verifyGoal struct {
+	state         string
+	valueContains string
+	textContains  string
+	exists        *bool
+}
+
+func (g verifyGoal) empty() bool {
+	return g.state == "" && g.valueContains == "" && g.textContains == "" && g.exists == nil
+}
+
+func (g verifyGoal) describe() string {
+	parts := []string{}
+	if g.exists != nil {
+		if *g.exists {
+			parts = append(parts, "to exist")
+		} else {
+			parts = append(parts, "to be gone")
+		}
+	}
+	if g.state != "" {
+		if bare, negated := strings.CutPrefix(g.state, "!"); negated {
+			parts = append(parts, fmt.Sprintf("not to be %s", bare))
+		} else {
+			parts = append(parts, fmt.Sprintf("to be %s", g.state))
+		}
+	}
+	if g.valueContains != "" {
+		parts = append(parts, fmt.Sprintf("value to contain %q", g.valueContains))
+	}
+	if g.textContains != "" {
+		parts = append(parts, fmt.Sprintf("text to contain %q", g.textContains))
+	}
+	return strings.Join(parts, " and ")
+}
+
+// check 返回是否满足，以及**实际观测到了什么**。第二个返回值是这个工具的重点：
+// "断言失败"本身没有信息量，"期望 checked，实际 enabled focused"才有。
+func (g verifyGoal) check(record *elementRecord, lookupErr error) (bool, string) {
+	if record == nil {
+		if g.exists != nil && !*g.exists {
+			return true, "no element matches the selector"
+		}
+		reason := "no element matches the selector"
+		if lookupErr != nil {
+			reason = firstLine(lookupErr.Error())
+		}
+		return false, reason
+	}
+	observed := []string{fmt.Sprintf("resolved to %d %s", record.Index, describeRecord(record))}
+	ok := true
+	if g.exists != nil && !*g.exists {
+		ok = false
+		observed = append(observed, "but it is still present")
+	}
+	if g.state != "" {
+		want := true
+		bare := g.state
+		if trimmed, negated := strings.CutPrefix(g.state, "!"); negated {
+			want, bare = false, trimmed
+		}
+		has := containsFold(record.States, bare)
+		if has != want {
+			ok = false
+		}
+		// States 渲染出来时**自带方括号**（树里就是 `[enabled focused]`），
+		// 这里再包一层会变成 `[ [enabled focused]]`。照抄树的写法，不加工。
+		shown := strings.TrimSpace(record.States)
+		if shown == "" {
+			shown = "(no states reported)"
+		}
+		observed = append(observed, "states are "+shown)
+	}
+	if g.valueContains != "" {
+		if !containsFold(record.Value, g.valueContains) {
+			ok = false
+		}
+		observed = append(observed, fmt.Sprintf("value is %q", record.Value))
+	}
+	if g.textContains != "" {
+		hit := containsFold(record.Name, g.textContains) ||
+			containsFold(record.Description, g.textContains) ||
+			containsFold(record.Value, g.textContains) ||
+			containsFold(record.Placeholder, g.textContains)
+		if !hit {
+			ok = false
+		}
+		observed = append(observed, fmt.Sprintf("name=%q value=%q", record.Name, record.Value))
+	}
+	return ok, strings.Join(observed, ", ")
+}
+
+func firstLine(text string) string {
+	if index := strings.IndexByte(text, '\n'); index >= 0 {
+		return text[:index]
+	}
+	return text
+}
+
+func (s *service) verify(app, selector string, goal verifyGoal, timeoutMS int) toolCallResult {
+	if app == "" {
+		return textResult("Missing required argument: app", true)
+	}
+	if strings.TrimSpace(selector) == "" {
+		return textResult("verify requires element_index — a selector like `push button \"Save\"` or an index from the last get_app_state.", true)
+	}
+	if goal.empty() {
+		return textResult("verify needs something to assert: pass at least one of state, value_contains, text_contains, or exists.", true)
+	}
+	if timeoutMS <= 0 {
+		timeoutMS = 5000
+	}
+
+	noScreenshot := false
+	deadline := time.Now().Add(time.Duration(timeoutMS) * time.Millisecond)
+	attempts := []string{}
+	for attempt := 1; ; attempt++ {
+		snapshot, _, result := s.refreshSnapshot(app, linuxRequest{
+			Tool:              "get_app_state",
+			App:               app,
+			IncludeScreenshot: &noScreenshot,
+		})
+		if result.IsError {
+			return result
+		}
+		// 必须走 lookupElementFor 而不是 lookupBySelectorFor：前者数字下标和
+		// 选择器都认，后者只认选择器。实测代价——传 "62" 时它会连报 6 轮
+		// `no element matches the selector "62"`，看上去像元素真的不见了，
+		// 而元素一直在那儿。一个断言工具给出这种假阴性比没有断言更糟。
+		record, lookupErr := lookupElementFor(snapshot, selector, "", "verify")
+		ok, observed := goal.check(record, lookupErr)
+		attempts = append(attempts, fmt.Sprintf("attempt %d at +%dms — %s",
+			attempt, timeoutMS-int(time.Until(deadline).Milliseconds()), observed))
+		if ok {
+			return textResult(fmt.Sprintf(
+				"PASS: %s %s.\n%s\nAssertions do not change the UI; this is a read of the live tree, not a replay of an earlier snapshot.",
+				selector, goal.describe(), observed), false)
+		}
+		// 先取样再判超时：见上面 GIMP 的理由，第一轮无论如何都要跑完。
+		if !time.Now().Before(deadline) {
+			e := &toolError{tool: "verify", summary: fmt.Sprintf(
+				"expected %s %s, and it did not become true within %dms.",
+				selector, goal.describe(), timeoutMS)}
+			e.add("Selector", strconv.Quote(selector))
+			e.add("Snapshot", snapshotAge(snapshot))
+			for _, line := range attempts {
+				e.log = append(e.log, "  - "+line)
+			}
+			e.next = "this is a real observation of the current tree, not a stale cache — the state genuinely is not what you expected. Either the action did not land, or the app reports this state under a different name; call get_app_state and read the element's actual [states]."
+			return textResult(e.Error(), true)
+		}
+		time.Sleep(400 * time.Millisecond)
+	}
+}
+
 // lookupBySelector 按 `<role> "<name>"` / `"<name>"` / `<role>` 找唯一元素。
 //
 // 语法刻意与快照行**逐字一致**：树里渲染的是 `4 push button "Save" [..]`，
@@ -2092,6 +2456,8 @@ func enabledChannels() map[string]bool {
 // 每个工具属于哪条通道。list_apps 不属于任何通道（它只枚举应用），永远可用。
 var toolChannel = map[string]string{
 	"get_app_state":         "a11y",
+	"find":                  "a11y",
+	"verify":                "a11y",
 	"click":                 "a11y",
 	"invoke_element_action": "a11y",
 	"set_value":             "a11y",
@@ -2145,6 +2511,33 @@ func allToolDefinitions() []toolDefinition {
 				"click_count":   integerProperty("Number of clicks. Defaults to 1"),
 				"mouse_button":  enumStringProperty("Mouse button to click. Defaults to left.", []string{"left", "right", "middle"}),
 				"click_method":  enumStringProperty("Click implementation: auto (default), accessibility, app_post, sky_click, or global. Linux supports global AT-SPI mouse synthesis and does not currently support app_post or sky_click.", clickMethodValues),
+			}, []string{"app", "element_index"}),
+		},
+		{
+			Name:        "find",
+			Description: "CHANNEL: ACCESSIBILITY. Locate elements WITHOUT dumping the whole tree. Filters are ANDed and matched as case-insensitive substrings; the matching lines come back verbatim from the tree, so element_index is directly usable by click / set_value / invoke_element_action. Use this instead of get_app_state whenever you already know what you are looking for — a VS Code tree is over 15000 characters and reading all of it to press one button is waste. Honest caveat: this does NOT make the machine faster. The runtime still walks the entire accessibility tree, because the desktop has no query that can be pushed down into the app the way a CSS selector is pushed into a browser. What it saves is YOUR context, which is the actual bottleneck. Returns no screenshot — it is a query, not an observation; call get_screenshot if you need pixels. This tool is part of plugin `Computer Use`.",
+			Annotations: readOnlyAnnotations(),
+			InputSchema: objectSchema(map[string]any{
+				"app":   stringProperty("App name or bundle identifier"),
+				"role":  stringProperty("Match the element role, e.g. \"button\" matches both `push button` and `toggle button`. Substring, case-insensitive."),
+				"name":  stringProperty("Match the element's accessible name, e.g. \"save\" finds `push button \"Save As…\"`. Substring, case-insensitive."),
+				"text":  stringProperty("Match name OR desc OR value OR placeholder — use this when you do not know which field carries the string. Which field it lands in is genuinely unstable across toolkits: the same search box reports it as placeholder under GTK and as name under Electron."),
+				"state": stringProperty("Match the reported states, e.g. \"focused\", \"checked\", \"modal\". Substring, case-insensitive."),
+				"limit": integerProperty("Maximum matches to return. Defaults to 20."),
+			}, []string{"app"}),
+		},
+		{
+			Name:        "verify",
+			Description: "CHANNEL: ACCESSIBILITY. Assert something about an element and RETRY until it becomes true or the timeout expires. This is the difference between asking once and waiting for a result: a single get_app_state read a beat too early gives you the wrong answer with full confidence. Use it after an action to confirm the effect actually landed, rather than assuming a successful tool call means a successful action. Costs one full tree walk per poll (400ms apart, 5s default), so keep the timeout tight. On failure it returns the observation from every attempt — what the states ACTUALLY were, not just that the assertion failed. It never touches the UI. This tool is part of plugin `Computer Use`.",
+			Annotations: readOnlyAnnotations(),
+			InputSchema: objectSchema(map[string]any{
+				"app":            stringProperty("App name or bundle identifier"),
+				"element_index":  stringProperty("Index from the last get_app_state, or a selector written exactly as the snapshot renders it, e.g. `push button \"Save\"`. Prefer the selector here: verify re-reads the tree on every poll, and a selector survives the renumbering that a changing UI causes."),
+				"state":          stringProperty("Expected state, e.g. \"checked\", \"focused\", \"showing\". Prefix with ! to assert its absence, e.g. \"!checked\"."),
+				"value_contains": stringProperty("Expected substring of the element's value."),
+				"text_contains":  stringProperty("Expected substring of name, desc, value, or placeholder."),
+				"exists":         booleanProperty("true asserts the element is present; false asserts it is gone — the way to wait for a dialog to close."),
+				"timeout_ms":     integerProperty("How long to keep retrying. Defaults to 5000."),
 			}, []string{"app", "element_index"}),
 		},
 		{

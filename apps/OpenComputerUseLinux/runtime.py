@@ -1882,6 +1882,23 @@ def do_action_by_index(node, index):
     return bool(safe(lambda: node.do_action(int(index)), False))
 
 
+def window_relative(window_bounds, x, y):
+    """把 screen_point 算出的屏幕绝对坐标换回窗口相对——**agent 只认后者**。
+
+    树里的 {x,y,w,h}、截图、click_xy 的入参全是窗口相对，只有 XTEST 需要绝对
+    坐标。Note 里报哪一个不是风格问题：click_xy 那条 Note 明文写着 "in
+    window-relative pixels — the same coordinate space as the attached
+    screenshot and as the Frame values in the tree"，等于把约定立死了。
+
+    实测踩到过：Nautilus 的图标在树里是 {256,76,78,68}（中心 295,110），
+    而合成右键的 Note 报 (384,159)——差的正是窗口原点 (89,49)。agent 照着
+    这个数去 click_xy，会偏出整整一个窗口原点。
+    """
+    if window_bounds is None:
+        return x, y
+    return x - window_bounds["x"], y - window_bounds["y"]
+
+
 def screen_point(window_bounds, element=None, x=None, y=None):
     if element is not None:
         f = element.get("frame")
@@ -2581,6 +2598,11 @@ def perform_operation(operation):
             prune=operation.get("prune", True),
             boxes=bool(operation.get("boxes", False)),
             known_refs=operation.get("knownRefs"),
+            # None = 按默认策略（带图）。`find` 与 `verify` 会显式传 False：
+            # 前者是查询、后者是断言，都不是"观测"，不该付视觉 token
+            # ——基线里一次观测的视觉部分是 5120 token，而 verify 会**轮询**，
+            # 带图的话一次断言就能烧掉十几次观测的钱。
+            include_screenshot=operation.get("includeScreenshot"),
         )
         response = {"ok": True, "snapshot": snapshot}
         diagnostics = snapshot_diagnostics(snapshot.get("elements") or [])
@@ -2659,10 +2681,9 @@ def perform_operation(operation):
             notes.append(
                 addressing_channel(element_record)
                 + SYNTHESIS
-                + "Synthesized a coordinate click at ({:.0f}, {:.0f}) after bringing the "
-                "window to the foreground. {}{}".format(
-                    x,
-                    y,
+                + "Synthesized a coordinate click at ({:.0f}, {:.0f}) in window-relative "
+                "pixels after bringing the window to the foreground. {}{}".format(
+                    *window_relative(bounds, x, y),
                     UNVERIFIED_SYNTHESIS,
                     # 调用方已经指定了元素，再劝它"改用 element_index"是答非所问：
                     # 走到这里通常正是因为语义调用失效了（实测多个应用的
@@ -2707,7 +2728,8 @@ def perform_operation(operation):
                         "This element is an item inside a drop-down popup, where the "
                         "AT-SPI action closes the popup without committing the value "
                         "and leaves nothing to verify against, so this went straight to "
-                        "a coordinate click at ({:.0f}, {:.0f}). ".format(x, y)
+                        "a coordinate click at ({:.0f}, {:.0f}) in window-relative "
+                        "pixels. ".format(*window_relative(bounds, x, y))
                     )
                 else:
                     reason = (
@@ -2749,16 +2771,54 @@ def perform_operation(operation):
             if not context_menu_visible(app):
                 # 实测 Nautilus：文件图标的 `menu` 动作**永远返回成功、永远不开
                 # 菜单**，与是否聚焦/选中无关。语义通道在这里是死路，只能合成。
+                #
+                # 兜底有两条路，顺序是**实测定的，不是猜的**：
+                #
+                #   合成右键（button 3）在这台机器的 Nautilus 上 100% 失效。
+                #   用 xdotool 绕开本项目直接发同样的右键，一样开不出菜单；
+                #   拆成 mousedown/mouseup 分开发也一样。而同一位置的**左键**
+                #   立刻生效（图标变 [focused]、状态栏出现 "…" selected），
+                #   所以既不是坐标错也不是窗口没焦点——就是 button 3 这条路
+                #   在这个 GTK4 版本上不通。
+                #
+                #   Shift+F10 一次就开出了 11 个 menu item。它本来就是无障碍
+                #   标准的上下文菜单入口，比合成右键更该排在前面。
+                #
+                # 所以：先左键选中（上下文菜单必须作用在选中项上），再 Shift+F10，
+                # 都不行才退回合成右键——保留它是因为它在别的工具包上是通的，
+                # 删掉等于用一个应用的证据去否掉另一些应用的唯一出路。
                 x, y = screen_point(bounds, element_record, None, None)
                 require_window_focus(window, "invoke_element_action")
-                send_mouse_click(x, y, "right", 1)
-                notes.append(
-                    A11Y_CHANNEL
-                    + SYNTHESIS
-                    + "The '{}' action reported success but no menu appeared, so this "
-                    "fell back to a synthesized right-click at ({:.0f}, {:.0f}). "
-                    "{}".format(action, x, y, UNVERIFIED_SYNTHESIS)
-                )
+                send_mouse_click(x, y, "left", 1)
+                time.sleep(MENU_SETTLE_SECONDS)
+                send_key("shift+F10")
+                time.sleep(MENU_SETTLE_SECONDS)
+                if context_menu_visible(app):
+                    notes.append(
+                        A11Y_CHANNEL
+                        + SYNTHESIS
+                        + "The '{}' action reported success but no menu appeared, so "
+                        "this selected the element at ({:.0f}, {:.0f}) in "
+                        "window-relative pixels and opened the context menu with "
+                        "Shift+F10 — the accessibility route, which is measurably more "
+                        "reliable here than a synthesized right-click. A menu is now "
+                        "visible in the tree.".format(
+                            action, *window_relative(bounds, x, y)
+                        )
+                    )
+                else:
+                    send_mouse_click(x, y, "right", 1)
+                    notes.append(
+                        A11Y_CHANNEL
+                        + SYNTHESIS
+                        + "The '{}' action reported success but no menu appeared, and "
+                        "neither did Shift+F10, so this fell back to a synthesized "
+                        "right-click at ({:.0f}, {:.0f}) in window-relative pixels — "
+                        "the same space as the tree's {{x,y,w,h}} and the screenshot. "
+                        "{}".format(
+                            action, *window_relative(bounds, x, y), UNVERIFIED_SYNTHESIS
+                        )
+                    )
     elif tool == "scroll":
         require_window_focus(window, "scroll")
         scroll_element(operation.get("direction", "down"), operation.get("pages", 1))

@@ -16,8 +16,10 @@ func TestToolDefinitionCount(t *testing.T) {
 	//   +click_xy              坐标点击独立成工具，让通道从名字上可见
 	//   perform_secondary_action -> invoke_element_action（#27，用户拍板）
 	//   drag -> drag_xy        它没有元素形式，名字该说出来
-	if got := len(toolDefinitions()); got != 11 {
-		t.Fatalf("toolDefinitions() count = %d, want 11", got)
+	//   +find                  不 dump 整棵树的定位查询（Playwright locator 的对位）
+	//   +verify                带重试的断言（Playwright expect 的对位）
+	if got := len(toolDefinitions()); got != 13 {
+		t.Fatalf("toolDefinitions() count = %d, want 13", got)
 	}
 	// 通道必须能从工具名上看出来，而不是只写在描述里。
 	for _, name := range []string{"click_xy", "drag_xy"} {
@@ -1354,5 +1356,184 @@ func TestSpillFailureFallsBackToInlineText(t *testing.T) {
 	t.Setenv("OPEN_COMPUTER_USE_OUTPUT_DIR", "/proc/definitely-not-writable")
 	if got := spillToFile("snapshot", strings.Repeat("x", 9000)); got != "" {
 		t.Fatalf("写不成时应当退回内联，而不是给出一个不存在的路径：%s", got[:60])
+	}
+}
+
+func TestFindFiltersAreAndedAndReuseTheRenderedLines(t *testing.T) {
+	// find 的输出必须**逐字复用**树的渲染行，不能在 Go 里再写一份渲染器。
+	// 两份实现迟早漂移，而 agent 只该学一套读法。
+	snapshot := &appSnapshot{
+		WindowTitle: "Untitled 1",
+		Elements: []elementRecord{
+			{Index: 3, ControlType: "push button", Name: "Save", States: "enabled focused"},
+			{Index: 4, ControlType: "push button", Name: "Save As…", States: "enabled"},
+			{Index: 5, ControlType: "toggle button", Name: "Bold", States: "enabled checked"},
+			{Index: 6, ControlType: "text", Placeholder: "Search files"},
+		},
+		TreeLines: []string{
+			"  3 push button \"Save\" [enabled focused]",
+			"  4 push button \"Save As…\" [enabled]",
+			"  5 toggle button \"Bold\" [enabled checked]",
+			"  6 text [placeholder=\"Search files\"]",
+			"  … 12 more nodes",
+		},
+	}
+
+	lines := linesByIndex(snapshot)
+	if len(lines) != 4 {
+		t.Fatalf("行索引应跳过非数字开头的截断提示行，得到 %d 条", len(lines))
+	}
+	if lines[5] != "  5 toggle button \"Bold\" [enabled checked]" {
+		t.Fatalf("行必须原样取自渲染结果，得到 %q", lines[5])
+	}
+
+	cases := []struct {
+		role, name, text, state string
+		want                    []int
+	}{
+		// role 用子串：agent 写 "button" 时两种 button 都该找到
+		{role: "button", want: []int{3, 4, 5}},
+		// 多条件是**与**，不是或
+		{role: "button", state: "checked", want: []int{5}},
+		{name: "save", want: []int{3, 4}},
+		// text 要能落到 placeholder 上——同一个搜索框在 GTK 是 placeholder、
+		// 在 Electron 是 name，agent 不该被迫知道是哪个
+		{text: "search files", want: []int{6}},
+		{role: "button", name: "nonexistent", want: nil},
+	}
+	for _, c := range cases {
+		got := []int{}
+		for i := range snapshot.Elements {
+			if recordMatches(&snapshot.Elements[i], c.role, c.name, c.text, c.state) {
+				got = append(got, snapshot.Elements[i].Index)
+			}
+		}
+		if len(got) != len(c.want) {
+			t.Fatalf("查询 %+v 期望 %v，得到 %v", c, c.want, got)
+		}
+		for i := range got {
+			if got[i] != c.want[i] {
+				t.Fatalf("查询 %+v 期望 %v，得到 %v", c, c.want, got)
+			}
+		}
+	}
+}
+
+func TestVerifyReportsWhatItActuallySawNotJustFailure(t *testing.T) {
+	// "断言失败"没有信息量。有信息量的是"期望 checked，实际 [enabled focused]"
+	// ——agent 拿到后者才知道下一步该做什么。
+	record := &elementRecord{Index: 5, ControlType: "toggle button", Name: "Bold", States: "enabled focused"}
+
+	ok, observed := verifyGoal{state: "checked"}.check(record, nil)
+	if ok {
+		t.Fatal("元素没有 checked，断言不该通过")
+	}
+	if !strings.Contains(observed, "enabled focused") {
+		t.Fatalf("失败时必须回报实际观测到的状态，得到 %q", observed)
+	}
+
+	// 取反语法
+	if ok, _ := (verifyGoal{state: "!checked"}).check(record, nil); !ok {
+		t.Fatal("!checked 对一个未选中的元素应当通过")
+	}
+
+	// exists:false 是"等对话框消失"的写法：元素找不到才算通过
+	no := false
+	if ok, _ := (verifyGoal{exists: &no}).check(nil, nil); !ok {
+		t.Fatal("元素不存在时 exists:false 应当通过")
+	}
+	if ok, _ := (verifyGoal{exists: &no}).check(record, nil); ok {
+		t.Fatal("元素还在时 exists:false 不该通过")
+	}
+
+	// 缺省超时下，断言不存在的元素要给出可行动的理由，而不是空的失败
+	if ok, observed := (verifyGoal{state: "checked"}).check(nil, nil); ok || observed == "" {
+		t.Fatalf("找不到元素时要给出理由，得到 ok=%v observed=%q", ok, observed)
+	}
+}
+
+func TestFindAndVerifySkipTheScreenshot(t *testing.T) {
+	// 查询与断言都不是"观测"，不该付视觉 token——基线里一次观测的视觉部分
+	// 是 5120 token，而 verify 会轮询，带图的话一次断言能烧掉十几次观测的钱。
+	for _, name := range []string{"find", "verify"} {
+		definition := findToolDefinition(t, name)
+		if definition.Annotations == nil || definition.Annotations["readOnlyHint"] != true {
+			t.Fatalf("%s 不改变界面，必须标成只读", name)
+		}
+	}
+	if !strings.Contains(findToolDefinition(t, "find").Description, "no screenshot") {
+		t.Fatal("find 的描述要写明不回截图，否则 agent 会以为它替代了 get_app_state")
+	}
+	if !strings.Contains(findToolDefinition(t, "find").Description, "does NOT make the machine faster") {
+		t.Fatal("find 必须如实说明它省的是上下文而不是机器成本")
+	}
+}
+
+func TestVerifyDoesNotDoubleWrapTheStates(t *testing.T) {
+	// 树里渲染出来的 states 自带方括号，再包一层就成了 `[ [enabled]]`。
+	record := &elementRecord{Index: 1, ControlType: "push button", Name: "Search", States: " [has-click-action]"}
+	_, observed := verifyGoal{state: "checked"}.check(record, nil)
+	if strings.Contains(observed, "[ [") || strings.Contains(observed, "]]") {
+		t.Fatalf("states 不该被二次加括号，得到 %q", observed)
+	}
+}
+
+func TestVerifyAcceptsNumericIndicesNotJustSelectors(t *testing.T) {
+	// 实测踩到过：verify 走 lookupBySelectorFor，传下标 "62" 会连报 6 轮
+	// "no element matches the selector" —— 元素一直在，断言却报不存在。
+	// 断言工具给假阴性，比没有断言更糟。
+	snapshot := &appSnapshot{Elements: []elementRecord{
+		{Index: 62, ControlType: "text", Value: "baseline-marker", States: "[focused]"},
+	}}
+	record, err := lookupElementFor(snapshot, "62", "", "verify")
+	if err != nil || record == nil {
+		t.Fatalf("数字下标必须能解析，得到 record=%v err=%v", record, err)
+	}
+	if ok, _ := (verifyGoal{textContains: "baseline"}).check(record, nil); !ok {
+		t.Fatal("解析到的记录应当满足 text_contains")
+	}
+}
+
+func TestCoordinateNotesAreAlwaysWindowRelative(t *testing.T) {
+	// 实测踩到过：Nautilus 图标在树里是 {256,76,78,68}（中心 295,110），
+	// 合成右键的 Note 却报 (384,159)——差的正是窗口原点 (89,49)。
+	// agent 照那个数去 click_xy 会偏出整整一个窗口原点。
+	// click_xy 的 Note 早就写死了"window-relative"这个约定，其余几处必须一致。
+	if !strings.Contains(linuxRuntimeScript, "def window_relative(") {
+		t.Fatal("需要一个把绝对坐标换回窗口相对的转换函数")
+	}
+	for _, fragment := range []string{
+		// 钉坐标空间的声明本身，不钉措辞的换行位置——后者一改文案就假报警。
+		"right-click at ({:.0f}, {:.0f}) in window-relative pixels",
+		"Synthesized a coordinate click at ({:.0f}, {:.0f}) in window-relative ",
+	} {
+		if !strings.Contains(linuxRuntimeScript, fragment) {
+			t.Fatalf("坐标 Note 必须声明自己的坐标空间：缺 %q", fragment)
+		}
+	}
+	// 每一处报坐标的地方都要经过转换，不能直接打印 screen_point 的返回值
+	if strings.Contains(linuxRuntimeScript, `"{}".format(action, x, y, UNVERIFIED_SYNTHESIS)`) {
+		t.Fatal("menu 兜底仍在直接打印屏幕绝对坐标")
+	}
+}
+
+func TestContextMenuPrefersTheKeyboardRouteOverSyntheticRightClick(t *testing.T) {
+	// 实测：合成右键（button 3）在本机 Nautilus 上 100% 开不出上下文菜单。
+	// 用 xdotool 绕开本项目直接发同样的右键一样失败，拆成 mousedown/mouseup
+	// 也失败；而同一位置的左键立刻生效（图标变 [focused]、状态栏出现 selected）
+	// ——所以既不是坐标错也不是焦点问题，是 button 3 这条路不通。
+	// Shift+F10 一次开出 11 个 menu item，它本来就是无障碍标准的入口。
+	if !strings.Contains(linuxRuntimeScript, `send_key("shift+F10")`) {
+		t.Fatal("菜单兜底必须先走 Shift+F10 这条无障碍路线")
+	}
+	shiftAt := strings.Index(linuxRuntimeScript, `send_key("shift+F10")`)
+	rightAt := strings.Index(linuxRuntimeScript, `send_mouse_click(x, y, "right", 1)`)
+	if rightAt < 0 || shiftAt > rightAt {
+		t.Fatal("Shift+F10 必须排在合成右键之前")
+	}
+	// 但**不能删掉**合成右键：它在别的工具包上是通的，
+	// 用一个应用的证据去否掉另一些应用的唯一出路是过度归纳。
+	if rightAt < 0 {
+		t.Fatal("合成右键要保留作为最后兜底")
 	}
 }

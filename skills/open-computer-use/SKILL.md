@@ -15,6 +15,14 @@ It supports the same core tool surface across macOS, Linux, and Windows:
 `list_apps`, `get_app_state`, `click`, `perform_secondary_action`, `scroll`,
 `drag`, `type_text`, `press_key`, and `set_value`.
 
+The Linux runtime additionally offers `find` and `verify`. `find` locates
+elements by role/name/text/state and returns only the matching tree lines, so
+you do not have to read a whole tree to press one button — on Thunderbird a
+measured `get_app_state` of 7153 characters plus a screenshot became 656
+characters with no image. `verify` asserts a state and RETRIES until it holds
+or the timeout expires, which is what a single `get_app_state` read cannot do:
+checked one beat too early it reports the old state with full confidence.
+
 ## Core Workflow
 
 1. On macOS, run `sw_vers -productVersion` before invoking the CLI and require macOS 14.0 or later. On older versions, explain that the runtime cannot launch; do not recommend `doctor` or permission changes as a fix for binary incompatibility.
@@ -34,7 +42,8 @@ It supports the same core tool surface across macOS, Linux, and Windows:
 - Treat the target desktop as the user's real session. Do not inspect password managers, unrelated private content, or sensitive apps unless the user explicitly asked for that task.
 - Ask before sending, deleting, purchasing, approving, uploading, or making other externally visible changes.
 - Do not assume Codex.app plugin helpers are available. Use the installed `open-computer-use` / `ocu` CLI or an explicit MCP config.
-- Always run `get_app_state` before using `element_index`; do not guess indexes across sessions or after large UI changes.
+- Always run `get_app_state` before using `element_index`; do not guess indexes across sessions or after large UI changes. On Linux, `find` also counts as that state read — it refreshes the same snapshot, so an action may follow it directly.
+- On Linux, do not treat a successful action call as a landed action. `verify` is the cheap way to close that gap, and it is the only one that retries; a follow-up `get_app_state` is a single sample and will report the pre-action state if you read it a beat too early.
 - Prefer semantic actions and `set_value` for editable controls. Use coordinate `click`, `scroll`, and `drag` only when the element tree does not expose a safer target.
 - On macOS, do not enable `OPEN_COMPUTER_USE_ALLOW_GLOBAL_POINTER_FALLBACKS=1` unless the user explicitly requested `click_method: "global"` or other diagnostic behavior that may move the real pointer.
 - On Windows and Linux, confirm the command is running inside the logged-in desktop session before assuming GUI automation is available.
