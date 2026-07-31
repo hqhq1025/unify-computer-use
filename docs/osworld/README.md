@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **5** / 369 |
-| 我手工通过 | 4 / 5 |
-| cc 通过 | **3 / 5** |
-| cc 平均步数 | 11.0 |
-| cc 平均观测 token | 26725 |
-| cc 平均用时 | 121s |
-| 执行轴 a11y 占比 | 53% （29/55）|
+| 已跑题数 | **7** / 369 |
+| 我手工通过 | 5 / 7 |
+| cc 通过 | **5 / 7** |
+| cc 平均步数 | 10.6 |
+| cc 平均观测 token | 36006 |
+| cc 平均用时 | 123s |
+| 执行轴 a11y 占比 | 48% （32/67）|
 
 ## 逐题
 
@@ -38,6 +38,8 @@
 | 3 | chrome | Can you make my computer bring back the last tab I s | ✅ | ✗ 0.0 | 12 | 23787 | 152.5s |
 | 4 | chrome | Computer, can you turn the webpage I'm looking at in | ✗ 0.0 | ✗ 0.9 | 25 | 12376 | 257.3s |
 | 5 | chrome | Hey, I need a quick way back to this site. Could you | ✅ | ✅ | 9 | 15191 | 85.7s |
+| 6 | chrome | Can you make a new folder for me on the bookmarks ba | ✅ | ✅ | 6 | 5073 | 68.7s |
+| 7 | chrome | Can you save this webpage I'm looking at to bookmark | ✗ 0.0 | ✅ | 12 | 141187 | 187.5s |
 
 ## 每题的过程记录
 
@@ -78,4 +80,19 @@
 - **我手工**（第 2 次，得分 1.0）：补上 get_vm_directory_tree 垫片后重新判分
 - **cc**（第 1 次，得分 0.0）：cc 第一次
 - **cc**（第 2 次，得分 1.0）：cc 第二次（修好前台标签页之后）
+### 第 6 题 · 2ad9387a
+
+> Can you make a new folder for me on the bookmarks bar in my internet browser? Let's call it 'Favorites.'
+
+- **我手工**（第 1 次，得分 1.0）：手工：ctrl+shift+o 开书签管理器 → 选中 tree item「Bookmarks bar」→ Organise 菜单 → Add new folder → 输入 Favorites → Return
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+### 第 7 题 · 7a5a7856
+
+> Can you save this webpage I'm looking at to bookmarks bar so I can come back to it later?
+
+- **我手工**（第 2 次，得分 0.0）：手工：ctrl+d → Tab 到 Folder 下拉 → **打字首字母跳转**选 Bookmarks bar → Return。坐标点选项那条路失败过一次——Chrome 书签气泡的下拉选项**一个都不在 a11y 树里**（find 零命中，而屏幕上明明开着 Favorites/Bookmarks bar/All Bookmarks）。下拉框当前值可见这一点帮了大忙：能直接确认选中的是不是 Bookmarks bar。
+- **我手工**（第 3 次，得分 0.0）：手工成功：ctrl+d → Tab → 打字 Bookmarks bar（首字母跳转）→ Return 提交。关键教训：Return 要发两次语义不同——第一次收起下拉并提交选择，此前只发一次时下拉仍是 [expanded]，选择没提交，书签留在了 Other bookmarks。下拉框当前值可见让这个区别一眼可辨。
+- **我手工**（第 4 次，得分 0.0）：手工四次均未把书签放进书签栏。链路上确认的两点：(1) **Chrome 书签气泡的文件夹下拉，选项一个都不在 a11y 树里**——find 零命中，而屏幕上明明开着 Favorites / Bookmarks bar / All Bookmarks；只能靠坐标或键盘首字母跳转。(2) 靠 Tab+打字首字母能把下拉值改成 Bookmarks bar（**而且这个值现在在树里可见，是本轮新加的能力，否则完全无法确认**），但书签文件里它仍留在 Other bookmarks——改下拉没有真的移动书签。书签管理器里的 ctrl+x / ctrl+v 同样无效。判分已跑过 postconfig（pkill chrome + 重启）强制刷盘，所以不是文件陈旧。
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 5 次，得分 0.0）：订正上一条结论：cc 一次就过了，它的关键一步是**最后点了 Done**。书签气泡改完文件夹必须按 Done 才提交，我四次都没点。所以改下拉没有真的移动书签这句是错的——是我漏了提交步骤，不是 MCP 缺陷。真正成立的发现只有一条：Chrome 书签气泡的下拉**选项不在 a11y 树里**，只能靠坐标或键盘首字母跳转；而下拉的**当前值**在树里可见（本轮新加），cc 正是靠它确认改对了。
 

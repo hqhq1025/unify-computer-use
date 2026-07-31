@@ -278,6 +278,8 @@ def apply_config(task, log=print):
     静默跳过会让 agent 面对一个残缺的环境，然后把布置失败记成它的失败。
     """
     skipped = []
+    # 需要切到前台的标签，等 config 全部跑完再处理。见下面 chrome_open_tabs 分支。
+    pending_active = []
     for step in task.get("config") or []:
         kind = step.get("type")
         params = step.get("parameters") or {}
@@ -324,14 +326,11 @@ def apply_config(task, log=print):
                     ["google-chrome", "--remote-debugging-port=1337"] + urls,
                     start_new_session=True,
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                # 打开之后必须把目标标签**切到前台**。很多题的指令说的是
-                # "this site" / "我正在看的这个网页"——那句话是题面的一部分，
-                # 前台停在新标签页就等于题面不成立。
-                # 实测第 5 题（用 Chrome 内置功能建桌面快捷方式）：cc 看到的是
-                # Bing 新标签页，于是如实汇报"这不是一个网站，我停下来了"——
-                # 它没做错任何事，是环境没把题布置对。
-                if urls:
-                    _chrome_activate_tab(urls[-1])
+                # 目标标签要切到前台，但**不能在这里切**——实测第 7 题：
+                # 这一步跑的时候 Chrome 还在加载，CDP 里那个页面要么还不存在、
+                # 要么 URL 还是 about:blank，激活自然落空，前台停在新标签页。
+                # 记下来，等整个 config 跑完、界面稳定之后再切。
+                pending_active.append(urls[-1] if urls else "")
                 log("  Chrome 打开 {} 个标签".format(len(urls)))
             elif kind == "chrome_close_tabs":
                 # 通过 CDP 关标签页。这道题（"把我刚关掉的标签页恢复回来"）的
@@ -343,6 +342,15 @@ def apply_config(task, log=print):
                 skipped.append(kind)
         except Exception as error:
             skipped.append("{}({})".format(kind, str(error)[:80]))
+    # 很多题的指令写的是 "this site" / "我正在看的这个网页"——那句话是**题面的
+    # 一部分**，不是背景描述。前台停在别处，题就变成了另一道题。实测第 5 题：
+    # cc 看到 Bing 新标签页，如实汇报"这不是一个网站，我停下来了"，
+    # 它没做错任何事，是环境没把题布置对。
+    for url in pending_active:
+        if url:
+            time.sleep(4)
+            if not _chrome_activate_tab(url):
+                skipped.append("activate_tab({})".format(url[:50]))
     return (not skipped), skipped
 
 
