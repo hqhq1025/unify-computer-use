@@ -1828,3 +1828,69 @@ func TestErrorContextNeedsAnAppAndNeverMasksTheOriginalError(t *testing.T) {
 		t.Fatalf("抓不到现场时要静默放弃，得到 %q", note)
 	}
 }
+
+func TestTraceIsOffUnlessGivenAPath(t *testing.T) {
+	// 打开的方式是给出路径，不是布尔开关：写到哪里是调用方的事，
+	// 一个诊断设施不该自作主张地选目录。
+	t.Setenv("OPEN_COMPUTER_USE_TRACE_FILE", "")
+	if tracePath() != "" {
+		t.Fatal("没给路径就不该开 trace")
+	}
+	service := newService()
+	// 关着的时候写任何东西都不该有副作用
+	service.appendTrace("gedit", linuxRequest{Tool: "click"}, nil, nil, nil, false)
+}
+
+func TestTraceRecordsOneLinePerActionIncludingFailures(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nested", "trace.jsonl")
+	t.Setenv("OPEN_COMPUTER_USE_TRACE_FILE", path)
+	service := newService()
+
+	before := &appSnapshot{WindowTitle: "VLC media player", Elements: make([]elementRecord, 92)}
+	after := &appSnapshot{WindowTitle: "Simple Preferences", Elements: make([]elementRecord, 61)}
+	service.appendTrace("vlc", linuxRequest{
+		Tool:    "click",
+		Element: &elementRecord{Index: 7, ControlType: "menu item", Name: "Preferences"},
+	}, before, after, []string{"[a11y] Resolved element_index 7 to menu item 'Preferences'."}, false)
+	// 失败也要留一行：只记成功会让复盘时看到一串顺利的动作，
+	// 而真正要查的那一步凭空消失。
+	service.appendTrace("vlc", linuxRequest{Tool: "set_value", Value: "x"}, before, nil, nil, true)
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("trace 文件没写出来: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("两次动作应当有两行，得到 %d", len(lines))
+	}
+	var first map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &first); err != nil {
+		t.Fatalf("第一行不是合法 JSON: %v", err)
+	}
+	beforeMap, _ := first["before"].(map[string]any)
+	afterMap, _ := first["after"].(map[string]any)
+	if beforeMap["window"] != "VLC media player" || afterMap["window"] != "Simple Preferences" {
+		t.Fatalf("前后状态要能读出这次动作把界面带到了哪里，得到 %v -> %v", beforeMap, afterMap)
+	}
+	if beforeMap["elements"].(float64) != 92 || afterMap["elements"].(float64) != 61 {
+		t.Fatal("元素数量是判断树是否重排的最便宜的信号，必须记")
+	}
+	args, _ := first["args"].(map[string]any)
+	if args["element_name"] != "Preferences" {
+		t.Fatalf("动作参数要记下作用在谁身上，得到 %v", args)
+	}
+	// 但**不能**把整份记录抄进去：一次基线 16 个动作，抄整棵树会让 trace
+	// 比 transcript 还大。要细节有 error-context 那条路。
+	if strings.Contains(lines[0], "runtimeId") || strings.Contains(lines[0], "treeLines") {
+		t.Fatal("trace 只记摘要，不记整棵树")
+	}
+
+	var second map[string]any
+	if err := json.Unmarshal([]byte(lines[1]), &second); err != nil {
+		t.Fatalf("第二行不是合法 JSON: %v", err)
+	}
+	if second["failed"] != true {
+		t.Fatal("失败的动作要标出来")
+	}
+}
