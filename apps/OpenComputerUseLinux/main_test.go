@@ -1241,8 +1241,136 @@ func TestSelectorFallsBackToDescription(t *testing.T) {
 	}
 }
 
-// 格式属性比对：**能说出"什么变成了什么"**，而不是"有事发生"。
+// 选择器尾部的约束**必须真的生效或真的报错**，不能静默丢弃。
 //
+// 这是修一个实测出来的 bug：parseSelector 原来取到 name 就 return，
+// 末引号之后的内容从头到尾没人看。实测四条全部被吞：
+//
+//	push button "Save" [checked]              -> role="push button" name="Save" ok=true
+//	push button "OK" >> nth=0                 -> role="push button" name="OK"   ok=true
+//	menu item "Ruler" (12)                    -> role="menu item"   name="Ruler" ok=true
+//	push button "Save" and then some garbage  -> role="push button" name="Save" ok=true
+//
+// 调用方以为自己加了限定，拿到的却是不带限定的结果——工具在骗 agent。
+func TestSelectorPredicatesApplyOrFailLoudly(t *testing.T) {
+	snapshot := &appSnapshot{Elements: []elementRecord{
+		{Index: 1, ControlType: "check menu item", Name: "Ruler", States: " [checked]"},
+		{Index: 2, ControlType: "check menu item", Name: "Ruler"},
+		{Index: 5, ControlType: "toggle button", Name: "Menu", Description: "View options"},
+		{Index: 6, ControlType: "toggle button", Name: "Menu", Description: "Show operations"},
+		{Index: 8, ControlType: "push button", Name: "Go", Actions: []string{"click", "press"}},
+		{Index: 9, ControlType: "entry", Placeholder: "Search files"},
+		{Index: 11, ControlType: "list item", Name: "Row", States: " [selected focused]"},
+	}}
+
+	// 谓词真的把候选筛窄了：不带谓词是歧义，带上就唯一。
+	if _, err := lookupElement(snapshot, `check menu item "Ruler"`); err == nil {
+		t.Fatal("两个同名 Ruler，本该报歧义")
+	}
+	record, err := lookupElement(snapshot, `check menu item "Ruler" [checked]`)
+	if err != nil || record.Index != 1 {
+		t.Fatalf("[checked] 应当筛出 1 号：%v %v", record, err)
+	}
+
+	// 快照把多个状态打在**同一个方括号里**，所以一组要拆成多条约束。
+	// agent 从行里原样抄下来的就是这个形状。
+	if record, err = lookupElement(snapshot, `list item "Row" [selected focused]`); err != nil ||
+		record.Index != 11 {
+		t.Fatalf("一组多词应当逐词匹配：%v %v", record, err)
+	}
+	if _, err = lookupElement(snapshot, `list item "Row" [selected expanded]`); err == nil {
+		t.Fatal("组里有一个词对不上就不该命中")
+	}
+
+	// 同名同角色只能靠 desc 区分——实测 Nautilus 的三个 toggle button "Menu"。
+	if record, err = lookupElement(snapshot, `toggle button "Menu" [desc="View options"]`); err != nil ||
+		record.Index != 5 {
+		t.Fatalf("[desc=…] 应当筛出 5 号：%v %v", record, err)
+	}
+	// desc 单独用作身份（不给引号名字）也要能走通。
+	if record, err = lookupElement(snapshot, `toggle button [desc="Show operations"]`); err != nil ||
+		record.Index != 6 {
+		t.Fatalf("只给 role + desc 也该唯一：%v %v", record, err)
+	}
+	if record, err = lookupElement(snapshot, `[placeholder="Search files"]`); err != nil ||
+		record.Index != 9 {
+		t.Fatalf("只给 placeholder 也该唯一：%v %v", record, err)
+	}
+	if record, err = lookupElement(snapshot, `push button "Go" [actions=press]`); err != nil ||
+		record.Index != 8 {
+		t.Fatalf("[actions=…] 应当命中 8 号：%v %v", record, err)
+	}
+
+	// 认不出来的一律报错，且错误里要点名残串——这是这次修的核心。
+	for _, selector := range []string{
+		`push button "OK" >> nth=0`,
+		`menu item "Ruler" (12)`,
+		`push button "Save" and then some garbage`,
+		`push button "Save" [disabled]`,
+		`push button "Save" [level=2]`,
+		`push button "Save" [desc=View options]`, // 值没加引号
+		`push button "Save" [checked`,            // 括号没闭合
+	} {
+		_, err := lookupElement(snapshot, selector)
+		if err == nil {
+			t.Fatalf("%q 应当报错，而不是静默丢弃约束", selector)
+		}
+		if !strings.Contains(err.Error(), "trailing part I cannot read") &&
+			!strings.Contains(err.Error(), "no element matches") {
+			t.Fatalf("%q 的错误没说清是尾部读不懂：%v", selector, err)
+		}
+	}
+
+	// 报错要把支持的写法摆出来，并当场宣告 >> / nth= / :right-of 不存在，
+	// 否则模型会照着 Playwright 的记忆自己发明语法。
+	_, err = lookupElement(snapshot, `push button "OK" >> nth=0`)
+	for _, want := range []string{"[checked]", "desc=", "nth=", ">>", ":right-of"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("错误里缺少 %q：%v", want, err)
+		}
+	}
+
+	// 谓词把候选筛空时，最可能的原因是状态变了而不是名字抄错，
+	// 建议要先说这一条。
+	_, err = lookupElement(snapshot, `check menu item "Ruler" [expanded]`)
+	if err == nil || !strings.Contains(err.Error(), "may have changed since the snapshot") {
+		t.Fatalf("筛空时应当提示状态可能已变：%v", err)
+	}
+	// 解析结果要回显，调用方才知道自己那串被读成了什么。
+	if !strings.Contains(err.Error(), "predicates [expanded]") {
+		t.Fatalf("Call log 里没回显解析到的谓词：%v", err)
+	}
+}
+
+// 名字里带引号或反斜杠时，配对引号必须是**真配对**，不是最后一个引号。
+//
+// 原来用 strings.LastIndex 找收尾引号，在没有尾部内容时恰好正确；
+// 一旦后面跟上 [desc="…"]，整段就会被吞进 name。
+func TestSelectorFindsTheRealClosingQuote(t *testing.T) {
+	role, name, hasName, rest := parseSelector(`toggle button "Menu" [desc="View options"]`)
+	if role != "toggle button" || name != "Menu" || !hasName {
+		t.Fatalf("配对引号找错了：role=%q name=%q", role, name)
+	}
+	if rest != `[desc="View options"]` {
+		t.Fatalf("残串不对：%q", rest)
+	}
+
+	// 渲染侧 quoted() 会把引号转义成 \"，这里要还原回去。
+	_, name, _, rest = parseSelector(`static "say \"hi\"" [focused]`)
+	if name != `say "hi"` {
+		t.Fatalf("转义还原错了：%q", name)
+	}
+	if rest != "[focused]" {
+		t.Fatalf("带转义时残串不对：%q", rest)
+	}
+
+	// desc 的值里带 `]` 也要能闭合到正确的位置。
+	preds, err := parsePredicates(`[desc="a] b"]`)
+	if err != nil || len(preds) != 1 || preds[0].value != "a] b" {
+		t.Fatalf("引号内的 ] 不该当成收尾：%v %v", preds, err)
+	}
+}
+
 // 这条通道是查 Playwright 时反推出来的。它的 aria snapshot 只渲染一小撮语义属性，
 // "查任意样式属性"是 toHaveCSS 这类**断言**的事——快照是摘要，断言是精确查询，
 // 两者不必是同一套字段。顺着这条思路回头查 AT-SPI，才发现
