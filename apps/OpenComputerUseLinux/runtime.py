@@ -3517,18 +3517,50 @@ def perform_operation(operation):
     elif tool == "set_value":
         if element is None:
             raise RuntimeError("unknown element_index")
-        if not set_element_value(element, operation.get("value", "")):
-            raise RuntimeError("Cannot set a value for an element that is not settable")
-        notes.append(
-            A11Y_CHANNEL
-            + SEMANTIC
-            + "Wrote the value through the AT-SPI API and read it back to confirm the "
-            "control now holds it. Note the limit of that check: it confirms the "
-            "CONTROL changed, not that the application adopted the value. Dialogs "
-            "commonly keep control state separate from document state and only commit "
-            "on OK/Apply — verify the actual effect (document content, a re-read of "
-            "the relevant element) rather than trusting this line."
-        )
+        value = operation.get("value", "")
+        if not set_element_value(element, value):
+            # 语义写值失败**不等于写不了**。实测 Chrome 的 `entry "Name"`
+            # （chrome://settings/manageProfile 里的用户名框）明明holds "Person 1"，
+            # set_value 却报"不可设置"——Blink 的输入框不实现 AT-SPI 的
+            # Value/EditableText 接口。
+            #
+            # click 和 type_text 早就有"语义失败就降级到合成"的模式，
+            # set_value 却只会硬失败，于是一个到处都是的控件类型整个不可用。
+            # 这里补上同一条降级：聚焦 → 全选 → 打字，与人手做的完全一样。
+            #
+            # 降级要**说清楚**：它没有回读确认，也不保证落到了那个控件上
+            # ——键盘合成是全局的。
+            require_window_focus(window, "set_value")
+            focused = safe(lambda: Atspi.Component.grab_focus(
+                element.get_component_iface()), False)
+            if not focused:
+                x, y = screen_point(bounds, element_record, None, None)
+                send_mouse_click(x, y, "left", 1)
+                time.sleep(0.1)
+            send_key("ctrl+a")
+            time.sleep(0.05)
+            send_text(value)
+            notes.append(
+                addressing_channel(element_record)
+                + SYNTHESIS
+                + "The AT-SPI value API refused this element (Blink and some toolkits "
+                "do not implement it on text inputs), so this fell back to focusing "
+                "the control, selecting all, and typing. There is no read-back "
+                "confirmation on this path, and keyboard synthesis is global — verify "
+                "from the tree that the control now holds what you wanted. {}".format(
+                    UNVERIFIED_SYNTHESIS)
+            )
+        else:
+            notes.append(
+                A11Y_CHANNEL
+                + SEMANTIC
+                + "Wrote the value through the AT-SPI API and read it back to confirm the "
+                "control now holds it. Note the limit of that check: it confirms the "
+                "CONTROL changed, not that the application adopted the value. Dialogs "
+                "commonly keep control state separate from document state and only commit "
+                "on OK/Apply — verify the actual effect (document content, a re-read of "
+                "the relevant element) rather than trusting this line."
+            )
     else:
         raise RuntimeError('unsupportedTool("{}")'.format(tool))
 

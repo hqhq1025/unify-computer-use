@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **7** / 369 |
-| 我手工通过 | 5 / 7 |
-| cc 通过 | **5 / 7** |
-| cc 平均步数 | 10.6 |
-| cc 平均观测 token | 36006 |
-| cc 平均用时 | 123s |
-| 执行轴 a11y 占比 | 48% （32/67）|
+| 已跑题数 | **8** / 369 |
+| 我手工通过 | 6 / 8 |
+| cc 通过 | **6 / 8** |
+| cc 平均步数 | 11.7 |
+| cc 平均观测 token | 37338 |
+| cc 平均用时 | 142s |
+| 执行轴 a11y 占比 | 43% （37/86）|
 
 ## 逐题
 
@@ -40,6 +40,7 @@
 | 5 | chrome | Hey, I need a quick way back to this site. Could you | ✅ | ✅ | 9 | 15191 | 85.7s |
 | 6 | chrome | Can you make a new folder for me on the bookmarks ba | ✅ | ✅ | 6 | 5073 | 68.7s |
 | 7 | chrome | Can you save this webpage I'm looking at to bookmark | ✗ 0.0 | ✅ | 12 | 141187 | 187.5s |
+| 8 | chrome | Lately I have changed my English name to Thomas. I w | ✅ | ✅ | 23 | 50653 | 332.7s |
 
 ## 每题的过程记录
 
@@ -95,4 +96,11 @@
 - **我手工**（第 4 次，得分 0.0）：手工四次均未把书签放进书签栏。链路上确认的两点：(1) **Chrome 书签气泡的文件夹下拉，选项一个都不在 a11y 树里**——find 零命中，而屏幕上明明开着 Favorites / Bookmarks bar / All Bookmarks；只能靠坐标或键盘首字母跳转。(2) 靠 Tab+打字首字母能把下拉值改成 Bookmarks bar（**而且这个值现在在树里可见，是本轮新加的能力，否则完全无法确认**），但书签文件里它仍留在 Other bookmarks——改下拉没有真的移动书签。书签管理器里的 ctrl+x / ctrl+v 同样无效。判分已跑过 postconfig（pkill chrome + 重启）强制刷盘，所以不是文件陈旧。
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 5 次，得分 0.0）：订正上一条结论：cc 一次就过了，它的关键一步是**最后点了 Done**。书签气泡改完文件夹必须按 Done 才提交，我四次都没点。所以改下拉没有真的移动书签这句是错的——是我漏了提交步骤，不是 MCP 缺陷。真正成立的发现只有一条：Chrome 书签气泡的下拉**选项不在 a11y 树里**，只能靠坐标或键盘首字母跳转；而下拉的**当前值**在树里可见（本轮新加），cc 正是靠它确认改对了。
+### 第 8 题 · 2ae9ba84
+
+> Lately I have changed my English name to Thomas. I want to update my username. Could you help me change the username in chrome profiles to Thomas?
+
+- **我手工**（第 1 次，得分 0.0）：手工：地址栏进 chrome://settings/manageProfile → set_value 到 entry「Name」。**set_value 在这里语义写值被拒**（Blink 的输入框不实现 AT-SPI Value 接口），这次补了降级：聚焦→全选→打字，写进去了。顺带补上 chrome_inject_js 这个 config 类型，否则判分跑不了 postconfig。
+- **我手工**（第 2 次，得分 1.0）：手工成功：地址栏 → chrome://settings/manageProfile → set_value 到 entry「Name」（走新加的合成降级）→ Tab 失焦。Local State 是惰性刷盘的，靠 postconfig 的 pkill+重启强制落盘才判得出来。
+- **cc**（第 1 次，得分 1.0）：cc 第一次（已加 set_value 合成降级）
 

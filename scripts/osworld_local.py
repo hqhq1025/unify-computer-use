@@ -208,6 +208,42 @@ def _chrome_activate_tab(url):
     return False
 
 
+def _chrome_inject_js(js):
+    """在当前活动标签页里执行一段 JS，走 CDP 的 Runtime.evaluate。
+
+    用 websocket 而不是 HTTP：DevTools 的 /json 端点只能列举和开关标签，
+    执行代码必须走每个 target 的 webSocketDebuggerUrl。
+    """
+    if not js:
+        return False
+    try:
+        import websocket  # noqa: F401
+    except ImportError:
+        return False
+    import urllib.error
+    try:
+        with urllib.request.urlopen("http://localhost:9222/json", timeout=5) as r:
+            targets = json.loads(r.read().decode("utf-8"))
+    except (urllib.error.URLError, OSError):
+        return False
+    pages = [t for t in targets if t.get("type") == "page"
+             and t.get("webSocketDebuggerUrl")]
+    if not pages:
+        return False
+    import websocket as ws
+    for target in pages[:1]:
+        try:
+            conn = ws.create_connection(target["webSocketDebuggerUrl"], timeout=10)
+            conn.send(json.dumps({"id": 1, "method": "Runtime.evaluate",
+                                  "params": {"expression": js}}))
+            conn.recv()
+            conn.close()
+            return True
+        except Exception:
+            return False
+    return False
+
+
 def _chrome_close_tabs(urls):
     """按 URL 关掉 Chrome 标签页，走 CDP。
 
@@ -332,6 +368,12 @@ def apply_config(task, log=print):
                 # 记下来，等整个 config 跑完、界面稳定之后再切。
                 pending_active.append(urls[-1] if urls else "")
                 log("  Chrome 打开 {} 个标签".format(len(urls)))
+            elif kind == "chrome_inject_js":
+                # 第 8 题的 postconfig 用它把焦点从输入框移开，逼 Chrome 把
+                # 改动落盘。不实现就判不了分——又一个"仪器缺一块就把成功记成
+                # 失败"的位置。
+                _chrome_inject_js(params.get("js") or "")
+                log("  注入 JS")
             elif kind == "chrome_close_tabs":
                 # 通过 CDP 关标签页。这道题（"把我刚关掉的标签页恢复回来"）的
                 # 初始状态**就是**"某个标签页刚被关掉"，少了这一步，题面描述的

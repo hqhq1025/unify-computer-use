@@ -1955,3 +1955,20 @@ func TestForeignForegroundAppIsCalledOutByName(t *testing.T) {
 		t.Fatal("光说『不是你』没用，要直接给出该问哪个 app")
 	}
 }
+
+func TestSetValueFallsBackToSynthesisWhenTheApiRefuses(t *testing.T) {
+	// 实测（OSWorld 第 8 题，改 Chrome 配置文件用户名）：
+	// chrome://settings/manageProfile 里的 `entry "Name"` 明明 holds "Person 1"，
+	// set_value 却报"不可设置"——Blink 的输入框不实现 AT-SPI 的 Value/EditableText。
+	//
+	// click 和 type_text 早就有"语义失败就降级到合成"，set_value 却只会硬失败，
+	// 于是一个到处都是的控件类型整个不可用。
+	if !strings.Contains(linuxRuntimeScript, "The AT-SPI value API refused this element") {
+		t.Fatal("语义写值被拒时要降级到 聚焦→全选→打字，而不是硬失败")
+	}
+	// 降级必须说清它没有回读确认——语义路径有，合成路径没有，
+	// 两条路给同一句保证就是骗人。
+	if !strings.Contains(linuxRuntimeScript, "no read-back ") {
+		t.Fatal("降级路径要声明自己没有回读确认")
+	}
+}
