@@ -2798,6 +2798,48 @@ PREFER_ELEMENT_INDEX = (
 )
 
 
+def resolved_note(element, element_record):
+    """说清这次动作**作用在了谁身上**。
+
+    此前动作 Note 只说"做了什么"，不说"对谁做的"。传选择器时尤其要紧：
+    `push button "Save"` 最终解析到哪个节点，调用方完全看不见——而解析是
+    多级回退的（runtimeId 路径 → automationId → name+role → role+几何），
+    退到第几级、退到了谁身上，都不透明。
+
+    报的是**活节点**读到的 role 与 name，不是快照记录里那份。两者不一致时
+    单独警告：那意味着按路径解析到的已经不是原来那个控件了，正是本仓库
+    反复修过的那类静默走偏——record_still_matches 里记着 Nautilus 的实例：
+    菜单关掉之后同一个 index 9 解析到了工具栏的"切换视图选项"，
+    于是"重命名"变成了别的操作，而且一路 isError=False。
+
+    """
+    if element is None or not element_record:
+        return None
+    index = element_record.get("index")
+    live_role = str(node_role(element) or "")
+    live_name = str(effective_name(element) or "")
+    if live_name:
+        shown = "{} {!r}".format(live_role, live_name)
+    else:
+        shown = "an unnamed {}".format(live_role or "element")
+    note = "Resolved element_index {} to {}.".format(index, shown)
+
+    was_role = str(element_record.get("controlType") or "")
+    was_name = str(element_record.get("name") or "")
+    drifted = []
+    if was_role and was_role != live_role:
+        drifted.append("role was {!r}, now {!r}".format(was_role, live_role))
+    if was_name and was_name != live_name:
+        drifted.append("name was {!r}, now {!r}".format(was_name, live_name))
+    if drifted:
+        note += (
+            " WARNING: this no longer matches the snapshot you read ({}). The "
+            "reference resolved to a DIFFERENT control than the one you picked; "
+            "re-read the tree before trusting this action.".format("; ".join(drifted))
+        )
+    return note
+
+
 # 前置窗口是不是"挡路的对话框"，分两档——因为**证据强度不同**。
 DIALOG_ROLES = {"dialog", "alert", "file chooser", "color chooser"}
 
@@ -2994,6 +3036,10 @@ def perform_operation(operation):
     # 每个动作都要说清楚实际走了哪条路径、结果有没有被校验过。返回一棵新的
     # accessibility tree 看着像执行确认，其实只是快照，不能当成动作生效的证据。
     notes = []
+    # "解析到了谁"排在所有动作 Note 之前：先说对谁做，再说做了什么。
+    resolved = resolved_note(element, element_record)
+    if resolved:
+        notes.append(A11Y_CHANNEL + " " + resolved)
     if moved_note:
         # 通道标签后面要有空格，否则渲染成 `[a11y]The element MOVED`。
         notes.append(A11Y_CHANNEL + " " + moved_note)

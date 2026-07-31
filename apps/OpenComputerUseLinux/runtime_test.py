@@ -2521,3 +2521,39 @@ class ModalDiagnosticTests(AtspiPatchedTestCase):
         # 应用只有这一个对话框窗口时，它就是主界面。说"它挡着什么"是无中生有。
         only = self._window("Preferences", "dialog", [STATE.SHOWING, STATE.ACTIVE])
         self.assertEqual(runtime.modal_diagnostic(only, self._app(only)), [])
+
+
+class ResolvedNoteTests(AtspiPatchedTestCase):
+    """动作要说清作用在了谁身上。"""
+
+    def test_reports_index_role_and_name(self):
+        node = _NamedNode(name="Save", role="push button")
+        note = runtime.resolved_note(node, {"index": 4, "controlType": "push button",
+                                            "name": "Save"})
+        self.assertEqual(note, "Resolved element_index 4 to push button 'Save'.")
+
+    def test_drift_from_the_snapshot_is_a_warning_not_a_silent_pass(self):
+        """这是本条真正的价值所在。
+
+        解析是多级回退的（runtimeId 路径 → automationId → name+role → role+几何）。
+        record_still_matches 里记着 Nautilus 的实例：菜单关掉之后同一个 index 9
+        解析到了工具栏的"切换视图选项"，于是"重命名"变成了别的操作，
+        而且一路 isError=False——静默操作错误的控件是最坏的失败模式。
+        """
+        node = _NamedNode(name="Menu", role="toggle button")
+        note = runtime.resolved_note(node, {"index": 9, "controlType": "menu item",
+                                            "name": "Rename"})
+        self.assertIn("WARNING", note)
+        self.assertIn("'menu item'", note)
+        self.assertIn("'toggle button'", note)
+        self.assertIn("'Rename'", note)
+
+    def test_unnamed_targets_still_get_a_line(self):
+        node = _NamedNode(name="", role="canvas")
+        note = runtime.resolved_note(node, {"index": 7, "controlType": "canvas"})
+        self.assertEqual(note, "Resolved element_index 7 to an unnamed canvas.")
+
+    def test_coordinate_actions_have_no_element_to_report(self):
+        # click_xy 不定位任何元素，硬报一条只会是噪声
+        self.assertIsNone(runtime.resolved_note(None, {"index": 1}))
+        self.assertIsNone(runtime.resolved_note(_NamedNode(), None))
