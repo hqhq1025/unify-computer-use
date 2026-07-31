@@ -1028,7 +1028,7 @@ func TestNotesLearnedFromTheRealAgentRun(t *testing.T) {
 
 // 把那句 Note 单独取出来，测试才不用去猜它藏在哪个分支里。
 func deliveredButIgnoredNote() string {
-	return strings.Join(unchangedNotes(true), " ")
+	return strings.Join(unchangedNotes(true, pixelsUnknown), " ")
 }
 
 // P4：选择器要能替代数字下标，语法与快照行**逐字一致**。
@@ -1133,5 +1133,51 @@ func TestChannelCapabilitySwitch(t *testing.T) {
 	result := service.callTool("click_xy", map[string]any{"app": "x", "x": 1.0, "y": 2.0})
 	if !result.IsError || !strings.Contains(result.Content[0].Text, "channel, which is disabled") {
 		t.Fatalf("被关通道的工具硬调要说清原因: %#v", result)
+	}
+}
+
+// 像素比对是**独立于树**的第二个信号。两条合起来才有强弱之分。
+//
+// 起因是实测过的一次误判：ctrl+s 之后树字节不变，工具断言"送达但被忽略"，
+// 而文件其实存下来了；agent 因此多花截图 + 点 Save 两步自证。
+// 树看不见整类效果（格式改动、文件状态、画布像素），所以"树没变"推不出
+// "没生效"——但配上"屏幕也没变"就推得出。
+func TestPixelEvidenceStrengthensTheUnchangedVerdict(t *testing.T) {
+	changed := strings.Join(unchangedNotes(true, pixelsChanged), " ")
+	if !strings.Contains(changed, "SCREEN DID change") ||
+		!strings.Contains(changed, "Do NOT treat this as a failure") {
+		t.Fatalf("树没变但屏幕变了，必须明说这不是失败: %s", changed)
+	}
+
+	identical := strings.Join(unchangedNotes(true, pixelsIdentical), " ")
+	if !strings.Contains(identical, "STRONG evidence") ||
+		!strings.Contains(identical, "Two independent signals agree") {
+		t.Fatalf("两个信号都说没变，才算强证据: %s", identical)
+	}
+	// 送达没被单独确认时，结论要更弱一档——不能把两种不确定说成一种。
+	weaker := strings.Join(unchangedNotes(false, pixelsIdentical), " ")
+	if !strings.Contains(weaker, "delivery was not separately verified") {
+		t.Fatalf("送达未确认时结论要更弱: %s", weaker)
+	}
+
+	// 比不了的时候**不许假装比过**，退回原来的弱措辞。
+	unknown := strings.Join(unchangedNotes(true, pixelsUnknown), " ")
+	if !strings.Contains(unknown, "WEAK evidence, not proof of failure") {
+		t.Fatalf("像素比不了时应退回弱措辞: %s", unknown)
+	}
+
+	for _, c := range []struct {
+		notes []string
+		want  pixelVerdict
+	}{
+		{[]string{"[pixels] The window is pixel-identical to before this action: nothing on screen changed at all."}, pixelsIdentical},
+		{[]string{"[pixels] 4.1% of the window changed on screen. Changes are concentrated in {1,2,3,4}."}, pixelsChanged},
+		{[]string{"[pixels] The window changed size or position during this action"}, pixelsChanged},
+		{[]string{"[a11y][semantic] something"}, pixelsUnknown},
+		{nil, pixelsUnknown},
+	} {
+		if got := readPixelVerdict(c.notes); got != c.want {
+			t.Fatalf("readPixelVerdict(%v) = %v, want %v", c.notes, got, c.want)
+		}
 	}
 }

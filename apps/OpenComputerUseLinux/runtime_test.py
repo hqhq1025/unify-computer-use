@@ -501,7 +501,13 @@ class ChannelTaggingTests(AtspiPatchedTestCase):
             self.addCleanup(setattr, runtime, name, original)
 
     def _notes(self, op):
-        return runtime.perform_operation(op).get("notes", [])
+        """只取动作 Note。
+
+        `[pixels]` 那条是**独立于树**的效果判据，按动作类型无关地附加，
+        不该混进"这个动作说了什么"的断言里。
+        """
+        return [n for n in runtime.perform_operation(op).get("notes", [])
+                if not n.startswith("[pixels]")]
 
     def test_semantic_and_synthesis_are_distinguishable(self):
         original = runtime.insert_text_detail
@@ -583,9 +589,9 @@ class ActionNotesTests(AtspiPatchedTestCase):
     def test_direct_write_is_reported_as_confirmed(self):
         self._patch("insert_text_detail", lambda root, text: (True, 3, 8))
 
-        notes = runtime.perform_operation(
+        notes = [n for n in runtime.perform_operation(
             {"tool": "type_text", "app": "x", "text": "hello"}
-        )["notes"]
+        )["notes"] if not n.startswith("[pixels]")]
 
         self.assertEqual(len(notes), 1)
         self.assertIn("confirm it landed (3 -> 8 characters)", notes[0])
@@ -1806,6 +1812,72 @@ class SnapshotGrammarTests(unittest.TestCase):
         """我们没有 selector，下标是唯一的引用手段，必须好取。"""
         line = self._line(name="OK").strip()
         self.assertTrue(line.startswith("7 "), line)
+
+
+class PixelEvidenceTests(unittest.TestCase):
+    """像素比对是**独立于树**的第三种效果判据。
+
+    起因是实测过的误判：ctrl+s 之后树字节不变，工具断言"送达但被忽略"，
+    而文件其实存下来了；agent 因此多花两步自证。树看不见整类效果
+    （格式改动、文件状态、画布像素），所以"树没变"推不出"没生效"。
+    """
+
+    def _frame(self, fill, size=(80, 60)):
+        width, height = size
+        stride = width * 3
+        return {"data": bytes([fill]) * (stride * height), "stride": stride,
+                "channels": 3, "width": width, "height": height}
+
+    def test_identical_frames_report_no_change(self):
+        note = runtime.pixel_change_note(
+            runtime.pixel_change(self._frame(10), self._frame(10)))
+        self.assertIn("pixel-identical", note)
+
+    def test_resize_is_itself_evidence(self):
+        """窗口尺寸变了就没法逐点比，但那本身就是"发生了事"的证据。"""
+        note = runtime.pixel_change_note(
+            runtime.pixel_change(self._frame(10), self._frame(10, size=(90, 60))))
+        self.assertIn("changed size or position", note)
+        self.assertIn("itself evidence", note)
+
+    def test_substantial_change_is_reported_with_a_region(self):
+        after = self._frame(10)
+        data = bytearray(after["data"])
+        for y in range(0, 60):
+            for x in range(20, 60):
+                offset = y * after["stride"] + x * 3
+                data[offset:offset + 3] = b"\xff\xff\xff"
+        after["data"] = bytes(data)
+        note = runtime.pixel_change_note(
+            runtime.pixel_change(self._frame(10), after))
+        self.assertIn("% of the window changed", note)
+        self.assertIn("concentrated in", note)
+
+    def test_faint_change_refuses_to_conclude(self):
+        """微弱变化与光标闪烁同一量级，两边都不能断言。
+
+        实测：保存文件只动 0.03% 的窗口，而改段落对齐动 0.1–0.2%——
+        只差 3–7 倍。这一档必须报成不确定，不能替 agent 拍板。
+        """
+        # 画布要够大，单点变化才落进"微弱"区间——8px 步长下 80x60 只有 80 个
+        # 采样点，改一个点就是 1.25%，造不出这一档。
+        big = (1600, 1000)
+        after = self._frame(10, size=big)
+        data = bytearray(after["data"])
+        offset = 8 * after["stride"] + 8 * 3
+        data[offset:offset + 3] = b"\xff\xff\xff"
+        after["data"] = bytes(data)
+        change = runtime.pixel_change(self._frame(10, size=big), after)
+        self.assertLess(change["percent"], runtime.PIXEL_FAINT_PERCENT)
+        note = runtime.pixel_change_note(change)
+        self.assertIn("FAINT change", note)
+        self.assertIn("not conclusive", note)
+
+    def test_missing_capture_never_pretends_to_have_compared(self):
+        """抓不到图就返回 None——**不许假装比过**。"""
+        self.assertIsNone(runtime.pixel_change(None, self._frame(10)))
+        self.assertIsNone(runtime.pixel_change(self._frame(10), None))
+        self.assertIsNone(runtime.pixel_change_note(None))
 
 
 class _FakeClock:

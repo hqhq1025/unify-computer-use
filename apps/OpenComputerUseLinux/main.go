@@ -579,11 +579,54 @@ func (s *service) setValue(app, elementIndex, declared, value string) toolCallRe
 // （同一轮还实测到右对齐生效而树字节不变）。所以"树没变"在这里推不出
 // "没生效"，只能推出"树看不见"。截图现在恒带，那才是这类效果的可判之处
 // ——把 agent 指过去，而不是替它下一个会错的结论。
-func unchangedNotes(deliveryVerified bool) []string {
+func unchangedNotes(deliveryVerified bool, pixels pixelVerdict) []string {
+	// 「树没变」单独一条是**弱证据**，配上像素比对才有强弱之分。
+	//
+	// 这是踩出来的：ctrl+s 之后树字节不变，工具断言"送达但被忽略"，而文件其实
+	// 存下来了；agent 因此多花两步自证。现在屏幕像素是**独立于树**的第二个信号，
+	// 两者合起来才下结论。
+	switch pixels {
+	case pixelsChanged:
+		return []string{"The accessibility tree is unchanged, but the SCREEN DID change (see the [pixels] note above). So the action took effect in a way the tree cannot represent — this is common for formatting, file state and canvas drawing. Do NOT treat this as a failure and do NOT repeat the input; verify what changed from the attached screenshot or from external truth such as the file on disk."}
+	case pixelsIdentical:
+		base := "Neither the accessibility tree nor a single pixel of the window changed. Two independent signals agree, so this is STRONG evidence the action did nothing"
+		if deliveryVerified {
+			return []string{base + ". Delivery itself was verified (the window was focused before synthesis), so the input arrived and was ignored: repeating it will not help. Either it is a no-op in this context, or focus sits on a different widget than you assumed."}
+		}
+		return []string{base + ", though delivery was not separately verified — the input may not have reached the intended widget at all."}
+	}
+	// 像素比不了（Gdk 不可用、窗口尺寸变了）——退回原来的措辞，不假装比过。
 	if deliveryVerified {
-		return []string{"This app's window was verified focused before synthesis, so the input reached this window; which widget received it is unverified. The accessibility tree, window title, focus and selection are unchanged — but that is WEAK evidence, not proof of failure: whole classes of effect never reach the tree at all. Measured on LibreOffice Impress, both applying right alignment and saving the file took effect while the tree stayed byte-identical. Judge this from the attached screenshot, or from external truth such as the file on disk, BEFORE concluding it did nothing. Only if the image also shows no change should you change approach rather than repeat the same input."}
+		return []string{"This app's window was verified focused before synthesis, so the input reached this window; which widget received it is unverified. The accessibility tree, window title, focus and selection are unchanged — but that is WEAK evidence, not proof of failure: whole classes of effect never reach the tree at all. Measured on LibreOffice Impress, both applying right alignment and saving the file took effect while the tree stayed byte-identical. Judge this from the attached screenshot, or from external truth such as the file on disk, BEFORE concluding it did nothing."}
 	}
 	return []string{"Nothing observable changed in the accessibility tree: window title, tree, focus and selection are identical to the state before this action. That is weak evidence rather than proof — effects that live outside the tree (formatting, file state, canvas pixels) leave it byte-identical. Check the attached screenshot before treating this as a failure."}
+}
+
+type pixelVerdict int
+
+const (
+	pixelsUnknown pixelVerdict = iota
+	pixelsIdentical
+	pixelsChanged
+)
+
+// readPixelVerdict 从运行时的 `[pixels]` Note 里读出屏幕到底变没变。
+func readPixelVerdict(notes []string) pixelVerdict {
+	for _, note := range notes {
+		if !strings.HasPrefix(note, "[pixels]") {
+			continue
+		}
+		if strings.Contains(note, "pixel-identical") {
+			return pixelsIdentical
+		}
+		if strings.Contains(note, "FAINT change") {
+			// 微弱变化与光标闪烁同一量级，两边都不能断言——见 runtime.py 的
+			// PIXEL_FAINT_PERCENT。当成"没有可用信号"处理，退回弱措辞。
+			return pixelsUnknown
+		}
+		return pixelsChanged
+	}
+	return pixelsUnknown
 }
 
 func deliveryWasVerified(request linuxRequest) bool {
@@ -688,9 +731,9 @@ func (s *service) actionResult(app string, request linuxRequest) toolCallResult 
 			// 不能推出"没生效"，只能推出"树看不见"。
 			// 截图现在恒带，那才是这类效果的可判之处——把 agent 指过去，
 			// 而不是替它下一个会错的结论。
-			notes = append(notes, unchangedNotes(true)...)
+			notes = append(notes, unchangedNotes(true, readPixelVerdict(notes))...)
 		} else {
-			notes = append(notes, unchangedNotes(false)...)
+			notes = append(notes, unchangedNotes(false, readPixelVerdict(notes))...)
 		}
 	}
 	if diff, ok := incrementalTree(before, snapshot); ok {

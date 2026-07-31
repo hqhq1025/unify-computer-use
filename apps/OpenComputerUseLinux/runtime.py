@@ -1176,6 +1176,122 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
     return records, lines
 
 
+# 像素比对的采样步长与阈值。
+# 实测 1850x1053 窗口：抓一张 23ms，4px 步长比对 67ms、8px 步长 16ms。
+# 取 8px——每个动作多约 40ms，相对 resolve_app 自己的 0.3s 可以忽略，
+# 而 8px 足以看出一段文字挪位置、一个对话框开合。
+PIXEL_DIFF_STRIDE = 8
+PIXEL_DIFF_THRESHOLD = 30
+# 低于这个比例的变化算**微弱**，不足以断言"动作生效了"。
+# 实测同一窗口：改段落对齐 0.1–0.2%，而按 Ctrl+S 保存只有 0.027%
+# （1px 步长下 525 个点，各步长一致）——与文本光标闪烁、时钟跳秒同一量级。
+# 两者只差 3–7 倍，所以中间这一档必须**报成不确定**，不能替 agent 拍板。
+PIXEL_FAINT_PERCENT = 0.05
+
+
+def capture_window_pixels(bounds):
+    """抓窗口的原始像素，用于**前后比对**（不是给 agent 看的图）。
+
+    存在的理由：树接不住整类效果。实测 LibreOffice Impress 上，右对齐生效、
+    文件保存成功，**a11y 树都字节不变**，于是两个真的生效了的动作被判成
+    "送达但被忽略"，agent 多花两步去自证（占那次 12 步的 17%）。
+
+    像素是**独立于树**的第三种判据：树没变而屏幕变了，说明效果真实存在、
+    只是树看不见；树没变屏幕也没变，才是"确实什么都没发生"的强证据。
+
+    注意 `read_pixel_bytes()` 而不是 `get_pixels()`——后者在 PyGObject 上
+    返回的是截断数据（实测 1850x1053 只拿到不到 100KB，正确值 5.85MB）。
+    """
+    if Gdk is None or bounds is None:
+        return None
+    try:
+        screen = Gdk.Screen.get_default()
+        if screen is None:
+            return None
+        pixbuf = Gdk.pixbuf_get_from_window(
+            screen.get_root_window(),
+            int(round(bounds["x"])), int(round(bounds["y"])),
+            max(1, int(round(bounds["width"]))), max(1, int(round(bounds["height"]))))
+        if pixbuf is None:
+            return None
+        return {
+            "data": pixbuf.read_pixel_bytes().get_data(),
+            "stride": pixbuf.get_rowstride(),
+            "channels": pixbuf.get_n_channels(),
+            "width": pixbuf.get_width(),
+            "height": pixbuf.get_height(),
+        }
+    except Exception:
+        return None
+
+
+def pixel_change(before, after):
+    """比出变化比例与变化区域；比不了就返回 None（**不假装比过**）。"""
+    if not before or not after:
+        return None
+    if (before["width"] != after["width"] or before["height"] != after["height"]
+            or before["stride"] != after["stride"]):
+        # 窗口尺寸变了本身就是一种变化，但无法逐点比对——如实说明。
+        return {"resized": True}
+    a, b = before["data"], after["data"]
+    stride, channels = before["stride"], before["channels"]
+    width, height = before["width"], before["height"]
+    changed = total = 0
+    min_x = min_y = 1 << 30
+    max_x = max_y = -1
+    try:
+        for y in range(0, height, PIXEL_DIFF_STRIDE):
+            row = y * stride
+            for x in range(0, width, PIXEL_DIFF_STRIDE):
+                offset = row + x * channels
+                total += 1
+                delta = (abs(a[offset] - b[offset])
+                         + abs(a[offset + 1] - b[offset + 1])
+                         + abs(a[offset + 2] - b[offset + 2]))
+                if delta > PIXEL_DIFF_THRESHOLD:
+                    changed += 1
+                    min_x = min(min_x, x)
+                    min_y = min(min_y, y)
+                    max_x = max(max_x, x)
+                    max_y = max(max_y, y)
+    except Exception:
+        return None
+    if total == 0:
+        return None
+    result = {"resized": False, "changed": changed, "total": total,
+              "percent": 100.0 * changed / total}
+    if max_x >= 0:
+        result["box"] = (min_x, min_y, max_x - min_x + PIXEL_DIFF_STRIDE,
+                         max_y - min_y + PIXEL_DIFF_STRIDE)
+    return result
+
+
+def pixel_change_note(change):
+    """把比对结果写成一句给 agent 看的话。`[pixels]` 前缀便于机器识别。"""
+    if change is None:
+        return None
+    if change.get("resized"):
+        return ("[pixels] The window changed size or position during this action, so a "
+                "pixel comparison was not possible — but that change is itself evidence "
+                "something happened.")
+    if change["changed"] == 0:
+        return ("[pixels] The window is pixel-identical to before this action: nothing "
+                "on screen changed at all.")
+    box = change.get("box")
+    where = ""
+    if box:
+        where = " Changes are concentrated in {{{},{},{},{}}} (window-relative pixels).".format(*box)
+    if change["percent"] < PIXEL_FAINT_PERCENT:
+        return ("[pixels] Only {:.3f}% of the window changed — a FAINT change that is "
+                "not conclusive either way.{} A blinking text caret, a clock or a status "
+                "indicator produces this much on its own (measured: saving a file moves "
+                "0.03% of this window, re-aligning a paragraph moves 0.1-0.2%). "
+                "Do not read it as proof the action worked.".format(
+                    change["percent"], where))
+    return ("[pixels] {:.2f}% of the window changed on screen.{}".format(
+        change["percent"], where))
+
+
 def capture_window_png(bounds):
     if Gdk is None or bounds is None:
         return None
@@ -2231,6 +2347,9 @@ def perform_operation(operation):
     # 动作之前先记下顶层窗口集合。动作之后要靠它判断有没有开出/关掉窗口，
     # 从而决定该不该多等焦点落定——详见 wait_for_ui_to_settle。
     windows_before = safe(lambda: window_identity_set(app))
+    # 同时抓一张动作前的像素，动作后比对。这是**独立于树**的第三种效果判据，
+    # 专门接住树看不见的那类效果（格式改动、文件保存）——见 capture_window_pixels。
+    pixels_before = safe(lambda: capture_window_pixels(bounds))
     # 每个动作都要说清楚实际走了哪条路径、结果有没有被校验过。返回一棵新的
     # accessibility tree 看着像执行确认，其实只是快照，不能当成动作生效的证据。
     notes = []
@@ -2470,6 +2589,13 @@ def perform_operation(operation):
     settle_note = wait_for_ui_to_settle(app, windows_before)
     if settle_note:
         notes.append(settle_note)
+    # 像素比对必须在**安置之后**：动作刚发出去时界面还没画完，
+    # 那时比出来的"变化"是渲染中途的样子，不是效果。
+    after_bounds = safe(lambda: extents(main_window(app)[1])) or bounds
+    change_note = pixel_change_note(
+        pixel_change(pixels_before, safe(lambda: capture_window_pixels(after_bounds))))
+    if change_note:
+        notes.append(change_note)
     response = {
         "ok": True,
         "snapshot": build_snapshot(
