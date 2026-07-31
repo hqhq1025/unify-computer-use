@@ -1829,14 +1829,16 @@ class PixelEvidenceTests(unittest.TestCase):
                 "channels": 3, "width": width, "height": height}
 
     def test_identical_frames_report_no_change(self):
+        frame = self._frame(10)
         note = runtime.pixel_change_note(
-            runtime.pixel_change(self._frame(10), self._frame(10)))
+            runtime.persistent_pixel_change(frame, self._frame(10), self._frame(10)))
         self.assertIn("pixel-identical", note)
 
     def test_resize_is_itself_evidence(self):
         """窗口尺寸变了就没法逐点比，但那本身就是"发生了事"的证据。"""
+        grown = self._frame(10, size=(90, 60))
         note = runtime.pixel_change_note(
-            runtime.pixel_change(self._frame(10), self._frame(10, size=(90, 60))))
+            runtime.persistent_pixel_change(self._frame(10), grown, grown))
         self.assertIn("changed size or position", note)
         self.assertIn("itself evidence", note)
 
@@ -1849,34 +1851,63 @@ class PixelEvidenceTests(unittest.TestCase):
                 data[offset:offset + 3] = b"\xff\xff\xff"
         after["data"] = bytes(data)
         note = runtime.pixel_change_note(
-            runtime.pixel_change(self._frame(10), after))
+            runtime.persistent_pixel_change(self._frame(10), after, after))
         self.assertIn("% of the window changed", note)
         self.assertIn("concentrated in", note)
 
-    def test_faint_change_refuses_to_conclude(self):
-        """微弱变化与光标闪烁同一量级，两边都不能断言。
+    def _dots(self, count, size, offset_rows=1):
+        frame = self._frame(10, size=size)
+        data = bytearray(frame["data"])
+        for i in range(count):
+            offset = (8 * (i + offset_rows)) * frame["stride"] + 8 * 3
+            data[offset:offset + 3] = b"\xff\xff\xff"
+        frame["data"] = bytes(data)
+        return frame
 
-        实测：保存文件只动 0.03% 的窗口，而改段落对齐动 0.1–0.2%——
-        只差 3–7 倍。这一档必须报成不确定，不能替 agent 拍板。
+    def test_flicker_is_filtered_by_requiring_the_change_to_persist(self):
+        """闪烁的东西只在其中一张动作后画面里变了，不该算作效果。
+
+        这是走过弯路才定下的判据。第一版设了个固定阈值（猜的），第二版改成
+        "动作前连抓两张测噪声底"——方向对，但两张只隔几毫秒，1Hz 的文本光标
+        根本没来得及闪，噪声底测出来是 0，于是**空操作也被判成"屏幕变了"**，
+        变化区域正是那个 8x16 的光标。
+
+        现在照 Playwright"连续两张一致再比"的思路：只认两张里都存在的变化。
         """
-        # 画布要够大，单点变化才落进"微弱"区间——8px 步长下 80x60 只有 80 个
-        # 采样点，改一个点就是 1.25%，造不出这一档。
-        big = (1600, 1000)
-        after = self._frame(10, size=big)
-        data = bytearray(after["data"])
-        offset = 8 * after["stride"] + 8 * 3
-        data[offset:offset + 3] = b"\xff\xff\xff"
-        after["data"] = bytes(data)
-        change = runtime.pixel_change(self._frame(10, size=big), after)
-        self.assertLess(change["percent"], runtime.PIXEL_FAINT_PERCENT)
+        size = (1600, 1000)
+        before = self._frame(10, size=size)
+        blink_on = self._dots(1, size)          # 光标亮
+        blink_off = self._frame(10, size=size)  # 光标灭，与动作前一致
+
+        change = runtime.persistent_pixel_change(before, blink_on, blink_off)
+        self.assertEqual(change["changed"], 0, "闪烁不该算作变化")
+        self.assertIn("pixel-identical", runtime.pixel_change_note(change))
+
+    def test_a_real_change_persists_across_both_captures(self):
+        size = (1600, 1000)
+        before = self._frame(10, size=size)
+        after = self._dots(30, size)
+
+        change = runtime.persistent_pixel_change(before, after, after)
+        self.assertEqual(change["changed"], 30)
         note = runtime.pixel_change_note(change)
-        self.assertIn("FAINT change", note)
-        self.assertIn("not conclusive", note)
+        self.assertIn("STAYED changed across two captures", note)
+        self.assertIn("concentrated in", note)
+
+    def test_resize_between_captures_is_reported_not_guessed(self):
+        size = (1600, 1000)
+        before = self._frame(10, size=size)
+        grown = self._frame(10, size=(1608, 1000))
+        change = runtime.persistent_pixel_change(before, grown, grown)
+        self.assertTrue(change["resized"])
+        self.assertIn("itself evidence", runtime.pixel_change_note(change))
 
     def test_missing_capture_never_pretends_to_have_compared(self):
         """抓不到图就返回 None——**不许假装比过**。"""
-        self.assertIsNone(runtime.pixel_change(None, self._frame(10)))
-        self.assertIsNone(runtime.pixel_change(self._frame(10), None))
+        frame = self._frame(10)
+        self.assertIsNone(runtime.persistent_pixel_change(None, frame, frame))
+        self.assertIsNone(runtime.persistent_pixel_change(frame, None, frame))
+        self.assertIsNone(runtime.persistent_pixel_change(frame, frame, None))
         self.assertIsNone(runtime.pixel_change_note(None))
 
 

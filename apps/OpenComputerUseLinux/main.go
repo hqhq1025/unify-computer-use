@@ -619,11 +619,7 @@ func readPixelVerdict(notes []string) pixelVerdict {
 		if strings.Contains(note, "pixel-identical") {
 			return pixelsIdentical
 		}
-		if strings.Contains(note, "FAINT change") {
-			// 微弱变化与光标闪烁同一量级，两边都不能断言——见 runtime.py 的
-			// PIXEL_FAINT_PERCENT。当成"没有可用信号"处理，退回弱措辞。
-			return pixelsUnknown
-		}
+
 		return pixelsChanged
 	}
 	return pixelsUnknown

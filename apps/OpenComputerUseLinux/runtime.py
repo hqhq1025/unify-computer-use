@@ -1182,11 +1182,20 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
 # 而 8px 足以看出一段文字挪位置、一个对话框开合。
 PIXEL_DIFF_STRIDE = 8
 PIXEL_DIFF_THRESHOLD = 30
-# 低于这个比例的变化算**微弱**，不足以断言"动作生效了"。
-# 实测同一窗口：改段落对齐 0.1–0.2%，而按 Ctrl+S 保存只有 0.027%
-# （1px 步长下 525 个点，各步长一致）——与文本光标闪烁、时钟跳秒同一量级。
-# 两者只差 3–7 倍，所以中间这一档必须**报成不确定**，不能替 agent 拍板。
-PIXEL_FAINT_PERCENT = 0.05
+# 判据不用"变化超过某个百分比"，用**持续性**——见 persistent_pixel_change。
+#
+# 走过两版弯路，都记下来：
+#  1. 一开始设了个固定阈值 PIXEL_FAINT_PERCENT=0.05%，低于它就算"微弱"。
+#     这是**猜的**，而 Playwright 恰恰拒绝猜：它的 toHaveScreenshot 把
+#     maxDiffPixels / maxDiffPixelRatio **默认留空**交给调用方，对噪声源
+#     采取的是消除（caret:"hide"、animations:"disabled" 都是默认值）。
+#  2. 第二版改成"动作前连抓两张测噪声底"。方向对，但两张只隔几毫秒，
+#     1Hz 的文本光标根本没来得及闪，噪声底测出来是 0——于是**空操作也被判成
+#     "屏幕变了"**，变化区域正是那个 8x16 的光标。
+#
+# 现在照 Playwright"反复截图直到连续两张一致再比"的思路：动作后抓两张，
+# 只认在两张里**都存在**的变化。闪烁的东西两张状态不同，自然被滤掉。
+# 两张之间的间隔由建快照的耗时填上，几乎不额外增加延迟。
 
 
 def capture_window_pixels(bounds):
@@ -1266,6 +1275,64 @@ def pixel_change(before, after):
     return result
 
 
+def persistent_pixel_change(before, after_one, after_two):
+    """只认**在两张动作后画面里都存在**的变化。
+
+    这是 Playwright 那条"反复截图直到连续两张一致再比"在桌面上的等价物。
+    它解决的是我第一版栽的跟头：动作前连抓两张测噪声，但两张只隔几毫秒，
+    1Hz 的文本光标根本没来得及闪，噪声底测出来是 0——于是**空操作的
+    第二次 Ctrl+L 也被判成"屏幕变了"**，变化区域正是那个 8x16 的光标。
+
+    闪烁的东西在两张动作后画面里状态不同（一亮一灭），所以"两张都相对
+    动作前有差异"这个条件会把它滤掉；真正的界面变化则两张都在。
+
+    两张之间的间隔由**建快照的时间**填上（resolve_app 自己就要 0.15–0.3s），
+    所以除了多抓一张图（23ms）几乎不额外增加延迟。
+    """
+    if not before or not after_one or not after_two:
+        return None
+    frames = (before, after_one, after_two)
+    if len({(f["width"], f["height"], f["stride"]) for f in frames}) != 1:
+        return {"resized": True}
+    a, b, c = before["data"], after_one["data"], after_two["data"]
+    stride, channels = before["stride"], before["channels"]
+    width, height = before["width"], before["height"]
+    changed = total = 0
+    min_x = min_y = 1 << 30
+    max_x = max_y = -1
+    try:
+        for y in range(0, height, PIXEL_DIFF_STRIDE):
+            row = y * stride
+            for x in range(0, width, PIXEL_DIFF_STRIDE):
+                offset = row + x * channels
+                total += 1
+                base = (a[offset], a[offset + 1], a[offset + 2])
+                one = (abs(base[0] - b[offset]) + abs(base[1] - b[offset + 1])
+                       + abs(base[2] - b[offset + 2])) > PIXEL_DIFF_THRESHOLD
+                if not one:
+                    continue
+                two = (abs(base[0] - c[offset]) + abs(base[1] - c[offset + 1])
+                       + abs(base[2] - c[offset + 2])) > PIXEL_DIFF_THRESHOLD
+                if not two:
+                    # 只在其中一张里变了——闪烁，不是效果。
+                    continue
+                changed += 1
+                min_x = min(min_x, x)
+                min_y = min(min_y, y)
+                max_x = max(max_x, x)
+                max_y = max(max_y, y)
+    except Exception:
+        return None
+    if total == 0:
+        return None
+    result = {"resized": False, "changed": changed, "total": total,
+              "percent": 100.0 * changed / total}
+    if max_x >= 0:
+        result["box"] = (min_x, min_y, max_x - min_x + PIXEL_DIFF_STRIDE,
+                         max_y - min_y + PIXEL_DIFF_STRIDE)
+    return result
+
+
 def pixel_change_note(change):
     """把比对结果写成一句给 agent 看的话。`[pixels]` 前缀便于机器识别。"""
     if change is None:
@@ -1275,21 +1342,17 @@ def pixel_change_note(change):
                 "pixel comparison was not possible — but that change is itself evidence "
                 "something happened.")
     if change["changed"] == 0:
-        return ("[pixels] The window is pixel-identical to before this action: nothing "
-                "on screen changed at all.")
+        return ("[pixels] Nothing on screen stayed changed after this action: the window "
+                "is pixel-identical to before it (transient flicker excluded).")
     box = change.get("box")
     where = ""
     if box:
         where = " Changes are concentrated in {{{},{},{},{}}} (window-relative pixels).".format(*box)
-    if change["percent"] < PIXEL_FAINT_PERCENT:
-        return ("[pixels] Only {:.3f}% of the window changed — a FAINT change that is "
-                "not conclusive either way.{} A blinking text caret, a clock or a status "
-                "indicator produces this much on its own (measured: saving a file moves "
-                "0.03% of this window, re-aligning a paragraph moves 0.1-0.2%). "
-                "Do not read it as proof the action worked.".format(
-                    change["percent"], where))
-    return ("[pixels] {:.2f}% of the window changed on screen.{}".format(
-        change["percent"], where))
+    return ("[pixels] {:.2f}% of the window changed on screen and STAYED changed "
+            "across two captures ({} sample points).{} Transient things like a blinking "
+            "text caret are filtered out by that second capture, so this is a real "
+            "change rather than flicker.".format(
+                change["percent"], change["changed"], where))
 
 
 def capture_window_png(bounds):
@@ -2342,14 +2405,15 @@ def perform_operation(operation):
     app = resolve_app(operation.get("app", ""))
     _, window = main_window(app)
     bounds = operation.get("windowBounds") or extents(window)
+    # 动作前抓一张像素，动作后抓两张——只认在两张里都持续存在的变化。
+    # 详见 persistent_pixel_change：这是 Playwright"连续两张一致再比"在桌面上的
+    # 等价物，用来滤掉闪烁的文本光标（实测它会把空操作误判成"屏幕变了"）。
+    pixels_before = safe(lambda: capture_window_pixels(bounds))
     element_record = operation.get("element")
     element = find_element(app, element_record)
     # 动作之前先记下顶层窗口集合。动作之后要靠它判断有没有开出/关掉窗口，
     # 从而决定该不该多等焦点落定——详见 wait_for_ui_to_settle。
     windows_before = safe(lambda: window_identity_set(app))
-    # 同时抓一张动作前的像素，动作后比对。这是**独立于树**的第三种效果判据，
-    # 专门接住树看不见的那类效果（格式改动、文件保存）——见 capture_window_pixels。
-    pixels_before = safe(lambda: capture_window_pixels(bounds))
     # 每个动作都要说清楚实际走了哪条路径、结果有没有被校验过。返回一棵新的
     # accessibility tree 看着像执行确认，其实只是快照，不能当成动作生效的证据。
     notes = []
@@ -2592,10 +2656,7 @@ def perform_operation(operation):
     # 像素比对必须在**安置之后**：动作刚发出去时界面还没画完，
     # 那时比出来的"变化"是渲染中途的样子，不是效果。
     after_bounds = safe(lambda: extents(main_window(app)[1])) or bounds
-    change_note = pixel_change_note(
-        pixel_change(pixels_before, safe(lambda: capture_window_pixels(after_bounds))))
-    if change_note:
-        notes.append(change_note)
+    pixels_after_one = safe(lambda: capture_window_pixels(after_bounds))
     response = {
         "ok": True,
         "snapshot": build_snapshot(
@@ -2605,6 +2666,13 @@ def perform_operation(operation):
             include_screenshot=True if tool in SCREENSHOT_REQUIRED_TOOLS else None,
         ),
     }
+    # 第二张动作后画面放在**建完快照之后**抓：resolve_app 自己就要 0.15–0.3s，
+    # 这段已有的耗时正好当作两张之间的间隔，足够让 1Hz 的光标闪一次。
+    change_note = pixel_change_note(persistent_pixel_change(
+        pixels_before, pixels_after_one,
+        safe(lambda: capture_window_pixels(after_bounds))))
+    if change_note:
+        notes.append(change_note)
     if notes:
         response["notes"] = notes
     return response
