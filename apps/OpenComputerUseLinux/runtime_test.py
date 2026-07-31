@@ -203,10 +203,16 @@ class FakeCoordType:
     SCREEN = "screen"
 
 
+RELATION = runtime.Atspi.RelationType
+
+
 class FakeAtspi:
     """保留真的 StateType 枚举，只替换会打到真实 a11y 总线的接口调用。"""
 
     StateType = STATE
+    # RelationType 和 StateType 一样保留**真的**枚举：labelled_by_name() 拿它
+    # 做相等比较，换成假值就等于测了一个不存在的分支。
+    RelationType = RELATION
     CoordType = FakeCoordType
     Text = FakeAtspiText
     EditableText = FakeAtspiEditableText
@@ -2377,3 +2383,90 @@ class _NoSleep:
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class _FakeRelation:
+    def __init__(self, kind, targets):
+        self.kind = kind
+        self.targets = list(targets)
+
+    def get_relation_type(self):
+        return self.kind
+
+    def get_n_targets(self):
+        return len(self.targets)
+
+    def get_target(self, index):
+        return self.targets[index]
+
+
+class _NamedNode(FakeNode):
+    """带名字、可带 LABELLED_BY 关系的假节点。"""
+
+    def __init__(self, name="", role="", relations=(), **kwargs):
+        super().__init__(**kwargs)
+        self._name = name
+        self._role = role
+        self._relations = list(relations)
+
+    def get_name(self):
+        return self._name
+
+    def get_role_name(self):
+        return self._role
+
+    def get_relation_set(self):
+        return self._relations
+
+
+class LabelledByTests(AtspiPatchedTestCase):
+    """无名控件从 LABELLED_BY 借名字。
+
+    判据来自实测：LibreOffice 7.3「位置和大小」对话框里 13 个 spin button
+    全部无名，13 个都能靠这条关系拿到名字（Position Y / Position X /
+    Width / Height / Angle / Radius）。定位方式因此从"数第几个"变成"按名字选"。
+    """
+
+    def _labelled(self, label_text, own_name=""):
+        label = _NamedNode(name=label_text, role="label")
+        kind = runtime.Atspi.RelationType.LABELLED_BY
+        return _NamedNode(
+            name=own_name,
+            role="spin button",
+            relations=[_FakeRelation(kind, [label])],
+        )
+
+    def test_unnamed_control_borrows_the_label(self):
+        node = self._labelled("Position Y:")
+        # 尾冒号要去掉：选择器里写冒号很别扭，而冒号不携带信息
+        self.assertEqual(runtime.labelled_by_name(node), "Position Y")
+        self.assertEqual(runtime.effective_name(node), "Position Y")
+
+    def test_a_control_with_its_own_name_does_not_borrow(self):
+        # 增益全部落在无名节点上。一个已经叫 Save 的按钮再关联一个 Save 标签，
+        # 对 agent 没有新信息，却要付一次 DBus 往返（实测 1.037ms/节点）。
+        node = self._labelled("Position Y:", own_name="Save")
+        self.assertEqual(runtime.effective_name(node), "Save")
+
+    def test_identity_comparison_uses_the_same_name_as_the_record(self):
+        """这是本条改动最容易复发的坑，必须钉死。
+
+        commit 5543a52 修过同型问题：record 里存一种名字、重解析时用另一种去比，
+        必然失配；而失配是**静默**的，身份判据会悄悄退到最弱的"role + 屏幕位置"，
+        元素一动就指向别人。
+
+        借名字会原样重现它：记录里写着 Position Y，而 node_name() 在同一个节点上
+        返回空串。所以两边必须走同一个 effective_name()。
+        """
+        node = self._labelled("Position Y:")
+        record = {"name": "Position Y"}
+        self.assertTrue(runtime.record_name_matches(node, record))
+        # 反证：如果活节点侧改用自身名字（空串），这条断言就会失败
+        self.assertFalse(runtime.record_name_matches(node, {"name": "Something Else"}))
+
+    def test_borrowed_names_are_marked_so_the_source_is_visible(self):
+        # 同一个「位置和大小」对话框里 Position Y 出现了**两次**（两个标签页各一个）。
+        # 调用方需要知道这个名字是借来的、因此可能不唯一。
+        marks = runtime.state_segment(FakeNode(), borrowed_name=True)
+        self.assertIn("labelled", marks)
+        self.assertNotIn("labelled", runtime.state_segment(FakeNode()))
