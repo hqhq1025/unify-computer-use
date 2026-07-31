@@ -97,6 +97,12 @@ type appSnapshot struct {
 	FocusedSummary      string          `json:"focusedSummary,omitempty"`
 	SelectedText        string          `json:"selectedText,omitempty"`
 	Elements            []elementRecord `json:"elements,omitempty"`
+
+	// 下面两个字段由 Go 侧在缓存时补上，不来自 Python。
+	// 快照有多旧是**我们特有的必需信息**：浏览器里 DOM 变化通常伴随可观测事件，
+	// 桌面上快照可能已经陈旧几十秒而 agent 毫无察觉。
+	capturedAt time.Time
+	sourceApp  string
 }
 
 func (s *appSnapshot) renderedText() string {
@@ -406,7 +412,7 @@ func (s *service) click(app, elementIndex, declared string, x, y *float64, click
 		WindowBounds: snapshot.WindowBounds,
 	}
 	if elementIndex != "" {
-		record, err := lookupElement(snapshot, elementIndex)
+		record, err := lookupElementFor(snapshot, elementIndex, declared, "click")
 		if err != nil {
 			return textResult(err.Error(), true)
 		}
@@ -432,7 +438,7 @@ func (s *service) performSecondaryAction(app, elementIndex, declared, action str
 	if snapshot == nil {
 		return textResult("No app state is available for "+app+". Run get_app_state before action tools.", true)
 	}
-	record, err := lookupElement(snapshot, elementIndex)
+	record, err := lookupElementFor(snapshot, elementIndex, declared, "invoke_element_action")
 	if err != nil {
 		return textResult(err.Error(), true)
 	}
@@ -460,7 +466,7 @@ func (s *service) scroll(app, direction, elementIndex, declared string, pages fl
 	if snapshot == nil {
 		return textResult("No app state is available for "+app+". Run get_app_state before action tools.", true)
 	}
-	record, err := lookupElement(snapshot, elementIndex)
+	record, err := lookupElementFor(snapshot, elementIndex, declared, "scroll")
 	if err != nil {
 		return textResult(err.Error(), true)
 	}
@@ -554,7 +560,7 @@ func (s *service) setValue(app, elementIndex, declared, value string) toolCallRe
 	if snapshot == nil {
 		return textResult("No app state is available for "+app+". Run get_app_state before action tools.", true)
 	}
-	record, err := lookupElement(snapshot, elementIndex)
+	record, err := lookupElementFor(snapshot, elementIndex, declared, "set_value")
 	if err != nil {
 		return textResult(err.Error(), true)
 	}
@@ -921,6 +927,8 @@ func (s *service) refreshSnapshot(app string, request linuxRequest) (*appSnapsho
 }
 
 func (s *service) rememberSnapshot(query string, snapshot *appSnapshot) {
+	snapshot.capturedAt = time.Now()
+	snapshot.sourceApp = query
 	keys := []string{query, snapshot.App.Name, snapshot.App.BundleIdentifier, strconv.Itoa(snapshot.App.PID)}
 	for _, key := range keys {
 		key = strings.ToLower(strings.TrimSpace(key))
@@ -930,29 +938,170 @@ func (s *service) rememberSnapshot(query string, snapshot *appSnapshot) {
 	}
 }
 
-func lookupElement(snapshot *appSnapshot, elementIndex string) (*elementRecord, error) {
-	// 报错要把"为什么"和"怎么办"都说出来。
-	//
-	// 原来这里只回 `unknown element_index "128"`——27 个字符，零指引。真实 agent
-	// 轨迹里它就这么撞上了：用的是几步之前那份快照的下标，而树在动作之后缩小了。
-	// 对照之下，下标**解析到了别的控件**时的报错讲清了原因（索引会随对话框开关
-	// 重排）和出路（重新 get_app_state）。同样是"下标过期"，两条路径的帮助程度
-	// 不该差这么多。
-	hint := "Indices are renumbered on every get_app_state and shrink when the UI changes, so an index from an earlier snapshot is not reusable. Call get_app_state again and read the index from the fresh tree."
-	if len(snapshot.Elements) > 0 {
-		hint = fmt.Sprintf("The current snapshot has indices %d..%d. %s",
-			snapshot.Elements[0].Index,
-			snapshot.Elements[len(snapshot.Elements)-1].Index, hint)
+// toolError 按 Playwright 的错误形态组装：**事实链在前，建议在后**。
+//
+// Playwright 的动作超时错误长这样（1.55.1，issue #37695）：
+//
+//	Error: locator.click: Test timeout of 30000ms exceeded.
+//	Call log:
+//	  - waiting for getByText('Get started')
+//	    - locator resolved to <a href="/docs/intro">Get started</a>
+//	  - attempting click action
+//	    - waiting for element to be visible, enabled and stable
+//
+// 它给的不是建议，是**事实链**：我在等什么、解析到了什么、检查到哪一步、
+// 失败在哪个状态。我全量查过它的源码，连 "Consider using force: true" 这种
+// 建议串都不存在。
+//
+// **唯一的例外恰好在它的 MCP 层**——因为消费者是 LLM 不是人：
+//
+//	Ref e3 not found in the current page snapshot. Try capturing new snapshot.
+//
+// 这条**点名了下一步该调哪个工具**。我们的消费者同样是 LLM，所以两者都要：
+// 事实链 + 明确的下一步，但**分开标注**，别把推测混进 call log。
+//
+// 替换掉的是 `unknown element_index "128"` 这种 27 个字符、零指引的报错。
+type toolError struct {
+	tool    string
+	summary string
+	fields  [][2]string
+	log     []string
+	next    string
+}
+
+func (e *toolError) add(name, value string) *toolError {
+	if value != "" {
+		e.fields = append(e.fields, [2]string{name, value})
 	}
+	return e
+}
+
+func (e *toolError) step(format string, args ...any) *toolError {
+	e.log = append(e.log, fmt.Sprintf(format, args...))
+	return e
+}
+
+func (e *toolError) Error() string {
+	var b strings.Builder
+	if e.tool != "" {
+		b.WriteString(e.tool + ": ")
+	}
+	b.WriteString(e.summary)
+	if len(e.fields) > 0 {
+		width := 0
+		for _, f := range e.fields {
+			if len(f[0]) > width {
+				width = len(f[0])
+			}
+		}
+		b.WriteString("\n")
+		for _, f := range e.fields {
+			b.WriteString(fmt.Sprintf("\n%-*s %s", width+1, f[0]+":", f[1]))
+		}
+	}
+	if len(e.log) > 0 {
+		b.WriteString("\n\nCall log:")
+		for _, line := range e.log {
+			// 已经带缩进的是上一条的续行（候选列表那种），不再套 "- "。
+			// 照 Playwright 的 call log 缩进规则：带前导空格的渲染成子行。
+			if strings.HasPrefix(line, " ") {
+				b.WriteString("\n  " + line)
+			} else {
+				b.WriteString("\n  - " + line)
+			}
+		}
+	}
+	if e.next != "" {
+		b.WriteString("\n\nNext: " + e.next)
+	}
+	return b.String()
+}
+
+// snapshotAge 把"这份快照有多旧"写成一句话。
+func snapshotAge(snapshot *appSnapshot) string {
+	if snapshot == nil {
+		return ""
+	}
+	indices := "no elements"
+	if n := len(snapshot.Elements); n > 0 {
+		indices = fmt.Sprintf("%d elements (indices %d..%d)", n,
+			snapshot.Elements[0].Index, snapshot.Elements[n-1].Index)
+	}
+	if snapshot.capturedAt.IsZero() {
+		return indices
+	}
+	return fmt.Sprintf("captured %.1fs ago, %s",
+		time.Since(snapshot.capturedAt).Seconds(), indices)
+}
+
+// closestElements 找出与声明意图最像的几个元素，连同可直接使用的选择器一起给出。
+// 对应 Playwright strict mode 违规时那份 "aka <可用的替代 locator>" 候选表。
+func closestElements(snapshot *appSnapshot, declared string, limit int) []string {
+	if snapshot == nil || strings.TrimSpace(declared) == "" {
+		return nil
+	}
+	var tokens []string
+	for _, token := range strings.FieldsFunc(strings.ToLower(declared), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	}) {
+		if len([]rune(token)) >= 2 && !genericIntentWords[token] {
+			tokens = append(tokens, token)
+		}
+	}
+	if len(tokens) == 0 {
+		return nil
+	}
+	var out []string
+	for _, record := range snapshot.Elements {
+		haystack := strings.ToLower(record.Name + " " + record.Description)
+		hit := false
+		for _, token := range tokens {
+			if strings.Contains(haystack, token) {
+				hit = true
+				break
+			}
+		}
+		if !hit {
+			continue
+		}
+		line := fmt.Sprintf("    %-4d %s", record.Index, describeRecord(&record))
+		if record.Name != "" {
+			line = fmt.Sprintf("    %-4d %-26s aka %s %q",
+				record.Index, describeRecord(&record), record.ControlType, record.Name)
+		} else if record.Description != "" {
+			line = fmt.Sprintf("    %-4d %-26s aka %s %q",
+				record.Index, describeRecord(&record), record.ControlType, record.Description)
+		}
+		out = append(out, line)
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out
+}
+
+func lookupElement(snapshot *appSnapshot, elementIndex string) (*elementRecord, error) {
+	return lookupElementFor(snapshot, elementIndex, "", "")
+}
+
+// lookupElementFor 解析一个引用，失败时给出**完整的事实链**而不是一句话。
+func lookupElementFor(snapshot *appSnapshot, elementIndex, declared, tool string) (*elementRecord, error) {
+	fail := func(summary string) *toolError {
+		e := &toolError{tool: tool, summary: summary}
+		e.add("Requested", strconv.Quote(elementIndex))
+		e.add("Declared", func() string {
+			if declared == "" {
+				return ""
+			}
+			return strconv.Quote(declared)
+		}())
+		e.add("Snapshot", snapshotAge(snapshot))
+		return e
+	}
+
 	index, err := strconv.Atoi(elementIndex)
 	if err != nil {
-		// 不是整数就当**选择器**（对齐 Playwright 的 target：
-		// "snapshot reference OR a unique element selector"）。
-		//
-		// 数字下标每次 get_app_state 都会重排，是 agent 最容易犯错的地方；
-		// 意图声明只是把那个错误变得**响亮**，没有消除它。选择器直接从快照行
-		// 抄下来就行——文法和渲染出来的一模一样：`push button "Save"`。
-		return lookupBySelector(snapshot, elementIndex, hint)
+		return lookupBySelectorFor(snapshot, elementIndex, declared, tool)
 	}
 	for _, record := range snapshot.Elements {
 		if record.Index == index {
@@ -960,24 +1109,17 @@ func lookupElement(snapshot *appSnapshot, elementIndex string) (*elementRecord, 
 			return &copy, nil
 		}
 	}
-	return nil, fmt.Errorf("unknown element_index %q. %s", elementIndex, hint)
+	e := fail(fmt.Sprintf("element_index %d is not in the current snapshot.", index)).
+		step("resolving element_index=%d against the snapshot of %q", index, snapshot.sourceApp).
+		step("that snapshot has no such index")
+	if candidates := closestElements(snapshot, declared, 5); len(candidates) > 0 {
+		e.step("elements matching what you said you were targeting:")
+		e.log = append(e.log, candidates...)
+	}
+	e.next = "call get_app_state again and read the index from the fresh tree. Indices are renumbered whenever the UI changes, so an index from an earlier snapshot is not reusable. A selector such as `push button \"Save\"` survives renumbering and can be passed here instead."
+	return nil, e
 }
 
-// elementIntentMismatch 拿 agent 声明的意图去核对下标解析到的东西。
-// 匹配返回空串；明显不匹配则返回一句给 agent 看的解释。
-//
-// 修的是一类**静默**失败：下标是新取的、没过期，但它来自**上一份**快照。
-// 实测（LibreOffice Impress）F4 打开对话框后索引全变，用旧下标调
-// click(element_index=5) 时工具照点不误——本想点 Position Y，实际点到菜单，
-// 把对象高度误改成 16.26cm，全程没有一条报错。
-// `record_still_matches()` 只能拿"存下来的记录"比对，比不了"agent **想**点什么"。
-//
-// 抄的是 Playwright：它每个动作都带一个 element 参数
-// （"Human-readable element description used to obtain permission to interact
-// with the element"），本意是可读性与权限，副作用正好是**意图可核对**。
-//
-// 判据刻意宽松，因为**误拒比漏过更糟**——被误拒的 agent 会以为目标不存在。
-// 只在"声明里有实词、却与 role 和 name 都毫无交集"时才拒。
 func elementIntentMismatch(record *elementRecord, declared string) string {
 	declared = strings.TrimSpace(declared)
 	if declared == "" || record == nil {
@@ -1062,6 +1204,10 @@ func describeRecord(record *elementRecord) string {
 // 命中多个时**不挑一个**，而是把候选连同下标一起列出来让调用方收敛。
 // 静默挑一个正是本项目一直在修的那类错误。
 func lookupBySelector(snapshot *appSnapshot, selector, hint string) (*elementRecord, error) {
+	return lookupBySelectorFor(snapshot, selector, "", "")
+}
+
+func lookupBySelectorFor(snapshot *appSnapshot, selector, declared, tool string) (*elementRecord, error) {
 	role, name, hasName := parseSelector(selector)
 	// 身份来源有两级，**优先级照 Playwright 的 selector generator**：
 	// 它给 role+accessible-name 打 100 分，给 label / alt-text 打 140–160
@@ -1102,32 +1248,59 @@ func lookupBySelector(snapshot *appSnapshot, selector, hint string) (*elementRec
 		copy := matches[0]
 		return &copy, nil
 	}
-	if len(matches) == 0 {
-		return nil, fmt.Errorf(
-			"no element matches the selector %q. Selectors are written exactly as the snapshot renders them, e.g. `push button \"Save\"`, or just `\"Save\"` to match by name alone. The quoted part matches an element's name, or its desc=\"…\" when no name matches. %s",
-			selector, hint)
+	base := func(summary string) *toolError {
+		e := &toolError{tool: tool, summary: summary}
+		e.add("Selector", strconv.Quote(selector))
+		if declared != "" {
+			e.add("Declared", strconv.Quote(declared))
+		}
+		e.add("Snapshot", snapshotAge(snapshot))
+		return e
 	}
-	preview := make([]string, 0, 6)
+	if len(matches) == 0 {
+		e := base(fmt.Sprintf("no element matches the selector %q.", selector)).
+			step("parsed selector as role=%q name=%q", role, name).
+			step("searched %d elements by name, then by desc=\"…\"", len(snapshot.Elements))
+		e.log = append(e.log, closestElements(snapshot, declared+" "+name, 5)...)
+		e.next = "selectors are written exactly as the snapshot renders them, e.g. `push button \"Save\"`, or just `\"Save\"` to match by name alone. The quoted part matches an element's name, or its desc=\"…\" when no name matches. If the UI has changed, call get_app_state again."
+		return nil, e
+	}
+
+	// 多匹配时**不挑一个**。Playwright 的 strict mode 就是这个纪律，
+	// 维护者原话：sometimes there are two elements, and picking the first
+	// "would just click the first element on the page… Locators on the other
+	// side would throw and the user would directly know that its unexpected
+	// instead of clicking on the wrong element."
+	// 静默挑一个正是本项目一直在修的那类错误。
+	e := base(fmt.Sprintf("the selector %q is ambiguous: it matches %d elements.",
+		selector, len(matches)))
+	e.step("parsed selector as role=%q name=%q", role, name)
+	e.step("matched %d elements:", len(matches))
 	for i, record := range matches {
 		if i == 6 {
-			preview = append(preview, fmt.Sprintf("… and %d more", len(matches)-6))
+			e.log = append(e.log, fmt.Sprintf("    … and %d more", len(matches)-6))
 			break
 		}
-		preview = append(preview, fmt.Sprintf("%d=%s", record.Index, describeRecord(&record)))
+		// 有名字的才给 `aka <选择器>`——无名元素的"替代写法"就是下标本身，
+		// 而下标已经在行首了，再写一遍是废话。
+		line := fmt.Sprintf("    %-4d %s", record.Index, describeRecord(&record))
+		if record.Name != "" {
+			line = fmt.Sprintf("    %-4d %-26s aka %s %q",
+				record.Index, describeRecord(&record), record.ControlType, record.Name)
+		} else if record.Description != "" {
+			line = fmt.Sprintf("    %-4d %-26s aka %s %q",
+				record.Index, describeRecord(&record), record.ControlType, record.Description)
+		}
+		e.log = append(e.log, line)
 	}
-	// 收敛建议要看**缺的是哪一半**。第一版无论如何都说"加上 role"，
-	// 而调用方给的正是 `push button` 这种只有 role 的选择器——
-	// 让人补一个他已经给了的东西，等于没给建议。
-	advice := "Narrow it by adding the role, e.g. `push button \"Save\"`"
 	if role != "" && !hasName {
-		advice = "Narrow it by adding the name in quotes, e.g. `" + role + " \"Save\"`"
+		e.next = "narrow it by adding the name in quotes, e.g. `" + role + " \"Save\"`, or pass one of the indices above."
+	} else {
+		e.next = "narrow it by adding the role, e.g. `push button \"Save\"`, or pass one of the indices above."
 	}
-	return nil, fmt.Errorf(
-		"the selector %q matches %d elements, so it is ambiguous: %s. %s, or pass one of those indices directly.",
-		selector, len(matches), strings.Join(preview, ", "), advice)
+	return nil, e
 }
 
-// parseSelector 拆出 (role, name, 是否给了 name)。
 func parseSelector(selector string) (string, string, bool) {
 	selector = strings.TrimSpace(selector)
 	start := strings.Index(selector, "\"")

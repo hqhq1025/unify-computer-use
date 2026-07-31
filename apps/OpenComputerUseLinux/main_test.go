@@ -1019,10 +1019,24 @@ func TestNotesLearnedFromTheRealAgentRun(t *testing.T) {
 	if err == nil {
 		t.Fatal("下标不存在时必须报错")
 	}
-	for _, fragment := range []string{"0..59", "renumbered", "get_app_state again"} {
+	// 照 Playwright 的错误形态：工具名前缀 + 结构化字段 + Call log + 下一步。
+	// 替换掉的是 `unknown element_index "128"` 那种 27 字符零指引。
+	for _, fragment := range []string{
+		"indices 0..59",
+		"Call log:",
+		"resolving element_index=128",
+		"Next:",
+		"renumbered",
+		"get_app_state again",
+		"survives renumbering",
+	} {
 		if !strings.Contains(err.Error(), fragment) {
-			t.Fatalf("下标不存在的报错要给出范围与出路，缺 %q: %s", fragment, err)
+			t.Fatalf("下标不存在的报错要给出完整事实链与出路，缺 %q:\n%s", fragment, err)
 		}
+	}
+	// 快照年龄是我们特有的必需信息：桌面上快照可能陈旧几十秒而 agent 毫无察觉。
+	if !strings.Contains(err.Error(), "Snapshot:") {
+		t.Fatalf("报错要说清快照有多旧:\n%s", err)
 	}
 }
 
@@ -1065,7 +1079,10 @@ func TestSelectorLookup(t *testing.T) {
 	if err == nil {
 		t.Fatal(`"Save" 同时命中 push button 与 menu，必须报歧义`)
 	}
-	for _, fragment := range []string{"ambiguous", "4=", "9=", "adding the role"} {
+	// 候选行的形态照 Playwright 的 strict mode 违规报错：下标 + 描述 + `aka` 一个
+	// 可直接使用的替代选择器。
+	for _, fragment := range []string{"ambiguous", "matches 2 elements",
+		`4    push button "Save"`, `9    menu "Save"`, "aka", "adding the role"} {
 		if !strings.Contains(err.Error(), fragment) {
 			t.Fatalf("歧义报错要列出候选与收敛办法，缺 %q: %s", fragment, err)
 		}
