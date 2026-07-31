@@ -1791,7 +1791,7 @@ def build_snapshot(
             "bundleIdentifier": node_name(app),
             "pid": pid,
         },
-        "windowTitle": limit_text(node_name(window), text_limit=text_limit),
+        "windowTitle": window_label(window, text_limit=text_limit),
         "windowBounds": bounds,
         "screenshotPngBase64": capture_window_png(bounds)
         if (a11y_screenshots_enabled() if include_screenshot is None else include_screenshot)
@@ -2842,6 +2842,34 @@ def resolved_note(element, element_record):
 
 # 前置窗口是不是"挡路的对话框"，分两档——因为**证据强度不同**。
 DIALOG_ROLES = {"dialog", "alert", "file chooser", "color chooser"}
+
+
+def window_label(window, text_limit=DEFAULT_TEXT_LIMIT):
+    """窗口标题。没有名字时给一个**能用的**替代，而不是空串。
+
+    实测（跑 OSWorld 第 3 题时从 trace 里看出来的）：agent 在 Chrome 的菜单
+    之间穿行时，有 4 个动作的窗口标题是空的——`Window: ""`。菜单、下拉、
+    popup 这类窗口很多都不设名字，而窗口标题是 agent 判断"我现在在哪儿"
+    的第一信号，空串等于把这个信号删掉。
+
+    退而求其次的顺序：自己的名字 → 角色 + 第一个有名字的子节点 → 只有角色。
+    子节点那一档是有用的：一个无名 `menu` 下面第一项常常是
+    `menu item "Recently closed"`，足以让调用方认出这是什么菜单。
+    """
+    name = str(node_name(window) or "").strip()
+    if name:
+        return limit_text(name, text_limit=text_limit)
+    role = str(node_role(window) or "window")
+    for index in range(min(child_count(window), 8)):
+        child = safe(lambda: window.get_child_at_index(index))
+        if child is None:
+            continue
+        hint = str(effective_name(child) or "").strip()
+        if hint:
+            return limit_text(
+                "(unnamed {} containing {!r})".format(role, hint),
+                text_limit=text_limit)
+    return "(unnamed {})".format(role)
 
 
 def modal_diagnostic(window, app):

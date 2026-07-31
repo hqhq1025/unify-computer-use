@@ -1894,3 +1894,16 @@ func TestTraceRecordsOneLinePerActionIncludingFailures(t *testing.T) {
 		t.Fatal("失败的动作要标出来")
 	}
 }
+
+func TestUnnamedWindowsStillGetAUsableLabel(t *testing.T) {
+	// 实测（跑 OSWorld 第 3 题时从 trace 里看出来的）：agent 在 Chrome 的菜单
+	// 之间穿行时，有 4 个动作的窗口标题是空的——`Window: ""`。菜单、下拉、popup
+	// 很多都不设名字，而窗口标题是 agent 判断"我现在在哪儿"的第一信号。
+	if !strings.Contains(linuxRuntimeScript, "def window_label(") {
+		t.Fatal("无名窗口要有可用的替代标题")
+	}
+	if !strings.Contains(linuxRuntimeScript, "(unnamed {} containing {!r})") {
+		t.Fatal("退而求其次要带上第一个有名字的子节点——无名 menu 下面第一项常常" +
+			"就足以认出这是什么菜单")
+	}
+}

@@ -159,6 +159,69 @@ def _download(url, dest):
     return dest
 
 
+def _chrome_close_tabs(urls):
+    """按 URL 关掉 Chrome 标签页，走 CDP。
+
+    用 CDP 而不是模拟 Ctrl+W：布置环境不是被测行为，它必须**确定性地**成功。
+    拿被测的那条 GUI 链路去布置环境，等于让环境的正确性依赖于正在被检验的东西。
+    """
+    import urllib.error
+    deadline = time.time() + 30
+    targets = []
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen("http://localhost:9222/json", timeout=5) as r:
+                targets = json.loads(r.read().decode("utf-8"))
+            break
+        except (urllib.error.URLError, OSError):
+            time.sleep(1)
+    for target in targets:
+        if target.get("type") != "page":
+            continue
+        url = target.get("url") or ""
+        if any(url.rstrip("/").startswith(want.rstrip("/")) for want in urls):
+            try:
+                urllib.request.urlopen(
+                    "http://localhost:9222/json/close/" + target["id"], timeout=5).read()
+            except Exception:
+                pass
+
+
+CHROME_PROFILE = os.path.expanduser("~/.config/google-chrome/Default")
+
+
+def clean_chrome_session(log=print):
+    """把 Chrome 的标签页会话清空，让每道题从确定的状态开始。
+
+    官方靠**恢复虚拟机快照**做到这一点，我们没有那一层。不清的后果当场撞到过：
+    跑第 3 题时，第 1、2 题打开的 amazon 设置页、amazon.com 全都还在，
+    于是这道题的初始状态和它的题面根本对不上。
+
+    在**脏状态上跑出来的分数，不管高低都是假的**——高是因为上一题顺手做了一半，
+    低是因为多出来的东西干扰了判据。所以这一步不是打扫卫生，是判据的一部分。
+    """
+    for name in ("chrome", "google-chrome", "chrome_crashpad_handler"):
+        subprocess.run(["pkill", "-x", name], capture_output=True)
+    time.sleep(3)
+    removed = 0
+    for name in ("Current Session", "Current Tabs", "Last Session", "Last Tabs"):
+        path = os.path.join(CHROME_PROFILE, name)
+        if os.path.exists(path):
+            os.remove(path)
+            removed += 1
+    # `Sessions/` 也要清。只删上面四个文件不够——实测：清完之后按
+    # Ctrl+Shift+T，Chrome 从 Sessions/ 里捞回了**上一道题的整个窗口**，
+    # 于是 lonelyplanet 和 airbnb 各出现两次，而判据要求标签集合精确相等。
+    # "恢复最近关闭"这个功能会跨会话记忆，清不干净就等于给下一题埋了地雷。
+    sessions = os.path.join(CHROME_PROFILE, "Sessions")
+    if os.path.isdir(sessions):
+        shutil.rmtree(sessions, ignore_errors=True)
+        removed += 1
+    if removed:
+        log("  清掉 Chrome 会话文件 {} 个".format(removed))
+    return removed
+
+
 def apply_config(task, log=print):
     """执行一道题的 config 段。返回 (是否就绪, 跳过的步骤说明)。
 
@@ -213,6 +276,12 @@ def apply_config(task, log=print):
                     start_new_session=True,
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 log("  Chrome 打开 {} 个标签".format(len(urls)))
+            elif kind == "chrome_close_tabs":
+                # 通过 CDP 关标签页。这道题（"把我刚关掉的标签页恢复回来"）的
+                # 初始状态**就是**"某个标签页刚被关掉"，少了这一步，题面描述的
+                # 情境根本不存在，agent 会面对一个和指令对不上的桌面。
+                _chrome_close_tabs(params.get("urls_to_close") or [])
+                log("  关掉 {} 个标签".format(len(params.get("urls_to_close") or [])))
             else:
                 skipped.append(kind)
         except Exception as error:

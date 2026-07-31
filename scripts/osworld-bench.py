@@ -118,6 +118,9 @@ def cmd_deploy(args):
     print("第 {} 题  [{}]  {}".format(index + 1, app, task_id))
     print("指令: {}".format(task["instruction"]))
     print("=" * 70)
+    if local._touches_chrome(task):
+        local.snapshot_state(task)
+        local.clean_chrome_session()
     ready, skipped = local.apply_config(task)
     if skipped:
         print("\n⚠️ 以下 config 步骤没有执行: {}".format(", ".join(skipped)))
@@ -206,6 +209,9 @@ def cmd_agent(args):
     print("指令: {}".format(task["instruction"]))
 
     if not args.skip_config:
+        if local._touches_chrome(task):
+            local.snapshot_state(task)
+            local.clean_chrome_session()
         ready, skipped = local.apply_config(task)
         if skipped:
             print("⚠️ 未执行的 config: {}".format(", ".join(skipped)))
