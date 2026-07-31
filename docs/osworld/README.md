@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **11** / 369 |
-| 我手工通过 | 9 / 11 |
-| cc 通过 | **9 / 11** |
-| cc 平均步数 | 10.4 |
-| cc 平均观测 token | 29027 |
-| cc 平均用时 | 127s |
-| 执行轴 a11y 占比 | 40% （41/103）|
+| 已跑题数 | **12** / 369 |
+| 我手工通过 | 10 / 12 |
+| cc 通过 | **10 / 12** |
+| cc 平均步数 | 10.2 |
+| cc 平均观测 token | 28315 |
+| cc 平均用时 | 125s |
+| 执行轴 a11y 占比 | 41% （45/109）|
 
 ## 逐题
 
@@ -44,6 +44,7 @@
 | 9 | chrome | I do not like the design of the new 2023 chrome UI.  | ✅ | ✅ | 10 | 16463 | 143.2s |
 | 10 | chrome | My grandmother has been using the Chrome lately and  | ✅ | ✅ | 11 | 7830 | 137.0s |
 | 11 | chrome | I am from the country of Atlantis, and my mother ton | ✅ | ✅ | 2 | 191 | 24.8s |
+| 12 | chrome | Please help me set Chrome to delete my browsing data | ✅ | ✅ | 8 | 17631 | 96.0s |
 
 ## 每题的过程记录
 
@@ -125,4 +126,11 @@
 - **我手工**（第 1 次，得分 1.0）：手工确认做不到：chrome://settings/languages 里 find 搜 'xenothian' 零命中（208 个元素全扫）。Xenothian 是虚构语言，与官方 infeasible 标注一致。
 - **cc**（第 1 次，得分 0.0）：cc 第一次（infeasible）
 - **cc**（第 2 次，得分 1.0）：cc 第二次（修好判据关键词 + 空 config 也启动应用）
+### 第 12 题 · 99146c54
+
+> Please help me set Chrome to delete my browsing data automatically every time I close the browser.
+
+- **我手工**（第 1 次，得分 0.0）：手工：chrome://settings/content/siteData → 选中 radio「Delete data … when you close all windows」。注意 chrome://settings/cookies 会重定向到第三方 Cookie 页，那里没有这个选项。
+- **我手工**（第 2 次，得分 1.0）：手工成功。两点：(1) chrome://settings/cookies 会重定向到第三方 Cookie 页，那里没有这个选项，正确页面是 chrome://settings/content/siteData；(2) 第一次失败是 Chrome 被内存压力挤崩了——机器只有 3.8G，同时开着 GIMP/VS Code/Thunderbird/VLC/LibreOffice 时可用内存 1.8G，关掉重应用后才稳定。这属于环境问题，不是链路问题。
+- **cc**（第 1 次，得分 1.0）：cc 第一次
 
