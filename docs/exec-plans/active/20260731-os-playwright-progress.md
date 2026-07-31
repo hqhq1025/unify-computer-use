@@ -173,7 +173,55 @@ drag 的效果不进树、格式改动不进树）。**抄它的通道分层与�
 
 ---
 
-## 七、还没做的
+## 七、这算不算 hybrid CUA——用轨迹回答
+
+WeaveBench 的判据是**通道切换次数**（≥5）加**单通道硬封顶 0.4**。
+两次成功任务的实测：
+
+| 任务 | 步数 | a11y | gui | keyboard | **通道切换** |
+|---|---|---|---|---|---|
+| A 加右对齐标题 | 10 | 2 | 2 | 5 | 3 次 |
+| B 标题移到底部 | 15 | 6 | 2 | 6 | **9 次** |
+
+任务 B 的通道序列：
+`a11y → a11y → keyboard → gui → keyboard → keyboard → a11y → a11y →
+keyboard → gui → a11y → keyboard → keyboard → a11y`
+
+### 最有说服力的是任务 B 第 8–13 步：三条通道协作完成同一个子目标
+
+1. `set_value "15.12 cm"`（a11y 语义）写进 spin button
+2. 点 OK（a11y 语义）→ 对话框关闭
+3. agent 读**状态栏文本**（a11y）→ 仍是 `1.27 / 0.76` → **判定没提交**
+4. `F4`（keyboard）重开对话框
+5. `click_xy` 三击（gui）选中字段全部内容 —— a11y **没有"三击"这个动作**
+6. `type_text`（a11y 语义写）→ Note 报 `0 -> 7 characters`，确认字段是空的
+7. `Return`（keyboard）→ 提交，状态栏变 `1.27 / 15.12`
+
+**a11y 提供的真值发现了 a11y 通道自己的失败，再借 GUI 绕过去。**
+这正是"通道不可互相替代"的具体形态。
+
+### 每条通道**独有的**贡献（换成别的通道做不到）
+
+| 通道 | 独有贡献 |
+|---|---|
+| a11y | slide 2 缩略图（170×115 无文字标签的小图，树里是 `panel "Slide 2"`）；四个**全都没有名字**的 spin button 里"哪个是 Position Y"只写在 description 里；状态栏那行精确到小数点的几何真值 |
+| gui | 双击进编辑模式、三击选中字段——**a11y 没有这两个动作**；GIMP 画布定位（树里 canvas 节点数为 0） |
+| keyboard | `ctrl+r` / `ctrl+s` / `F4` / `Return`——这些命令在界面上没有 agent 够得着的入口 |
+
+### 但要说清一个区别
+
+WeaveBench 的 hybrid 是 **GUI + CLI/code**（持久态靠 shell）。
+我们这里量到的是 **GUI 内部的三通道 hybrid**（a11y / gui / keyboard），
+是另一个轴。测试时我**刻意禁掉了 Bash/Read/Write/Edit**，否则 agent 会直接
+用 python-pptx 改文件，测的就不是 GUI 链路了。
+
+**真实 Claude Code 会话里 agent 本来就有 Bash**，所以 GUI+CLI 那种 hybrid
+是默认可用的——只是那样就测不出 MCP 本身的质量。两种 hybrid 都成立，
+但要分开说。
+
+---
+
+## 八、还没做的
 
 | 阶段 | 内容 | 前置 |
 |---|---|---|
