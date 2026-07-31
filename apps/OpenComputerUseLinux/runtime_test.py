@@ -2403,7 +2403,7 @@ class _FakeRelation:
 class _NamedNode(FakeNode):
     """带名字、可带 LABELLED_BY 关系的假节点。"""
 
-    def __init__(self, name="", role="", relations=(), **kwargs):
+    def __init__(self, name="", role="", relations=(), **kwargs):  # noqa: D107
         super().__init__(**kwargs)
         self._name = name
         self._role = role
@@ -2470,3 +2470,54 @@ class LabelledByTests(AtspiPatchedTestCase):
         marks = runtime.state_segment(FakeNode(), borrowed_name=True)
         self.assertIn("labelled", marks)
         self.assertNotIn("labelled", runtime.state_segment(FakeNode()))
+
+
+class ModalDiagnosticTests(AtspiPatchedTestCase):
+    """挡在前面的对话框要明说。分两档，因为证据强度不同。"""
+
+    def _window(self, name, role, states):
+        return _NamedNode(name=name, role=role, states=states)
+
+    def _app(self, *windows):
+        return _NamedNode(name="app", role="application", children=windows)
+
+    def test_modal_state_licenses_the_strong_claim(self):
+        dialog = self._window("Position and Size", "dialog",
+                              [STATE.MODAL, STATE.SHOWING, STATE.ACTIVE])
+        main = self._window("Doc - Impress", "frame", [STATE.SHOWING])
+        notes = runtime.modal_diagnostic(dialog, self._app(dialog, main))
+        self.assertEqual(len(notes), 1)
+        self.assertIn("MODAL DIALOG", notes[0])
+        # 有 MODAL 位才能断言"应用会忽略其它窗口的输入"
+        self.assertIn("ignore input to every other window", notes[0])
+        # 要说清挡住了谁——agent 需要知道回哪儿去
+        self.assertIn("Doc - Impress", notes[0])
+
+    def test_a_dialog_without_the_modal_bit_gets_the_weaker_claim(self):
+        """实测逼出来的一档。
+
+        LibreOffice 7.3 的「Tip of the Day」是 role=dialog、ACTIVE、SHOWING，
+        **却不设 MODAL**，而它确确实实挡在应用前面。MODAL 位在 Linux 上和
+        ENABLED 一样，不同工具包设不设全凭自觉。
+
+        只认 MODAL 会漏掉真实阻塞；把两档混为一谈，则是替一个不设 MODAL 的
+        对话框打我们无权打的包票。
+        """
+        dialog = self._window("Tip of the Day: 1/223", "dialog",
+                              [STATE.SHOWING, STATE.ACTIVE])
+        main = self._window("Doc - Impress", "frame", [STATE.SHOWING])
+        notes = runtime.modal_diagnostic(dialog, self._app(dialog, main))
+        self.assertEqual(len(notes), 1)
+        self.assertIn("DIALOG IN FRONT", notes[0])
+        # 不许出现强断言
+        self.assertNotIn("ignore input to every other window", notes[0])
+        self.assertIn("not proof that the app is blocked", notes[0])
+
+    def test_a_plain_main_window_says_nothing(self):
+        main = self._window("Doc - Impress", "frame", [STATE.SHOWING, STATE.ACTIVE])
+        self.assertEqual(runtime.modal_diagnostic(main, self._app(main)), [])
+
+    def test_a_lone_dialog_is_the_main_interface_not_a_blocker(self):
+        # 应用只有这一个对话框窗口时，它就是主界面。说"它挡着什么"是无中生有。
+        only = self._window("Preferences", "dialog", [STATE.SHOWING, STATE.ACTIVE])
+        self.assertEqual(runtime.modal_diagnostic(only, self._app(only)), [])

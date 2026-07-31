@@ -1808,6 +1808,11 @@ def build_snapshot(
             }
             for r in records
         },
+        # 模态提示跟着快照走，而不是只在 get_app_state 里算一次：**动作后**的
+        # 快照更需要它——正是那次点击弹出了对话框，那一刻说"你现在被挡住了"
+        # 最有用。Go 侧的 appSnapshot 没有这个字段，encoding/json 会忽略它，
+        # 运行时靠下面 pop 出来放进 notes。
+        "modalNotes": modal_diagnostic(window, app),
     }
 
 
@@ -2793,6 +2798,80 @@ PREFER_ELEMENT_INDEX = (
 )
 
 
+# 前置窗口是不是"挡路的对话框"，分两档——因为**证据强度不同**。
+DIALOG_ROLES = {"dialog", "alert", "file chooser", "color chooser"}
+
+
+def modal_diagnostic(window, app):
+    """选中的窗口是挡在前面的对话框时，**明说出来**。
+
+    为什么需要：一个动作把对话框弹了出来，下一次 get_app_state 返回的就是
+    对话框的树——窗口标题变了、下标全部重排，但这些都是**间接**信号。
+    agent 完全可能继续用上一份快照里主窗口的 element_index，然后困惑于
+    "为什么调用成功了却什么都没发生"。
+
+    这条功能第一次跑起来就当场解释了一个我卡了二十分钟的现象：LibreOffice
+    的 pptx 怎么都打不开，因为有一个 `Question`（"Document in Use"）对话框
+    一直挡着，而窗口列表里看不出来。
+
+    **分两档说，因为证据强度不同：**
+
+      MODAL 位存在   → 可以断言"应用会忽略其它窗口的输入"。这是 AT-SPI
+                      对模态的定义，有它才能这么说。
+      只是对话框在前 → 只能说"树是对话框的，不是主窗口的"。
+
+    第二档不是保守过头，是实测逼出来的：LibreOffice 7.3 的「Tip of the Day」
+    是 role=dialog、ACTIVE、SHOWING，**却不设 MODAL**，而它确确实实挡在
+    应用前面。MODAL 位在 Linux 上和 ENABLED 一样，不同工具包设不设全凭自觉。
+    只认 MODAL 会漏掉真实的阻塞；把两档混为一谈则会替不设 MODAL 的对话框
+    打一个我们无权打的包票。
+    """
+    if window is None:
+        return []
+    is_modal = state_contains(window, Atspi.StateType.MODAL)
+    role = str(node_role(window) or "").lower()
+    if not is_modal and role not in DIALOG_ROLES:
+        return []
+
+    title = str(node_name(window) or "").strip() or "(untitled)"
+    others = []
+    count = (safe(lambda: app.get_child_count(), 0) or 0) if app is not None else 0
+    for index in range(min(count, MAX_CHILD_FANOUT)):
+        other = safe(lambda: app.get_child_at_index(index))
+        if other is None or other == window:
+            continue
+        if state_contains(other, Atspi.StateType.SHOWING):
+            name = str(node_name(other) or "").strip()
+            if name and name != title:
+                others.append(name)
+    if not is_modal and not others:
+        # 只有这一个窗口，那它就是主界面，不是"挡在什么前面"。
+        return []
+
+    behind = ""
+    if others:
+        behind = " Behind it: {}.".format(", ".join(sorted(set(others))[:3]))
+
+    if is_modal:
+        return [
+            "MODAL DIALOG: the tree below is {!r}, a modal dialog, NOT the app's main "
+            "window.{} The application will ignore input to every other window until "
+            "this one is dismissed, so any element_index you took from an earlier "
+            "snapshot of the main window addresses nothing right now. Finish or cancel "
+            "this dialog first, then call get_app_state again for fresh indices.".format(
+                title, behind
+            )
+        ]
+    return [
+        "DIALOG IN FRONT: the tree below is {!r}, a dialog, NOT the app's main "
+        "window.{} It does not report the MODAL state, so this is not proof that the "
+        "app is blocked — but the indices below belong to the dialog, and any "
+        "element_index from an earlier snapshot of the main window does not address "
+        "anything in it. Measured example of exactly this: LibreOffice's Tip of the "
+        "Day sits in front while reporting no MODAL state.".format(title, behind)
+    ]
+
+
 def snapshot_diagnostics(records):
     """检测"应用活着、窗口也在，但 a11y 是空壳"这种状态。
 
@@ -2889,7 +2968,10 @@ def perform_operation(operation):
             include_screenshot=operation.get("includeScreenshot"),
         )
         response = {"ok": True, "snapshot": snapshot}
-        diagnostics = snapshot_diagnostics(snapshot.get("elements") or [])
+        # 模态提示排在最前：它决定了下面整棵树该怎么读。
+        diagnostics = snapshot.pop("modalNotes", []) + snapshot_diagnostics(
+            snapshot.get("elements") or []
+        )
         if diagnostics:
             response["notes"] = diagnostics
         return response
@@ -3232,16 +3314,17 @@ def perform_operation(operation):
     # 那时比出来的"变化"是渲染中途的样子，不是效果。
     after_bounds = safe(lambda: extents(main_window(app)[1])) or bounds
     pixels_after_one = safe(lambda: capture_window_pixels(after_bounds))
-    response = {
-        "ok": True,
-        "snapshot": build_snapshot(
-            operation.get("app", ""),
-            # 动作后的快照按当前策略带图；`SCREENSHOT_REQUIRED_TOOLS` 里的
-            # 工具无视策略，因为它们的效果树里根本看不出来。
-            include_screenshot=True if tool in SCREENSHOT_REQUIRED_TOOLS else None,
-            known_refs=operation.get("knownRefs"),
-        ),
-    }
+    after_snapshot = build_snapshot(
+        operation.get("app", ""),
+        # 动作后的快照按当前策略带图；`SCREENSHOT_REQUIRED_TOOLS` 里的
+        # 工具无视策略，因为它们的效果树里根本看不出来。
+        include_screenshot=True if tool in SCREENSHOT_REQUIRED_TOOLS else None,
+        known_refs=operation.get("knownRefs"),
+    )
+    # 动作**开出**模态对话框是最需要说这句话的时刻：下标全部重排，而 agent
+    # 手上那份还是点击之前的。插在最前面，让它在所有动作 Note 之前被读到。
+    notes[:0] = after_snapshot.pop("modalNotes", [])
+    response = {"ok": True, "snapshot": after_snapshot}
     # 第二张动作后画面放在**建完快照之后**抓：resolve_app 自己就要 0.15–0.3s，
     # 这段已有的耗时正好当作两张之间的间隔，足够让 1Hz 的光标闪一次。
     change_note = pixel_change_note(persistent_pixel_change(

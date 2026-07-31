@@ -171,8 +171,20 @@ def find_index(tree, pattern):
 
 
 def window_title(tree):
-    lines = tree.splitlines()
-    return lines[1] if len(lines) > 1 else ""
+    """从响应里取窗口标题那一行。
+
+    **不要按固定行号取。** 这里原本是 `lines[1]`，那假设了"第 0 行是 App=、
+    第 1 行是 Window="。诊断 Note 一旦出现就会把这个假设打偏——实测：加上
+    模态对话框提示之后，vlc-preference 稳定失败并报"首选项没打开"，
+    而对话框其实**已经打开了**（树里明明是 `Window: "Simple Preferences"`）。
+
+    测量仪器给出假阴性，比没有仪器更糟：它会让人去修一个不存在的产品缺陷。
+    按内容找，不按位置找。
+    """
+    for line in tree.splitlines():
+        if line.startswith("Window: "):
+            return line
+    return ""
 
 
 def click(client, app, tree, pattern, method="auto"):
