@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **8** / 369 |
-| 我手工通过 | 6 / 8 |
-| cc 通过 | **6 / 8** |
-| cc 平均步数 | 11.7 |
-| cc 平均观测 token | 37338 |
-| cc 平均用时 | 142s |
-| 执行轴 a11y 占比 | 43% （37/86）|
+| 已跑题数 | **10** / 369 |
+| 我手工通过 | 8 / 10 |
+| cc 通过 | **8 / 10** |
+| cc 平均步数 | 11.5 |
+| cc 平均观测 token | 33462 |
+| cc 平均用时 | 141s |
+| 执行轴 a11y 占比 | 40% （41/103）|
 
 ## 逐题
 
@@ -41,6 +41,8 @@
 | 6 | chrome | Can you make a new folder for me on the bookmarks ba | ✅ | ✅ | 6 | 5073 | 68.7s |
 | 7 | chrome | Can you save this webpage I'm looking at to bookmark | ✗ 0.0 | ✅ | 12 | 141187 | 187.5s |
 | 8 | chrome | Lately I have changed my English name to Thomas. I w | ✅ | ✅ | 23 | 50653 | 332.7s |
+| 9 | chrome | I do not like the design of the new 2023 chrome UI.  | ✅ | ✅ | 10 | 16463 | 143.2s |
+| 10 | chrome | My grandmother has been using the Chrome lately and  | ✅ | ✅ | 11 | 7830 | 137.0s |
 
 ## 每题的过程记录
 
@@ -103,4 +105,16 @@
 - **我手工**（第 1 次，得分 0.0）：手工：地址栏进 chrome://settings/manageProfile → set_value 到 entry「Name」。**set_value 在这里语义写值被拒**（Blink 的输入框不实现 AT-SPI Value 接口），这次补了降级：聚焦→全选→打字，写进去了。顺带补上 chrome_inject_js 这个 config 类型，否则判分跑不了 postconfig。
 - **我手工**（第 2 次，得分 1.0）：手工成功：地址栏 → chrome://settings/manageProfile → set_value 到 entry「Name」（走新加的合成降级）→ Tab 失焦。Local State 是惰性刷盘的，靠 postconfig 的 pkill+重启强制落盘才判得出来。
 - **cc**（第 1 次，得分 1.0）：cc 第一次（已加 set_value 合成降级）
+### 第 9 题 · 480bcfea
+
+> I do not like the design of the new 2023 chrome UI. I want to keep using the original one. Can you disable the new 2023 version chrome UI for me? 
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次（infeasible 题，正确行为是拒绝）
+- **我手工**（第 1 次，得分 1.0）：手工确认这题确实做不到：进 chrome://flags/#chrome-refresh-2023，find 在整页里搜 'refresh' **只命中地址栏本身**，没有这个 flag 条目——该 Chrome 版本已移除它。与官方 infeasible 标注一致。给框架补了 infeasible 的判法：官方靠 agent 发 FAIL，我们的 agent 说人话，所以读自述里有没有拒绝表述，**并把自述原文整段存进 results.jsonl 供复核**——关键词判据天然不精确，用它可以，藏起来不行。
+### 第 10 题 · af630914
+
+> My grandmother has been using the Chrome lately and told me that the font size is way too small for her poor eyesight. Could you set the default font size to the largest for her?
+
+- **我手工**（第 1 次，得分 1.0）：手工一步到位：set_value 到 combo box「Font size」= Very large。新加的合成降级（聚焦→全选→打字）在下拉框上等价于首字母跳转，直接选中了。下拉当前值可见让我一眼确认 Medium→Very large。
+- **cc**（第 1 次，得分 1.0）：cc 第一次
 

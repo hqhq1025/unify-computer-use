@@ -202,6 +202,31 @@ def summarize(path):
     }
 
 
+REFUSAL_MARKERS = (
+    "not possible", "no longer possible", "cannot be done", "can't be done",
+    "cannot do", "can't do", "infeasible", "does not exist", "doesn't exist",
+    "no such", "was removed", "has been removed", "not available",
+    "no longer available", "unable to", "there is no",
+)
+
+
+def judge_refusal(final_text):
+    """infeasible 题：agent 有没有如实说"这做不到"。
+
+    官方用 agent 发出的 FAIL 信号判分。我们的 agent 说人话，所以只能读它的
+    自述。关键词判据天然不精确，**所以自述原文会整段存进 results.jsonl**——
+    读的人可以自己复核并推翻这个判断。把一个不精确的判据藏起来才是问题，
+    用它但留下证据不是。
+    """
+    text = (final_text or "").lower()
+    if not text.strip():
+        return 0.0, "agent 没有留下自述，无法判断它是否拒绝了"
+    hits = [m for m in REFUSAL_MARKERS if m in text]
+    if hits:
+        return 1.0, "自述里出现了拒绝表述：{}".format(", ".join(hits[:3]))
+    return 0.0, "自述里没有出现拒绝表述——它可能以为自己做成了"
+
+
 def cmd_agent(args):
     index, (app, task_id) = resolve(args.task)
     task = load_task(app, task_id)
@@ -238,7 +263,17 @@ def cmd_agent(args):
     elapsed = time.time() - started
 
     stats = summarize(transcript)
-    score, detail = local.evaluate(task)
+    funcs = task.get("evaluator", {}).get("func")
+    funcs = [funcs] if isinstance(funcs, str) else (funcs or [])
+    if funcs == ["infeasible"]:
+        # 官方的 `infeasible` 判据是空函数——它靠 agent 输出 FAIL 来判分。
+        # 我们的 agent 不发 FAIL，它说人话，所以判据落在**它有没有拒绝**上。
+        #
+        # 这条判据必须能被人复核，所以整段自述会原样存进 results.jsonl：
+        # 用关键词判"拒绝"天然不精确，把原文留下，读的人可以自己推翻我。
+        score, detail = judge_refusal(stats["final"])
+    else:
+        score, detail = local.evaluate(task)
     print("\n步数 {}  观测 token≈{}  用时 {:.0f}s".format(
         stats["steps"], stats["observation_tokens"], elapsed))
     print("得分 {}   明细 {}".format(score, detail))
@@ -254,6 +289,8 @@ def cmd_agent(args):
         "semantic": stats["semantic"], "synthesis": stats["synthesis"],
         "seconds": round(elapsed, 1),
         "transcript": transcript, "trace": trace,
+        # infeasible 题的判据是读自述，所以自述必须留档供复核。
+        "final_text": stats["final"][:2000],
         "note": args.note or "",
     })
     return 0 if (score or 0) >= 1.0 else 2
