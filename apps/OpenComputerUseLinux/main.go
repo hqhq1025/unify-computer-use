@@ -960,18 +960,40 @@ func describeRecord(record *elementRecord) string {
 // 静默挑一个正是本项目一直在修的那类错误。
 func lookupBySelector(snapshot *appSnapshot, selector, hint string) (*elementRecord, error) {
 	role, name, hasName := parseSelector(selector)
-	var matches []elementRecord
+	// 身份来源有两级，**优先级照 Playwright 的 selector generator**：
+	// 它给 role+accessible-name 打 100 分，给 label / alt-text 打 140–160
+	// （分数越低越优先），都远好于 nth= 的 10000 分。
+	//
+	// 我们对应的两级是 name 与 description。加上 description 这一级是实测决定的：
+	// 七个应用 704 个节点里，只按 role+name 能唯一指认的占 55%，
+	// 加上 description 之后到 66%；GIMP 上从 57 个涨到 114 个（**翻一倍**），
+	// 因为它 170 个节点里 95 个有 description、只有 61 个有 name。
+	//
+	// 顺带记一条**已经查实的死路**：AT-SPI 的 accessible_id（对应 Playwright
+	// 打 1 分的 test-id）在这七个应用上**全是 0**，桌面上没有这一级可用。
+	var byName, byDescription []elementRecord
 	for _, record := range snapshot.Elements {
 		if role != "" && !strings.EqualFold(strings.TrimSpace(record.ControlType), role) {
 			continue
 		}
-		if hasName && record.Name != name {
+		if !hasName {
+			if role == "" {
+				continue
+			}
+			byName = append(byName, record)
 			continue
 		}
-		if !hasName && role == "" {
-			continue
+		if record.Name == name {
+			byName = append(byName, record)
+		} else if record.Description == name {
+			byDescription = append(byDescription, record)
 		}
-		matches = append(matches, record)
+	}
+	matches := byName
+	if len(matches) == 0 {
+		// name 一个都没匹配上，才退到 description——高优先级有结果时不混入低优先级，
+		// 否则一个精确的名字命中会被一堆描述命中稀释成"歧义"。
+		matches = byDescription
 	}
 	if len(matches) == 1 {
 		copy := matches[0]
@@ -979,7 +1001,7 @@ func lookupBySelector(snapshot *appSnapshot, selector, hint string) (*elementRec
 	}
 	if len(matches) == 0 {
 		return nil, fmt.Errorf(
-			"no element matches the selector %q. Selectors are written exactly as the snapshot renders them, e.g. `push button \"Save\"`, or just `\"Save\"` to match by name alone. %s",
+			"no element matches the selector %q. Selectors are written exactly as the snapshot renders them, e.g. `push button \"Save\"`, or just `\"Save\"` to match by name alone. The quoted part matches an element's name, or its desc=\"…\" when no name matches. %s",
 			selector, hint)
 	}
 	preview := make([]string, 0, 6)

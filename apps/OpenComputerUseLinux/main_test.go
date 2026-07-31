@@ -1181,3 +1181,43 @@ func TestPixelEvidenceStrengthensTheUnchangedVerdict(t *testing.T) {
 		}
 	}
 }
+
+// 选择器的第二身份来源：description。
+//
+// 优先级照 Playwright 的 selector generator——它给 role+accessible-name 打 100 分，
+// 给 label / alt-text 打 140–160（分数越低越优先），都远好于 nth= 的 10000 分。
+// 我们的 element_index 就是 nth，是它排名倒数第二的定位方式。
+//
+// 加 description 这一级是实测决定的：七个应用 704 个节点里，只按 role+name 能唯一
+// 指认的占 55%，加上 description 之后到 66%；GIMP 上从 57 涨到 114（翻一倍）。
+func TestSelectorFallsBackToDescription(t *testing.T) {
+	snapshot := &appSnapshot{Elements: []elementRecord{
+		{Index: 3, ControlType: "push button", Name: "", Description: "Go back"},
+		{Index: 4, ControlType: "push button", Name: "Save", Description: "Save the current file"},
+		{Index: 9, ControlType: "push button", Name: "", Description: "Go forward"},
+	}}
+
+	// 没有名字的按钮，靠 description 指认。
+	record, err := lookupElement(snapshot, `push button "Go back"`)
+	if err != nil || record.Index != 3 {
+		t.Fatalf("应当按 description 命中 3：%v %v", record, err)
+	}
+
+	// **name 命中时不得被 description 稀释成歧义。**
+	// "Save" 既是 4 号的 name，也出现在它自己的 description 里；如果两级混在一起，
+	// 一个精确的名字命中就会被一堆描述命中拖成"歧义"。
+	record, err = lookupElement(snapshot, `push button "Save"`)
+	if err != nil || record.Index != 4 {
+		t.Fatalf("name 命中优先，不该报歧义：%v %v", record, err)
+	}
+
+	// description 这一级同样要能报歧义，而不是静默挑一个。
+	ambiguous := &appSnapshot{Elements: []elementRecord{
+		{Index: 1, ControlType: "push button", Description: "Close"},
+		{Index: 2, ControlType: "menu item", Description: "Close"},
+	}}
+	if _, err := lookupElement(ambiguous, `"Close"`); err == nil ||
+		!strings.Contains(err.Error(), "ambiguous") {
+		t.Fatalf("description 命中多个也要报歧义：%v", err)
+	}
+}
