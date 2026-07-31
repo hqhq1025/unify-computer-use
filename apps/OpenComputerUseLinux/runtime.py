@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import base64
+import hashlib
 import json
 import math
 import os
@@ -995,11 +996,13 @@ def record_for(node, index, path, window_bounds, text_limit=DEFAULT_TEXT_LIMIT):
     # 动作表只问一次，两个字段共用——见 node_actions() 里关于 LibreOffice
     # ATK 桥的说明。
     actions, has_click_action = node_actions(node)
-    return {
+    full_name = node_name(node)
+    name = limit_text(full_name, text_limit=text_limit)
+    record = {
         "index": index,
         "runtimeId": path[:],
         "automationId": accessible_id(node),
-        "name": limit_text(node_name(node), text_limit=text_limit),
+        "name": name,
         "controlType": role,
         "localizedControlType": role,
         "className": str(safe(node.get_toolkit_name, "") or ""),
@@ -1018,6 +1021,20 @@ def record_for(node, index, path, window_bounds, text_limit=DEFAULT_TEXT_LIMIT):
         # 改成扫全树又要 551ms 且漏掉目标段落。跟着 record 走两个问题都没有。
         "textAttributes": text_attributes(node),
     }
+    # 名字被截断时，另外记一份**完整名字的哈希**。
+    #
+    # 不记的代价是实测过的：record_still_matches 拿实时的完整 name 去比
+    # record 里已截断的 name，必然失配。同一个节点、同一个名字，只要
+    # text_limit 从 500 调到 40，身份判定就从 True 翻成 False，
+    # 然后静默退到最弱的"role + 屏幕位置"判据。
+    # 也就是说：**agent 为省 token 调低 text_limit，会悄悄削弱元素身份**。
+    #
+    # 存哈希而不是存阈值，是写测试时改的：只按截断后的前缀比，两个前缀相同的
+    # 不同元素会被判成同一个——那等于把一个静默失配换成一个静默误判，更糟。
+    # 哈希让判定回到"完整名字精确相等"，代价是极少数记录上多 16 个字符。
+    if len(full_name) > len(name):
+        record["nameHash"] = name_fingerprint(full_name)
+    return record
 
 
 # 自管理表格容器一次最多渲染多少单元格。典型视口约 37 行 × 21 列 = 777 个，
@@ -1205,11 +1222,6 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
             if node is not None and len(records) >= max_tree_nodes:
                 dropped["count"] += 1
             return
-        # 编号要**跨快照存活**，所以不能用 len(records) 这种遍历序号——
-        # 插入一个元素就会把它后面所有元素的号全推走。见 StableIndexer。
-        index = (indexer.index_for(path, node_role(node),
-                                   limit_text(node_name(node), text_limit=text_limit))
-                 if indexer is not None else len(records))
 
         # 裁剪：只保留"可操作角色 + 屏幕上可见"的节点。与 OSWorld 官方判据同源，
         # 实测 22% 压缩率、100% 保留率。被裁的只是它自己这一行，**仍然继续递归
@@ -1245,7 +1257,7 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
                           path + [child_index], render_depth)
                 return
 
-        record = record_for(node, index, path, window_bounds, text_limit=text_limit)
+        record = record_for(node, None, path, window_bounds, text_limit=text_limit)
 
         # 预算吃紧时优先保住有名字/有动作/有值的节点。丢容器只丢它自己这一行，
         # 仍然继续递归子节点——被丢的容器往往正是有价值控件的父节点。
@@ -1256,6 +1268,17 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
                       path + [child_index], render_depth)
             return
 
+        # 编号要**跨快照存活**，所以不能用 len(records) 这种遍历序号——
+        # 插入一个元素就会把它后面所有元素的号全推走。见 StableIndexer。
+        #
+        # 发号必须在**确定这个节点真的进树之后**。原来它在两处裁剪之前，
+        # 于是被裁掉的节点先领了号再被丢弃：号被消耗、却不进 records/refs。
+        # 实测 Nautilus 一次快照 91 个元素、下标散布在 0..670——7 倍膨胀。
+        # 而且被裁节点每次快照都重新领一批新号（它们不在 known 里），
+        # 所以号会随会话单调涨下去，越涨越长、越涨越不像"树里的位置"。
+        record["index"] = (indexer.index_for(path, record["controlType"],
+                                             record["name"])
+                           if indexer is not None else len(records))
         records.append(record)
 
         lines.append(render_element_line(record, render_depth, boxes=boxes))
@@ -1792,6 +1815,28 @@ def same_frame(record_frame, node_frame):
     return True
 
 
+def name_fingerprint(text):
+    """完整名字的短指纹。只在名字被截断、无法原样比对时才用得上。"""
+    return hashlib.blake2b(str(text or "").encode("utf-8"),
+                           digest_size=8).hexdigest()
+
+
+def record_name_matches(node, record):
+    """节点的名字是否等于 record 里存的那个——**两边用同一把尺子量**。
+
+    存进 record 的 name 是 limit_text() 截断过的，而节点上读到的是完整的，
+    直接比就必然失配；而失配是静默的，调用方只会看到身份判据悄悄退化。
+
+    截断过的记录带 `nameHash`（完整名字的指纹），比的是完整名字，
+    所以既不会因为截断而失配，也不会因为前缀相同而误判。
+    """
+    live = node_name(node)
+    fingerprint = record.get("nameHash")
+    if fingerprint:
+        return name_fingerprint(live) == fingerprint
+    return live == str(record.get("name") or "")
+
+
 def record_still_matches(node, record, window_bounds):
     """按路径解析出来的节点，是否还是快照里那个元素。
 
@@ -1819,7 +1864,7 @@ def record_still_matches(node, record, window_bounds):
         return False
     target_name = str(record.get("name") or "")
     if target_name:
-        return node_name(node) == target_name
+        return record_name_matches(node, record)
     if node_name(node):
         # 快照里没名字、现在有名字，说明换了个元素
         return False
@@ -1843,7 +1888,11 @@ def find_element(app, record):
     for candidate in iter_all(window):
         if target_id and accessible_id(candidate) == target_id:
             return candidate
-        if target_name and node_name(candidate) == target_name and node_role(candidate) == target_role:
+        # 与上面同一把尺子。这句原来是 `node_name(candidate) == target_name`，
+        # 和 record_still_matches 里那句一模一样地错——同一个比较抄了两遍，
+        # 于是同一个 bug 也有两份。
+        if target_name and node_role(candidate) == target_role \
+                and record_name_matches(candidate, record):
             return candidate
         if target_role and node_role(candidate) == target_role:
             if same_frame(record.get("frame"), relative_frame(candidate, window_bounds)):

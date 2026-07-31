@@ -1882,6 +1882,88 @@ class StableIndexTests(unittest.TestCase):
         self.assertEqual(indexer.index_for([0, 0], "push button", "A"), 1)
 
 
+class DenseIndexTests(AtspiPatchedTestCase):
+    """被裁掉的节点**不能先领号再被丢掉**。
+
+    必须继承 AtspiPatchedTestCase：裸 TestCase 下 relative_frame 全返回 None，
+    于是 depth>0 的节点一律被判成不可见而裁光，树里只剩根节点——
+    那种 fixture 测不出任何裁剪行为。这一条是写测试时当场踩到的。
+    """
+
+    def test_pruned_nodes_do_not_consume_numbers(self):
+        """被裁掉的节点**不能先领号再被丢掉**。
+
+        原来发号在裁剪判断之前，于是号被消耗、节点却不进 records/refs：
+        打印出来的下标稀疏带洞。实测 Nautilus 一次快照 91 个元素、
+        下标散布在 0..670——7.4 倍膨胀。而且被裁节点不在 known 里，
+        每次快照都重新领一批新号，号会随会话单调涨下去。
+
+        判据只看**稠密**：树里有 N 个元素，下标就该落在 0..N-1。
+        """
+        # 一堆无名 panel（会被角色裁剪丢掉）夹着两个有名按钮。
+        # 几何必须显式给，裁剪判据的第一关就是 frame 不为 None。
+        filler = [_TreeNode(role="panel", x=1, y=1, w=5, h=5)
+                  for _ in range(8)]
+        keep_a = _TreeNode(role="push button", name="Save", x=2, y=2, w=5, h=5)
+        keep_b = _TreeNode(role="push button", name="Cancel", x=3, y=3, w=5, h=5)
+        window = _TreeNode(role="frame", name="W", w=900, h=600,
+                           kids=tuple(filler[:4]) + (keep_a,)
+                                + tuple(filler[4:]) + (keep_b,))
+
+        # 必须传 indexer——不传的话 index 退回 len(records)，那本来就是稠密的，
+        # 测不出任何东西。
+        records, _lines = runtime.render_tree(
+            window, None, [0], indexer=runtime.StableIndexer({}), prune=True)
+        indices = sorted(r["index"] for r in records)
+        self.assertEqual(indices, list(range(len(records))),
+                         "下标应当稠密，实际 {}".format(indices))
+
+
+
+class TruncatedNameIdentityTests(AtspiPatchedTestCase):
+    """name 被 text_limit 截断之后，元素身份**不能悄悄退化**。
+
+    实测复现：同一个节点、同一个名字，text_limit 从 500 调到 40，
+    record_still_matches 就从 True 翻成 False——因为它拿实时的完整 name
+    去比 record 里已截断的 name。失配之后静默退到最弱的"role + 屏幕位置"判据。
+
+    也就是说：**agent 为省 token 调低 text_limit，会悄悄削弱元素身份**。
+    阈值是每次请求可传的参数，所以比较时不能假定它等于默认值。
+    """
+
+    LONG = "Manage — Settings and keyboard shortcuts, and more actions for the editor"
+
+    def test_truncated_name_still_identifies_the_same_element(self):
+        node = _TreeNode(role="push button", name=self.LONG)
+        for limit in (500, 40, 10):
+            record = runtime.record_for(node, 7, [0, 1], None, text_limit=limit)
+            self.assertTrue(
+                runtime.record_still_matches(node, record, None),
+                "text_limit={} 时同一个节点没认出来".format(limit))
+
+    def test_a_different_element_sharing_the_prefix_is_not_confused(self):
+        """修截断不能换来一个静默误判。
+
+        只按截断后的前缀比的话，两个前缀相同的不同元素会被判成同一个——
+        那等于把一个静默失配换成一个静默误判，更糟。所以截断的记录
+        随身带完整名字的指纹，判定回到"完整名字精确相等"。
+        """
+        node = _TreeNode(role="push button", name=self.LONG)
+        sibling = _TreeNode(
+            role="push button",
+            name="Manage — Settings and keyboard shortcuts, and MORE actions here")
+        for limit in (40, 10):
+            record = runtime.record_for(node, 7, [0, 1], None, text_limit=limit)
+            self.assertFalse(
+                runtime.record_still_matches(sibling, record, None),
+                "text_limit={} 时前缀相同的另一个元素被误判成同一个".format(limit))
+
+    def test_short_names_carry_no_fingerprint(self):
+        """没截断就不该多带字段——指纹只为截断的记录存在。"""
+        node = _TreeNode(role="push button", name="Save")
+        record = runtime.record_for(node, 0, [0], None, text_limit=500)
+        self.assertNotIn("nameHash", record)
+
 class SnapshotGrammarTests(unittest.TestCase):
     """快照文法。借鉴 Playwright 的 aria snapshot（`- role "name" [attr=value]`）。
 
