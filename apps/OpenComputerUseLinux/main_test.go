@@ -1030,3 +1030,108 @@ func TestNotesLearnedFromTheRealAgentRun(t *testing.T) {
 func deliveredButIgnoredNote() string {
 	return strings.Join(unchangedNotes(true), " ")
 }
+
+// P4：选择器要能替代数字下标，语法与快照行**逐字一致**。
+//
+// 数字下标每次 get_app_state 都会重排，是 agent 最容易犯错的地方——意图声明
+// 只是把那个错误变得**响亮**，没有消除它。选择器从快照行抄下来就能用。
+func TestSelectorLookup(t *testing.T) {
+	snapshot := &appSnapshot{Elements: []elementRecord{
+		{Index: 4, ControlType: "push button", Name: "Save"},
+		{Index: 8, ControlType: "push button", Name: "New"},
+		{Index: 9, ControlType: "menu", Name: "Save"},
+		{Index: 12, ControlType: "label", Name: ""},
+	}}
+
+	for _, ok := range []struct {
+		selector string
+		want     int
+	}{
+		{`push button "Save"`, 4},
+		{`menu "Save"`, 9},
+		{`push button "New"`, 8},
+	} {
+		record, err := lookupElement(snapshot, ok.selector)
+		if err != nil {
+			t.Fatalf("%s 应当命中: %v", ok.selector, err)
+		}
+		if record.Index != ok.want {
+			t.Fatalf("%s 命中了 %d，期望 %d", ok.selector, record.Index, ok.want)
+		}
+	}
+
+	// 歧义时**不许挑一个**——静默挑一个正是本项目一直在修的那类错误。
+	_, err := lookupElement(snapshot, `"Save"`)
+	if err == nil {
+		t.Fatal(`"Save" 同时命中 push button 与 menu，必须报歧义`)
+	}
+	for _, fragment := range []string{"ambiguous", "4=", "9=", "adding the role"} {
+		if !strings.Contains(err.Error(), fragment) {
+			t.Fatalf("歧义报错要列出候选与收敛办法，缺 %q: %s", fragment, err)
+		}
+	}
+
+	// 收敛建议要看**缺的是哪一半**：只给了 role 的选择器，该让它补名字，
+	// 而不是补一个它已经给了的 role。
+	_, err = lookupElement(snapshot, "push button")
+	if err == nil {
+		t.Fatal("只给 role 且命中多个时必须报歧义")
+	}
+	if !strings.Contains(err.Error(), `adding the name in quotes`) ||
+		!strings.Contains(err.Error(), "push button \"Save\"") {
+		t.Fatalf("只给 role 时应当建议补名字: %s", err)
+	}
+
+	// 找不到时要说清选择器怎么写。
+	_, err = lookupElement(snapshot, `push button "Nope"`)
+	if err == nil || !strings.Contains(err.Error(), "no element matches") {
+		t.Fatalf("找不到时要明确报出来: %v", err)
+	}
+
+	// 数字下标仍然照旧。
+	if record, err := lookupElement(snapshot, "8"); err != nil || record.Index != 8 {
+		t.Fatalf("数字下标不得失效: %v", err)
+	}
+}
+
+// P5：通道整体可关，且被关掉的工具**根本不出现在 tools/list 里**。
+//
+// 这个区别很要紧：模型看得见的工具会去试，试了被拒就是浪费一轮；看不见就不会试。
+// Playwright 把坐标做成 opt-in 能力（--caps=vision）也是这个道理。
+func TestChannelCapabilitySwitch(t *testing.T) {
+	names := func() map[string]bool {
+		out := map[string]bool{}
+		for _, tool := range toolDefinitions() {
+			out[tool.Name] = true
+		}
+		return out
+	}
+
+	t.Setenv("OPEN_COMPUTER_USE_CHANNELS", "")
+	all := names()
+	for _, tool := range []string{"click", "click_xy", "drag_xy", "press_key", "get_screenshot"} {
+		if !all[tool] {
+			t.Fatalf("默认应当三条通道全开，缺 %s", tool)
+		}
+	}
+
+	t.Setenv("OPEN_COMPUTER_USE_CHANNELS", "a11y,keyboard")
+	without := names()
+	for _, gone := range []string{"click_xy", "drag_xy", "get_screenshot"} {
+		if without[gone] {
+			t.Fatalf("关掉 gui 通道后 %s 不该还在 tools/list 里", gone)
+		}
+	}
+	for _, kept := range []string{"click", "get_app_state", "press_key", "list_apps"} {
+		if !without[kept] {
+			t.Fatalf("关掉 gui 不该波及 %s", kept)
+		}
+	}
+
+	// 硬调也要拒，而且要说清是**通道被关了**，不是工具不存在。
+	service := newService()
+	result := service.callTool("click_xy", map[string]any{"app": "x", "x": 1.0, "y": 2.0})
+	if !result.IsError || !strings.Contains(result.Content[0].Text, "channel, which is disabled") {
+		t.Fatalf("被关通道的工具硬调要说清原因: %#v", result)
+	}
+}

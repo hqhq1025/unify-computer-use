@@ -768,7 +768,7 @@ def quoted(text):
     return '"' + escaped + '"'
 
 
-def render_element_line(record, render_depth):
+def render_element_line(record, render_depth, boxes=True):
     """把一条元素记录渲染成一行。文法（借鉴 Playwright 的 aria snapshot）：
 
         <缩进><index> <role> "<name>" [<states>] [desc="…"] [placeholder="…"]
@@ -779,6 +779,10 @@ def render_element_line(record, render_depth):
     - 几何压成 `{x,y,w,h}`：旧写法 `Frame: {x: 687, y: 23, width: 64, height: 46}`
       是 45 字符，新写法 14 字符，**每行省 31 字符而信息不少一个字**。
       实测几何占整棵树的 35–50%，这一项就能砍掉其中约三分之二。
+    - `boxes=False` 时整段几何都不渲染（对齐 Playwright 的 `boxes` 开关）。
+      **这不削弱任何能力**：`click(element_index)` 的坐标是服务端内部从记录里
+      取的，不经过这一行；而 agent 需要坐标时截图恒带、且与树同一个坐标空间
+      （已实测：真实 agent 只靠截图命中了 a11y 树里零存在的 GIMP 画布目标）。
     - 值放在**最后、冒号之后**，对齐 aria 的 `- textbox: Enter your name`
     - 空的段一律省略，不留空壳
     - `index` 保留在行首：我们没有 selector，它是唯一的引用手段
@@ -800,7 +804,7 @@ def render_element_line(record, render_depth):
         parts.append("[placeholder=" + quoted(record["placeholder"]) + "]")
     if record["actions"]:
         parts.append("[actions=" + ",".join(record["actions"]) + "]")
-    if record["frame"] is not None:
+    if boxes and record["frame"] is not None:
         f = record["frame"]
         parts.append("{{{0},{1},{2},{3}}}".format(
             round(f["x"]), round(f["y"]), round(f["width"]), round(f["height"])))
@@ -1035,6 +1039,7 @@ def render_visible_cells(
 
 
 def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
+                boxes=True,
                 max_tree_nodes=MAX_ELEMENTS, max_tree_depth=MAX_DEPTH, prune=True):
     records = []
     lines = []
@@ -1112,7 +1117,7 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
 
         records.append(record)
 
-        lines.append(render_element_line(record, render_depth))
+        lines.append(render_element_line(record, render_depth, boxes=boxes))
         role = record["localizedControlType"] or record["controlType"] or "element"
 
         # 未展开的菜单：保留节点自身（它是 invoke_element_action 的入口），
@@ -1279,6 +1284,7 @@ def build_snapshot(
     max_tree_depth=MAX_DEPTH,
     include_screenshot=None,
     prune=True,
+    boxes=False,
 ):
     """构建应用快照。
 
@@ -1298,6 +1304,13 @@ def build_snapshot(
 
     所以两条通道是**互补**，不是替代：树给可操作性，截图给可验证性。
     默认改为带截图，`#29` 的 A/B 用环境变量关掉再比。
+
+    `boxes` 默认 **False**（对齐 Playwright 的同名开关）。几何实测占整棵树的
+    35–50%，而它对 agent 是**冗余**的：截图恒带、且与树是同一个坐标空间，
+    需要坐标时读图即可（已实测真实 agent 只靠截图命中了 a11y 树里零存在的
+    GIMP 画布目标）。`click(element_index)` 的坐标由服务端内部从记录里取，
+    不经过渲染，所以关掉几何**不削弱任何能力**。
+    需要在树里直接看到矩形时传 `boxes: true`。
     """
     app = resolve_app(query)
     window_index, window = main_window(app)
@@ -1310,6 +1323,7 @@ def build_snapshot(
         max_tree_nodes=max_tree_nodes,
         max_tree_depth=max_tree_depth,
         prune=prune,
+        boxes=boxes,
     )
     pid = node_pid(app)
     return {
@@ -2201,6 +2215,7 @@ def perform_operation(operation):
             max_tree_nodes=positive_int(operation.get("max_tree_nodes"), MAX_ELEMENTS),
             max_tree_depth=positive_int(operation.get("max_tree_depth"), MAX_DEPTH),
             prune=operation.get("prune", True),
+            boxes=bool(operation.get("boxes", False)),
         )
         response = {"ok": True, "snapshot": snapshot}
         diagnostics = snapshot_diagnostics(snapshot.get("elements") or [])

@@ -182,7 +182,7 @@ def probe_app(client, display_name, app, toolkit, rows):
     print("  {} ({})".format(display_name, toolkit))
 
     # ---- 观测：a11y 树 ----
-    tree, err, has_image = client.call("get_app_state", {"app": app})
+    tree, err, has_image = client.call("get_app_state", {"app": app, "boxes": True})
     if err:
         check(rows, display_name, "get_app_state", "a11y", False, tree[:70])
         return
@@ -210,7 +210,7 @@ def probe_app(client, display_name, app, toolkit, rows):
     def refresh():
         """每个动作前重取快照。动作会改变树、索引会重排——测试脚本自己
         不能犯它正在检验的那类错误。"""
-        text, err, _ = client.call("get_app_state", {"app": app})
+        text, err, _ = client.call("get_app_state", {"app": app, "boxes": True})
         return [] if err else elements(text)
 
     # ---- 动作：a11y 语义点击（挑一个无害的可点元素）----
@@ -237,6 +237,36 @@ def probe_app(client, display_name, app, toolkit, rows):
         check(rows, display_name, "click(intent-guard)", "a11y",
               err and "does not match" in text,
               "拒绝了不符的声明" if err else "**没有拦住**: " + text[:50])
+
+    # ---- 寻址：选择器（跨快照存活，不依赖下标）----
+    items = refresh() or items
+    named = next((e for e in items if e["name"] and e["role"]), None)
+    if named is None:
+        check(rows, display_name, "click(selector)", "a11y", None, "没有有名元素")
+    else:
+        selector = '{} "{}"'.format(named["role"], named["name"])
+        text, err, _ = client.call("click", {
+            "app": app, "element_index": selector, "element": named["name"]})
+        if refused(text):
+            check(rows, display_name, "click(selector)", "a11y", None,
+                  "焦点守卫拒绝（环境被别的窗口占住）", guarded=True)
+            return
+        address, _ = tag_of(text)
+        ambiguous = "ambiguous" in text
+        check(rows, display_name, "click(selector)", "a11y",
+              (not err and address == "[a11y]") or ambiguous,
+              "选择器命中" if not err else ("歧义并列出候选" if ambiguous else text[:60]))
+
+    # ---- 观测：几何 opt-in ----
+    plain, err, _ = client.call("get_app_state", {"app": app})
+    boxed, err2, _ = client.call("get_app_state", {"app": app, "boxes": True})
+    if err or err2:
+        check(rows, display_name, "get_app_state(boxes)", "a11y", False, "取不到")
+    else:
+        saved = 100 * (len(boxed) - len(plain)) // max(len(boxed), 1)
+        check(rows, display_name, "get_app_state(boxes)", "a11y",
+              len(plain) < len(boxed) and "{" not in plain.split("\n")[2],
+              "默认不带几何，省 {}%".format(saved))
 
     # ---- 动作：GUI 坐标点击 + 命中回报 ----
     items = refresh() or items

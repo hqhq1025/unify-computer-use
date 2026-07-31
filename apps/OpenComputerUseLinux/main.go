@@ -187,6 +187,7 @@ type linuxRequest struct {
 	MaxTreeNodes int            `json:"max_tree_nodes,omitempty"`
 	MaxTreeDepth int            `json:"max_tree_depth,omitempty"`
 	Prune        *bool          `json:"prune,omitempty"`
+	Boxes        *bool          `json:"boxes,omitempty"`
 }
 
 type textLimit struct {
@@ -218,6 +219,13 @@ func newService() *service {
 }
 
 func (s *service) callTool(name string, args map[string]any) toolCallResult {
+	if !toolIsEnabled(name) {
+		// 工具已经从 tools/list 里摘掉了，但硬调仍然要拒——而且要说清是**通道被
+		// 关掉了**，不是工具不存在。含糊的报错会让 agent 去猜是不是名字写错了。
+		return textResult(fmt.Sprintf(
+			"tool %q belongs to the %s channel, which is disabled by OPEN_COMPUTER_USE_CHANNELS. Enabled channels: %s.",
+			name, toolChannel[name], strings.Join(sortedChannels(), ", ")), true)
+	}
 	switch name {
 	case "list_apps":
 		return s.listApps()
@@ -236,7 +244,7 @@ func (s *service) callTool(name string, args map[string]any) toolCallResult {
 		if err != nil {
 			return textResult(err.Error(), true)
 		}
-		return s.getAppState(requiredString(args, "app"), textLimit, maxTreeNodes, maxTreeDepth, optionalBool(args, "prune"))
+		return s.getAppState(requiredString(args, "app"), textLimit, maxTreeNodes, maxTreeDepth, optionalBool(args, "prune"), optionalBool(args, "boxes"))
 	case "click":
 		clickMethod, err := parseClickMethod(optionalString(args, "click_method"))
 		if err != nil {
@@ -308,7 +316,7 @@ func (s *service) listApps() toolCallResult {
 	return textResult(response.Text, false)
 }
 
-func (s *service) getAppState(app string, textLimit *textLimit, maxTreeNodes, maxTreeDepth *int, prune *bool) toolCallResult {
+func (s *service) getAppState(app string, textLimit *textLimit, maxTreeNodes, maxTreeDepth *int, prune, boxes *bool) toolCallResult {
 	if app == "" {
 		return textResult("Missing required argument: app", true)
 	}
@@ -323,6 +331,7 @@ func (s *service) getAppState(app string, textLimit *textLimit, maxTreeNodes, ma
 		request.MaxTreeDepth = *maxTreeDepth
 	}
 	request.Prune = prune
+	request.Boxes = boxes
 	snapshot, notes, result := s.refreshSnapshot(app, request)
 	if result.IsError {
 		return result
@@ -795,7 +804,13 @@ func lookupElement(snapshot *appSnapshot, elementIndex string) (*elementRecord, 
 	}
 	index, err := strconv.Atoi(elementIndex)
 	if err != nil {
-		return nil, fmt.Errorf("element_index %q is not an integer. %s", elementIndex, hint)
+		// 不是整数就当**选择器**（对齐 Playwright 的 target：
+		// "snapshot reference OR a unique element selector"）。
+		//
+		// 数字下标每次 get_app_state 都会重排，是 agent 最容易犯错的地方；
+		// 意图声明只是把那个错误变得**响亮**，没有消除它。选择器直接从快照行
+		// 抄下来就行——文法和渲染出来的一模一样：`push button "Save"`。
+		return lookupBySelector(snapshot, elementIndex, hint)
 	}
 	for _, record := range snapshot.Elements {
 		if record.Index == index {
@@ -895,6 +910,75 @@ func describeRecord(record *elementRecord) string {
 		return fmt.Sprintf("%s %q", record.ControlType, record.Name)
 	}
 	return fmt.Sprintf("an unnamed %s", record.ControlType)
+}
+
+// lookupBySelector 按 `<role> "<name>"` / `"<name>"` / `<role>` 找唯一元素。
+//
+// 语法刻意与快照行**逐字一致**：树里渲染的是 `4 push button "Save" [..]`，
+// 那么选择器就写 `push button "Save"`——从行里抄下来即可，不用学第二套写法。
+//
+// 命中多个时**不挑一个**，而是把候选连同下标一起列出来让调用方收敛。
+// 静默挑一个正是本项目一直在修的那类错误。
+func lookupBySelector(snapshot *appSnapshot, selector, hint string) (*elementRecord, error) {
+	role, name, hasName := parseSelector(selector)
+	var matches []elementRecord
+	for _, record := range snapshot.Elements {
+		if role != "" && !strings.EqualFold(strings.TrimSpace(record.ControlType), role) {
+			continue
+		}
+		if hasName && record.Name != name {
+			continue
+		}
+		if !hasName && role == "" {
+			continue
+		}
+		matches = append(matches, record)
+	}
+	if len(matches) == 1 {
+		copy := matches[0]
+		return &copy, nil
+	}
+	if len(matches) == 0 {
+		return nil, fmt.Errorf(
+			"no element matches the selector %q. Selectors are written exactly as the snapshot renders them, e.g. `push button \"Save\"`, or just `\"Save\"` to match by name alone. %s",
+			selector, hint)
+	}
+	preview := make([]string, 0, 6)
+	for i, record := range matches {
+		if i == 6 {
+			preview = append(preview, fmt.Sprintf("… and %d more", len(matches)-6))
+			break
+		}
+		preview = append(preview, fmt.Sprintf("%d=%s", record.Index, describeRecord(&record)))
+	}
+	// 收敛建议要看**缺的是哪一半**。第一版无论如何都说"加上 role"，
+	// 而调用方给的正是 `push button` 这种只有 role 的选择器——
+	// 让人补一个他已经给了的东西，等于没给建议。
+	advice := "Narrow it by adding the role, e.g. `push button \"Save\"`"
+	if role != "" && !hasName {
+		advice = "Narrow it by adding the name in quotes, e.g. `" + role + " \"Save\"`"
+	}
+	return nil, fmt.Errorf(
+		"the selector %q matches %d elements, so it is ambiguous: %s. %s, or pass one of those indices directly.",
+		selector, len(matches), strings.Join(preview, ", "), advice)
+}
+
+// parseSelector 拆出 (role, name, 是否给了 name)。
+func parseSelector(selector string) (string, string, bool) {
+	selector = strings.TrimSpace(selector)
+	start := strings.Index(selector, "\"")
+	if start < 0 {
+		return selector, "", false
+	}
+	end := strings.LastIndex(selector, "\"")
+	if end <= start {
+		return strings.TrimSpace(selector[:start]), "", false
+	}
+	name := selector[start+1 : end]
+	// 渲染时对引号和反斜杠做了转义，这里反向还原。
+	name = strings.ReplaceAll(name, "\\\"", "\"")
+	name = strings.ReplaceAll(name, "\\\\", "\\")
+	return strings.TrimSpace(selector[:start]), name, true
 }
 
 func runPython(request linuxRequest) (*linuxResponse, error) {
@@ -1548,7 +1632,75 @@ func globalPointerFallbacksEnabled() bool {
 	}
 }
 
+// 通道能力开关，对齐 Playwright 的 `--caps=vision`。
+//
+// `OPEN_COMPUTER_USE_CHANNELS` 逗号分隔，默认三条全开：a11y, gui, keyboard。
+// 关掉某条通道时，**它的工具根本不出现在 tools/list 里**——不是调用时才拒绝。
+// 这个区别很要紧：模型看得见的工具会去试，试了被拒就是浪费一轮；
+// 看不见就不会试。Playwright 把坐标做成 opt-in 能力也是这个道理。
+//
+// 用途有二：
+//  1. `#29` 的 A/B 需要一个能真正**关掉**一条通道的开关，而不只是关掉截图
+//  2. 部署到只信任语义动作的环境时，可以整条关掉坐标合成
+func enabledChannels() map[string]bool {
+	raw := strings.TrimSpace(os.Getenv("OPEN_COMPUTER_USE_CHANNELS"))
+	if raw == "" {
+		return map[string]bool{"a11y": true, "gui": true, "keyboard": true}
+	}
+	enabled := map[string]bool{}
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.ToLower(strings.TrimSpace(part))
+		if part != "" {
+			enabled[part] = true
+		}
+	}
+	return enabled
+}
+
+// 每个工具属于哪条通道。list_apps 不属于任何通道（它只枚举应用），永远可用。
+var toolChannel = map[string]string{
+	"get_app_state":         "a11y",
+	"click":                 "a11y",
+	"invoke_element_action": "a11y",
+	"set_value":             "a11y",
+	"get_screenshot":        "gui",
+	"click_xy":              "gui",
+	"drag_xy":               "gui",
+	"press_key":             "keyboard",
+	"type_text":             "keyboard",
+	"scroll":                "keyboard",
+}
+
+func sortedChannels() []string {
+	enabled := enabledChannels()
+	names := make([]string, 0, len(enabled))
+	for name := range enabled {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func toolIsEnabled(name string) bool {
+	channel, known := toolChannel[name]
+	if !known {
+		return true
+	}
+	return enabledChannels()[channel]
+}
+
 func toolDefinitions() []toolDefinition {
+	all := allToolDefinitions()
+	kept := make([]toolDefinition, 0, len(all))
+	for _, tool := range all {
+		if toolIsEnabled(tool.Name) {
+			kept = append(kept, tool)
+		}
+	}
+	return kept
+}
+
+func allToolDefinitions() []toolDefinition {
 	return []toolDefinition{
 		{
 			Name:        "click",
@@ -1557,7 +1709,7 @@ func toolDefinitions() []toolDefinition {
 			InputSchema: objectSchema(map[string]any{
 				"element":       stringProperty("Human-readable description of the element you intend to act on, e.g. \"the Save button\" or \"Position Y spin button\". Optional but strongly recommended: it is cross-checked against what element_index actually resolves to, which catches the common and otherwise SILENT failure of reusing an index from an earlier snapshot after the indices were renumbered."),
 				"app":           stringProperty("App name or bundle identifier"),
-				"element_index": stringProperty("Element index to click, from the most recent get_app_state"),
+				"element_index": stringProperty("Either an index from the most recent get_app_state, or a SELECTOR written exactly as the snapshot renders it, e.g. `push button \"Save\"` (or just `\"Save\"` to match by name alone). Selectors survive the renumbering that happens whenever the UI changes; indices do not."),
 				"click_count":   integerProperty("Number of clicks. Defaults to 1"),
 				"mouse_button":  enumStringProperty("Mouse button to click. Defaults to left.", []string{"left", "right", "middle"}),
 				"click_method":  enumStringProperty("Click implementation: auto (default), accessibility, app_post, sky_click, or global. Linux supports global AT-SPI mouse synthesis and does not currently support app_post or sky_click.", clickMethodValues),
@@ -1596,6 +1748,7 @@ func toolDefinitions() []toolDefinition {
 				"text_limit":     textLimitProperty("Maximum text characters to return. Use \"max\" for full text. Defaults to 500."),
 				"max_tree_nodes": positiveIntegerProperty("Maximum accessibility tree nodes to render. Defaults to 1200."),
 				"max_tree_depth": positiveIntegerProperty("Maximum accessibility tree depth to render. Defaults to 64."),
+				"boxes":          booleanProperty("Defaults to false. When true, each element line ends with its rectangle as {x,y,width,height} in window-relative pixels. Off by default because the geometry costs 16-25% of the tree and is redundant: a screenshot is attached to every snapshot and uses the SAME coordinate space, so read points off the image; and click(element_index) resolves coordinates server-side without needing them rendered. Turn it on when you want to reason about layout numerically."),
 				"prune":          booleanProperty("Defaults to true. Pruning keeps only interactable, on-screen elements and cuts the tree to roughly a fifth without losing anything you can act on; the omission notice reports how many nodes were left out. Set false only if you suspect a needed element was filtered."),
 			}, []string{"app"}),
 		},
