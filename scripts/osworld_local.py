@@ -108,13 +108,97 @@ class LocalController:
         return node(path)
 
     def get_accessibility_tree(self):
-        # 走本仓库自己的运行时，而不是 OSWorld 的 server。
-        binary = os.environ.get(
-            "OCU_BINARY",
-            "/home/user/unify-computer-use/dist/linux/amd64/open-computer-use")
-        if not os.path.exists(binary):
+        """整个桌面的 AT-SPI 树，序列化成 OSWorld server 的那套 XML。
+
+        为什么必须做：`active_url_from_accessTree` 这个 getter 有 **14 道题**在用
+        （另有 accessibility_tree 5 题）。它从这份 XML 里用 CSS 选择器捞
+        `application[name="Google Chrome"] entry[name="Address and search bar"]`
+        的文本当作当前 URL。垫片返回 None 时评估器直接放弃——实测第 13 题
+        （跳到密码管理页）地址栏明明是 chrome://password-manager/passwords，
+        判分却是 0.0。又一次"仪器缺一块就把成功记成失败"。
+
+        命名空间与属性名**照抄官方 server 的 _create_atspi_node**：
+        状态是 `{st}<state>`="true"，几何是 `{cp}screencoord` / `{cp}size`，
+        节点文本取 Text 接口并去掉 uFFFC/uFFFD 两个替换符（官方也这么做）。
+        照抄不是偷懒，是因为选择器写在官方 getter 里，格式差一个字都选不中。
+        """
+        try:
+            import gi
+            gi.require_version("Atspi", "2.0")
+            from gi.repository import Atspi
+            from lxml import etree
+        except Exception:
             return None
-        return None  # 只有 5 题用到，先如实返回 None 让评估器报错而不是编数据
+
+        ns = {
+            "st": "uri:deskat:state.at-spi.gnome.org",
+            "attr": "uri:deskat:attributes.at-spi.gnome.org",
+            "cp": "uri:deskat:component.at-spi.gnome.org",
+            "txt": "uri:deskat:text.at-spi.gnome.org",
+            "val": "uri:deskat:value.at-spi.gnome.org",
+            "act": "uri:deskat:action.at-spi.gnome.org",
+        }
+
+        def safe_call(fn, default=None):
+            try:
+                return fn()
+            except Exception:
+                return default
+
+        # 节点预算是硬的：整个桌面的树在这台机器上能到上万节点，
+        # 而评估器只需要地址栏那一个。不封顶会让判分本身变成一次超时。
+        budget = [int(os.environ.get("OSWORLD_TREE_BUDGET", "8000"))]
+
+        def build(node, depth):
+            if budget[0] <= 0 or depth > 40:
+                return None
+            budget[0] -= 1
+            role = safe_call(lambda: node.get_role_name(), "unknown") or "unknown"
+            tag = role.replace(" ", "-").replace("/", "-") or "unknown"
+            element = etree.Element(tag, nsmap=ns)
+            element.set("name", str(safe_call(lambda: node.get_name(), "") or ""))
+            state_set = safe_call(lambda: node.get_state_set())
+            if state_set is not None:
+                for name in ("VISIBLE", "SHOWING", "FOCUSED", "FOCUSABLE", "ENABLED",
+                             "SELECTED", "CHECKED", "EXPANDED", "ACTIVE", "MODAL",
+                             "EDITABLE", "SENSITIVE"):
+                    state = getattr(Atspi.StateType, name, None)
+                    if state is not None and safe_call(
+                            lambda: state_set.contains(state), False):
+                        element.set("{{{}}}{}".format(ns["st"], name.lower()), "true")
+            text = ""
+            iface = safe_call(lambda: node.get_text_iface())
+            if iface is not None:
+                count = safe_call(lambda: Atspi.Text.get_character_count(iface), 0) or 0
+                if count:
+                    text = safe_call(
+                        lambda: Atspi.Text.get_text(iface, 0, count), "") or ""
+                    text = text.replace("\ufffc", "").replace("\ufffd", "")
+            if text:
+                element.text = text
+            for index in range(min(safe_call(lambda: node.get_child_count(), 0) or 0, 200)):
+                child = safe_call(lambda: node.get_child_at_index(index))
+                if child is None:
+                    continue
+                built = build(child, depth + 1)
+                if built is not None:
+                    element.append(built)
+                if budget[0] <= 0:
+                    break
+            return element
+
+        desktop = safe_call(lambda: Atspi.get_desktop(0))
+        if desktop is None:
+            return None
+        root = etree.Element("desktop-frame", nsmap=ns)
+        for index in range(safe_call(lambda: desktop.get_child_count(), 0) or 0):
+            app = safe_call(lambda: desktop.get_child_at_index(index))
+            if app is None:
+                continue
+            built = build(app, 0)
+            if built is not None:
+                root.append(built)
+        return etree.tostring(root, encoding="unicode")
 
     def get_vm_screen_size(self):
         try:
