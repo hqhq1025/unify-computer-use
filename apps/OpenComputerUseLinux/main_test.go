@@ -1907,3 +1907,51 @@ func TestUnnamedWindowsStillGetAUsableLabel(t *testing.T) {
 			"就足以认出这是什么菜单")
 	}
 }
+
+func TestComboBoxSelectionIsVisibleInTheTree(t *testing.T) {
+	// 实测（OSWorld 第 4 题）：Chrome 打印对话框里 Margins / Destination / Scale
+	// 三个 combo box 在树里**只有名字、没有值**，而任务恰恰要求"把边距设成 None"。
+	// 看不见当前值，就既没法判断要不要改，也没法确认改成功了。
+	//
+	// 值不在 Value 接口上（Chrome 的 combo box 不实现它），也不在 Text 接口上
+	// （实测读回来是一个对象替换符 `￼`）。它在后代 menu item 的 SELECTED 状态上，
+	// 而且**下拉关着时也读得到**——这一点是实测确认的，否则就得先展开每个下拉框。
+	if !strings.Contains(linuxRuntimeScript, "def selected_option_name(") {
+		t.Fatal("下拉框的当前选中项要能读出来")
+	}
+	if !strings.Contains(linuxRuntimeScript, `role in ("combo box", "list box")`) {
+		t.Fatal("这次扫描只该对下拉类角色做，别的角色不付这个代价")
+	}
+}
+
+func TestFocusGuardHasAnX11FallbackForWindowsThatNeverGoActive(t *testing.T) {
+	// GNOME 门户文件对话框（每一次另存为/打开都是它）状态位是 MODAL+VISIBLE，
+	// **既没有 ACTIVE 也没有 SHOWING**；它的二级确认框（"文件已存在，是否替换"）
+	// 更是**在 a11y 树里根本不存在**，却握着输入焦点。
+	// 只认 ACTIVE 的焦点守卫会让整条 GUI 通道在这类对话框上完全不可用。
+	if !strings.Contains(linuxRuntimeScript, "def x11_holds_focus(") {
+		t.Fatal("AT-SPI 说不出话时要有一层 X11 旁证")
+	}
+	// 判据必须是**同进程**：那个二级对话框没有标题，也不是目标窗口本身。
+	if !strings.Contains(linuxRuntimeScript, "_NET_WM_PID") {
+		t.Fatal("旁证要比 pid，不能比标题——那个挡路的对话框没有标题")
+	}
+	// 但它只是兜底，不能顶替 AT-SPI 的判断
+	shim := strings.Index(linuxRuntimeScript, "def x11_holds_focus(")
+	active := strings.Index(linuxRuntimeScript, "if window_is_active(window):")
+	if active < 0 || shim < 0 {
+		t.Fatal("AT-SPI 的 ACTIVE 判断要保留在前面")
+	}
+}
+
+func TestForeignForegroundAppIsCalledOutByName(t *testing.T) {
+	// 实测：在 Chrome 里点 Save，弹出的保存对话框属于 xdg-desktop-portal-gnome，
+	// 和 Chrome 是两个进程。get_app_state(chrome) 永远看不到它，
+	// agent 会以为"点了 Save 什么都没发生"。
+	if !strings.Contains(linuxRuntimeScript, "ANOTHER APP IS IN FRONT") {
+		t.Fatal("前台窗口属于别的进程时要指名道姓地说出来")
+	}
+	if !strings.Contains(linuxRuntimeScript, "Call get_app_state with app=") {
+		t.Fatal("光说『不是你』没用，要直接给出该问哪个 app")
+	}
+}

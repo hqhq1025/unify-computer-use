@@ -21,8 +21,8 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **3** / 369 |
-| 我手工通过 | 3 / 3 |
+| 已跑题数 | **4** / 369 |
+| 我手工通过 | 3 / 4 |
 | cc 通过 | **2 / 3** |
 | cc 平均步数 | 9.0 |
 | cc 平均观测 token | 36420 |
@@ -36,6 +36,7 @@
 | 1 | chrome | Can you make Bing the main search engine when I look | ✅ | ✅ | 10 | 16939 | 78.7s |
 | 2 | chrome | Can you help me clean up my computer by getting rid  | ✅ | ✅ | 12 | 27367 | 147.5s |
 | 3 | chrome | Can you make my computer bring back the last tab I s | ✅ | ✗ 0.0 | 12 | 23787 | 152.5s |
+| 4 | chrome | Computer, can you turn the webpage I'm looking at in | ✗ 0.0 | — | — | — | — |
 
 ## 每题的过程记录
 
@@ -61,4 +62,10 @@
 - **cc**（第 2 次，得分 0.0）：cc 第二次（已修无名窗口标题）
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过，结论：这道题在**任何**用 DevTools 端点布置的部署下都不可能靠 ctrl+shift+t 完成——实测证实 CDP 关掉的标签不进 Chrome 的最近关闭列表，而官方 setup 用的正是同一个端点。我手工绕过去（把空白页导航到 tripadvisor）拿到 1.0，说明判据本身可达；cc 忠实执行了指令字面意思，并靠像素/树判据准确认定快捷键是空操作、如实汇报了失败——工具没有骗它。记为环境保真度问题，不是模型失败，也不是 MCP 缺陷。
+### 第 4 题 · e1e75309
+
+> Computer, can you turn the webpage I'm looking at into a PDF file, save it to my Desktop with the default filename and set the margins to none?
+
+- **我手工**（第 1 次，得分 0.0）：手工：ctrl+p → More settings → Margins 下拉 open + 选 None → Save → **保存对话框属于 xdg-desktop-portal-gnome 这个另一个进程**，要对它 get_app_state → 点 _Save Save
+- **我手工**（第 1 次，得分 0.0）：我手工未完成，但从这一题挖出四个真缺陷并全部修掉：(1) 下拉框的当前值在树里完全看不见——Chrome 打印对话框的 Margins/Destination/Scale 全是有名无值，而任务恰恰要求把边距设成 None；已实现从后代 menu item 的 SELECTED 状态读，且下拉关着也读得到。(2) 保存对话框属于 xdg-desktop-portal-gnome 这个**另一个进程**，get_app_state(chrome) 永远看不到它；已加另一个应用在前台的提示并指名该问哪个 app。(3) 无名窗口标题是空串。(4) **焦点守卫在门户对话框上让整条 GUI 通道不可用**——那类窗口状态位是 MODAL+VISIBLE，既无 ACTIVE 也无 SHOWING，click_xy 被一律拒绝；已加 X11 同进程兜底。剩下的拦路虎是那个文件已存在，是否替换二级确认框——它无名、握着焦点、**在 a11y 树里根本不存在**，只能靠坐标点，而我没估准坐标。
 

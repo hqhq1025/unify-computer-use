@@ -6,6 +6,7 @@ import json
 import math
 import os
 import re
+import subprocess
 import sys
 import time
 import traceback
@@ -658,8 +659,54 @@ def numeric_value(node):
     return str(current)
 
 
+# 一个下拉框最多往下翻这么多节点去找"当前选中的是哪一项"。
+# 选项列表通常几项到几十项，200 足够，而封顶保证这条路径的代价是有界的。
+SELECTION_SCAN_BUDGET = 200
+
+
+def selected_option_name(node):
+    """下拉框当前选中的是哪一项。
+
+    这补的是一个**大缺口**：此前 agent 在树里根本看不见任何下拉框的值。
+    实测 Chrome 的打印对话框——`combo box "Margins"`、`"Destination"`、
+    `"Scale"` 三个，树里全都只有名字、没有值，而任务恰恰要求"把边距设成 None"。
+    看不见当前值，就既没法判断要不要改，也没法确认改成功了。
+
+    值不在 Value 接口上（Chrome 的 combo box 根本不实现 Value），也不在 Text
+    接口上（实测读回来是一个对象替换符 `￼`）。它在**后代 menu item 的
+    SELECTED 状态**上——而且**下拉关着时也读得到**，这一点是实测确认的，
+    否则这个功能就得先展开每一个下拉框，代价完全不可接受。
+
+    有些下拉框确实读不到（实测 `combo box "Layout"` 就是 None）。那种情况下
+    返回空串、树里不显示值——**不猜**。少给一个信号，好过给一个编出来的。
+    """
+    if node is None:
+        return ""
+    stack = [node]
+    seen = 0
+    while stack and seen < SELECTION_SCAN_BUDGET:
+        current = stack.pop()
+        seen += 1
+        if current is not node and state_contains(current, Atspi.StateType.SELECTED):
+            name = str(node_name(current) or "").strip()
+            if name:
+                return name
+        for index in range(min(child_count(current), 100)):
+            child = safe(lambda: current.get_child_at_index(index))
+            if child is not None:
+                stack.append(child)
+    return ""
+
+
 def element_value(node, text_limit=DEFAULT_TEXT_LIMIT):
-    return text_value(node, text_limit=text_limit) or numeric_value(node)
+    direct = text_value(node, text_limit=text_limit) or numeric_value(node)
+    if direct:
+        return direct
+    # 只对下拉类角色做这次扫描，别的角色不付这个代价。
+    role = str(node_role(node) or "")
+    if role in ("combo box", "list box"):
+        return limit_text(selected_option_name(node), text_limit=text_limit)
+    return direct
 
 
 def positive_int(value, fallback):
@@ -1812,7 +1859,7 @@ def build_snapshot(
         # 快照更需要它——正是那次点击弹出了对话框，那一刻说"你现在被挡住了"
         # 最有用。Go 侧的 appSnapshot 没有这个字段，encoding/json 会忽略它，
         # 运行时靠下面 pop 出来放进 notes。
-        "modalNotes": modal_diagnostic(window, app),
+        "modalNotes": modal_diagnostic(window, app) + foreign_foreground_note(app),
     }
 
 
@@ -2204,6 +2251,9 @@ def focus_window(window, timeout=1.0):
         return False
     if window_is_active(window):
         return True
+    # 有些窗口**永远不设 ACTIVE**，此时向 X11 求证一次。
+    if x11_holds_focus(window):
+        return True
 
     def grab(node):
         component = safe(node.get_component_iface)
@@ -2252,6 +2302,53 @@ def active_accessible_window():
     except Exception:
         return None, None
     return None, None
+
+
+def x11_holds_focus(window):
+    """向 X11 求证：焦点是不是落在**目标应用自己**的某个窗口上。
+
+    为什么需要这条旁证，以及为什么判据是"同进程"而不是"同窗口"：
+
+    GNOME 的门户文件对话框（xdg-desktop-portal-gnome，每一次"另存为/打开"
+    都是它）状态位是 **MODAL + VISIBLE，既没有 ACTIVE 也没有 SHOWING**。
+    更糟的是它的二级对话框——实测那句"文件已存在，是否替换？"——
+    **在 a11y 树里根本不存在**（门户应用只报了一个窗口），却握着输入焦点。
+
+    于是焦点守卫只认 ACTIVE 时，整条 GUI 通道在这类对话框上直接不可用：
+    实测 OSWorld 第 4 题（网页存 PDF 到桌面）就卡死在这里，click_xy 被拒，
+    理由是"树里没有任何窗口报告 ACTIVE"——而那个理由是对的，只是结论太绝。
+
+    判据用 **_NET_WM_PID 与目标应用的 pid 相等**：
+      - 不能比窗口标题，那个二级对话框**没有标题**；
+      - 不能要求同一个窗口，正是它挡在前面；
+      - 同进程已经足够安全：守卫要防的是"输入打进别的应用"，
+        而焦点在目标应用自己的子对话框上时，这个风险不存在。
+
+    本仓库早先试过一次 X11 焦点层并撤回过，理由是实测 X11 与 AT-SPI 的 ACTIVE
+    在同一瞬间翻转、加了等于没加。那个结论在这里不适用也不矛盾：那次比的是
+    "两者都会翻转、谁更快"，这里是"AT-SPI 根本不翻转"。所以这一层只在 AT-SPI
+    说不出话时兜底。
+    """
+    app = safe(lambda: Atspi.Accessible.get_application(window))
+    target_pid = node_pid(app) if app is not None else 0
+    if not target_pid:
+        return False
+    try:
+        active = subprocess.run(["xdotool", "getactivewindow"],
+                                capture_output=True, text=True, timeout=3)
+        if active.returncode != 0 or not active.stdout.strip():
+            return False
+        prop = subprocess.run(
+            ["xprop", "-id", active.stdout.strip(), "_NET_WM_PID"],
+            capture_output=True, text=True, timeout=3)
+    except Exception:
+        return False
+    if prop.returncode != 0:
+        return False
+    digits = "".join(ch for ch in prop.stdout if ch.isdigit() or ch == " ").split()
+    if not digits:
+        return False
+    return int(digits[-1]) == int(target_pid)
 
 
 def require_window_focus(window, what):
@@ -2870,6 +2967,60 @@ def window_label(window, text_limit=DEFAULT_TEXT_LIMIT):
                 "(unnamed {} containing {!r})".format(role, hint),
                 text_limit=text_limit)
     return "(unnamed {})".format(role)
+
+
+def foreign_foreground_note(app):
+    """前台窗口属于**别的进程**时，指名道姓地说出来。
+
+    实测（OSWorld 第 4 题，"把网页存成 PDF 放到桌面"）：在 Chrome 里点 Save，
+    弹出来的文件保存对话框属于 `xdg-desktop-portal-gnome`（pid 1343），
+    和 Chrome（pid 186930）**完全是两个进程**。现代 GNOME 上，走门户的应用
+    其文件对话框都是这样。
+
+    后果很硬：`get_app_state(app="chrome")` 永远看不到那个对话框，Chrome 的
+    窗口列表里也没有它——我实测确认 Chrome 的 a11y 应用下只有一个窗口。
+    agent 会看到"点了 Save，什么都没发生"，然后开始怀疑自己点错了。
+
+    它确实出现在 list_apps 里，但那要求 agent 先想到去列一遍。与其指望它想到，
+    不如在动作之后直接说：现在前台的是谁、该去问哪个 app。
+    """
+    if app is None:
+        return []
+    mine = str(node_name(app) or "")
+    desktop = safe(lambda: Atspi.get_desktop(0))
+    if desktop is None:
+        return []
+    for index in range(min(child_count(desktop), MAX_CHILD_FANOUT)):
+        other = safe(lambda: desktop.get_child_at_index(index))
+        if other is None:
+            continue
+        name = str(node_name(other) or "")
+        if not name or name == mine:
+            continue
+        for window_index in range(min(child_count(other), 12)):
+            window = safe(lambda: other.get_child_at_index(window_index))
+            if window is None:
+                continue
+            # 判据不能只认 ACTIVE+SHOWING。实测那个门户对话框的状态位是
+            # **MODAL + VISIBLE，既没有 ACTIVE 也没有 SHOWING**——第一版就是
+            # 因为要求 ACTIVE+SHOWING 而完全不触发。这和本仓库反复记过的那条
+            # 是同一件事：状态位设不设，跨工具包全凭自觉，只能从"存在"推语义，
+            # 不能从"缺失"推语义。
+            in_front = state_contains(window, Atspi.StateType.MODAL) or (
+                state_contains(window, Atspi.StateType.ACTIVE)
+                and state_contains(window, Atspi.StateType.SHOWING))
+            if not (in_front and state_contains(window, Atspi.StateType.VISIBLE)):
+                continue
+            title = str(node_name(window) or "").strip() or "(untitled)"
+            return [
+                "ANOTHER APP IS IN FRONT: the active window is now {!r}, owned by "
+                "{!r} — a DIFFERENT process from {!r}. The tree below is still {!r}'s, "
+                "so it does not contain that window at all. This is normal on GNOME: "
+                "file open/save dialogs belong to xdg-desktop-portal-gnome, not to the "
+                "app that asked for them. Call get_app_state with app={!r} to see it.".format(
+                    title, name, mine, mine, name)
+            ]
+    return []
 
 
 def modal_diagnostic(window, app):
