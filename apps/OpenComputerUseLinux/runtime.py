@@ -690,6 +690,81 @@ NOTABLE_STATES = (
 )
 
 
+# 动作名 -> 它承诺会改变的东西。**表里的名字全部来自实测**，不是猜的。
+#
+# 思路照抄 Playwright 的 `_setChecked`（packages/playwright-core/src/server/dom.ts）：
+#
+#     const finalState = await isChecked(progress);
+#     if (finalState.matches !== state)
+#       throw new NonRecoverableDOMError('Clicking the checkbox did not change its state');
+#
+# 它抛的是 **NonRecoverableDOMError**——不重试，直接抛。重复同一个动作不会有
+# 不同结果。
+#
+# **第一版这张表是照 Playwright 的语义写的**（check / uncheck / expand / collapse
+# / select / deselect），实测六个应用**一个都没有**，整张表是死代码。
+# 真实存在的是下面这些（gedit / Nautilus / VLC / VS Code / GIMP / Thunderbird
+# 全量扫出来的动作名）：
+#
+#     click 1197 / press 144 / activate 138 / expand or contract 119 / edit 119
+#     menu 81 / open 80 / click ancestor 75 / showcontextmenu 61 / release 33
+#     showmenu 27 / dodefault 18 / setfocus 4 / increase 3 / decrease 3 / toggle 2
+#
+# 注意 `expand or contract` 和 `toggle` 是**翻转**语义，不是"设成某个值"——
+# 所以判据是"必须翻转"，不是"必须等于某值"。
+ACTION_MUST_FLIP = {
+    "expand or contract": "EXPANDED",
+    "expandorcontract": "EXPANDED",
+    "toggle": "CHECKED",
+}
+# 方向明确的动作：值必须变。
+ACTION_MUST_CHANGE_VALUE = ("increase", "decrease")
+
+
+def readable_states(node):
+    """读回那几个**可判定**的状态；读不到就返回 None（不返回空字典冒充读到了）。"""
+    if node is None:
+        return None
+    out = {}
+    for name, _label in NOTABLE_STATES:
+        state = getattr(Atspi.StateType, name, None)
+        if state is None:
+            continue
+        out[name] = state_contains(node, state)
+    return out or None
+
+
+def state_transition_note(action, before, after):
+    """动作承诺会改变什么时，动作后回读校验。
+
+    返回 (note, failed)。failed=True 表示这是**不该重试**的失败——
+    重复同一个动作不会有不同结果。
+
+    **边界必须写清楚：状态翻转证明的是"控件状态动了"，不是"行为发生了"。**
+    本仓库实测过反例：VLC 首选项里那颗单选按钮，`Toggle` 之后 CHECKED 真的
+    翻转了，面板却**不切换**。所以这条判据接不住"状态变了行为没变"那一类。
+    把它当万能验证会制造假阳性——它只接住一类：**动作承诺翻转，而状态没翻**。
+    """
+    name = ACTION_MUST_FLIP.get(str(action).strip().lower())
+    if name is None or not before or not after:
+        return None, False
+    was, now = before.get(name), after.get(name)
+    if was is None or now is None:
+        return None, False
+    if was != now:
+        return ("[state] {} flipped {} -> {}, which is what the '{}' action promises. "
+                "Note the limit: this proves the CONTROL changed, not that the "
+                "application acted on it — measured on VLC, a radio button's CHECKED "
+                "flipped while the panel it selects did not switch. Confirm the actual "
+                "effect before treating this as done."
+                .format(name, was, now, action), False)
+    return ("The '{}' action reported success, but {} is still {} — that action promises "
+            "to flip it, so nothing happened. Repeating the same call will not help; "
+            "the toolkit accepted it without acting. Reach the element with a coordinate "
+            "click instead (click_xy, or click with click_method \"global\")."
+            .format(action, name, now), True)
+
+
 def plain_text_from_rich_text(value):
     """把 Qt 的富文本 tooltip 还原成纯文本。
 
@@ -2650,16 +2725,24 @@ def perform_operation(operation):
             raise RuntimeError("Invalid click_method '{}'".format(click_method))
     elif tool == "invoke_element_action":
         action = operation.get("action", "")
+        # 动作名声明了目标状态时，动作后回读校验——照 Playwright 的 _setChecked。
+        states_before = safe(lambda: readable_states(element))
         # 只有"开右键菜单"这类幂等动作才做校验+回落。做不到这一点的话，
         # 一个已经生效但观测不到的破坏性动作会被重复执行。
         opens_menu = str(action).lower() in CONTEXT_MENU_ACTIONS
         had_menu = context_menu_visible(app) if opens_menu else False
         invoke_secondary_action(element, action)
+        transition, failed = state_transition_note(
+            action, states_before, safe(lambda: readable_states(element)))
+        if transition and failed:
+            # Playwright 在这里抛的是 NonRecoverableDOMError——不重试，直接抛。
+            # 重复同一个动作不会有不同结果。
+            raise RuntimeError(transition)
         notes.append(
             A11Y_CHANNEL
             + SEMANTIC
             + "Invoked the '{}' AT-SPI action. ".format(action)
-            + UNVERIFIED_SEMANTIC
+            + (transition if transition else UNVERIFIED_SEMANTIC)
         )
         if opens_menu and not had_menu:
             time.sleep(MENU_SETTLE_SECONDS)

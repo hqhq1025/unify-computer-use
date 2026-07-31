@@ -1760,6 +1760,76 @@ class PruneCostTests(AtspiPatchedTestCase):
         self.assertIn("Line Spacing", [r["name"] for r in records])
 
 
+class StateReadbackTests(unittest.TestCase):
+    """动作声明了目标状态时，动作后回读校验。
+
+    照抄 Playwright 的 `_setChecked`（dom.ts）：
+
+        const finalState = await isChecked(progress);
+        if (finalState.matches !== state)
+          throw new NonRecoverableDOMError('Clicking the checkbox did not change its state');
+
+    注意它抛的是 **NonRecoverable**——不重试。重复同一个动作不会有不同结果。
+    """
+
+    def test_action_names_come_from_measurement_not_from_playwright(self):
+        """第一版这张表照 Playwright 的语义写（check/uncheck/expand/collapse），
+        实测六个应用**一个都没有**，整张表是死代码。
+
+        真实存在的是 `expand or contract`(119)、`toggle`(2) 这些，
+        而且它们是**翻转**语义不是"设成某值"。
+        """
+        for dead in ("check", "uncheck", "expand", "collapse", "select", "deselect"):
+            self.assertNotIn(dead, runtime.ACTION_MUST_FLIP, dead)
+        self.assertIn("expand or contract", runtime.ACTION_MUST_FLIP)
+        self.assertIn("toggle", runtime.ACTION_MUST_FLIP)
+
+    def test_state_flipped_as_promised(self):
+        note, failed = runtime.state_transition_note(
+            "toggle", {"CHECKED": False}, {"CHECKED": True})
+        self.assertFalse(failed)
+        self.assertIn("CHECKED flipped False -> True", note)
+
+    def test_boundary_is_stated_not_hidden(self):
+        """**状态到位 ≠ 行为发生。**
+
+        本仓库实测过反例：VLC 首选项里那颗单选按钮，Toggle 之后 CHECKED 真的
+        翻转了，面板却不切换。这条判据接不住那一类，措辞里必须讲明白——
+        不然它就成了新的假阳性来源。
+        """
+        note, _ = runtime.state_transition_note(
+            "toggle", {"CHECKED": False}, {"CHECKED": True})
+        self.assertIn("proves the CONTROL changed", note)
+        self.assertIn("VLC", note)
+
+    def test_state_did_not_change_is_a_hard_failure(self):
+        note, failed = runtime.state_transition_note(
+            "expand or contract", {"EXPANDED": False}, {"EXPANDED": False})
+        self.assertTrue(failed)
+        self.assertIn("promises to flip it", note)
+        # 必须明说"别重试"，并给出下一条可走的路。
+        self.assertIn("Repeating the same call will not help", note)
+        self.assertIn("click_xy", note)
+
+    def test_actions_that_declare_nothing_are_not_judged(self):
+        """`click` / `menu` 这类动作没声明目标状态，回读无从谈起——
+        **判不了就别判**，硬判会制造假阳性。"""
+        # 这些是实测里最常见的动作名，它们都不承诺改变任何可读状态。
+        for action in ("click", "menu", "activate", "press", "open", "dodefault", ""):
+            note, failed = runtime.state_transition_note(
+                action, {"CHECKED": False}, {"CHECKED": True})
+            self.assertIsNone(note, action)
+            self.assertFalse(failed, action)
+
+    def test_unreadable_state_is_not_treated_as_failure(self):
+        note, failed = runtime.state_transition_note("toggle", None, {"CHECKED": True})
+        self.assertIsNone(note)
+        self.assertFalse(failed)
+        note, failed = runtime.state_transition_note("toggle", {"CHECKED": False}, {})
+        self.assertIsNone(note)
+        self.assertFalse(failed)
+
+
 class StableIndexTests(unittest.TestCase):
     """编号要跨快照存活。照抄 Playwright 的 ariaSnapshot.ts。
 
