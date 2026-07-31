@@ -8,3 +8,6 @@ artifacts/codex-dumps/
 research/
 __pycache__/
 *.pyc
+
+# go test -c 的产物，别再误提交
+apps/OpenComputerUseLinux/opencomputeruselinux

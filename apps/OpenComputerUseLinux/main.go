@@ -141,6 +141,83 @@ func (s *appSnapshot) renderedText() string {
 	return strings.Join(lines, "\n")
 }
 
+// 大输出落盘、响应里只回路径——照抄 playwright-mcp 的 `--output-mode file|stdout`：
+//
+//	--output-mode <mode>   whether to save snapshots, console messages, network
+//	                       logs to a file or to the standard output.
+//	                       Can be "file" or "stdout". Default is "stdout".
+//
+// 它的响应里长这样：
+//
+//	### Snapshot
+//	[Snapshot](.playwright-cli/page-2026-02-14T19-22-42-679Z.yml)
+//
+// **它的解法不是压缩内容，是把大输出写文件、只回一个路径**，agent 需要细节时
+// 自己去读。对我们尤其有价值：LibreOffice 的树 17694 字符、VS Code 24731 字符，
+// 而 agent 通常只关心其中一两个元素。
+//
+// 默认仍然是 stdout，有两个原因，第二个更硬：
+//  1. 落盘把"一次调用拿到全部信息"变成"两次调用"，对小树是净损失
+//     （gedit 的树只有 659 字符，写出去再读回来纯属折腾）。
+//  2. **它要求 agent 有读文件的能力。** 我们跑 OSWorld 时刻意禁掉了
+//     Bash/Read/Write（否则 agent 会绕开 GUI 直接改文件），那种配置下
+//     落盘模式会让树**根本读不到**。所以这是一个部署方决定的开关，
+//     不能默认打开。
+func outputMode() string {
+	mode := strings.ToLower(strings.TrimSpace(os.Getenv("OPEN_COMPUTER_USE_OUTPUT_MODE")))
+	if mode == "file" {
+		return "file"
+	}
+	return "stdout"
+}
+
+func outputDir() string {
+	if dir := strings.TrimSpace(os.Getenv("OPEN_COMPUTER_USE_OUTPUT_DIR")); dir != "" {
+		return dir
+	}
+	return filepath.Join(os.TempDir(), "open-computer-use")
+}
+
+// outputThreshold 小于这个字符数的输出不落盘。
+// 落盘把一次调用变成两次，对小树是净损失——gedit 的树只有 659 字符，
+// 写出去再读回来纯属折腾。
+func outputThreshold() int {
+	if raw := strings.TrimSpace(os.Getenv("OPEN_COMPUTER_USE_OUTPUT_THRESHOLD")); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
+			return n
+		}
+	}
+	return 4000
+}
+
+// spillToFile 把大文本写进输出目录，返回给 agent 看的替代文本。
+// 写不成就返回空串——**落盘失败绝不能让工具失败**，原样回文本即可。
+func spillToFile(kind, text string) string {
+	if outputMode() != "file" || len(text) < outputThreshold() {
+		return ""
+	}
+	dir := outputDir()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return ""
+	}
+	name := fmt.Sprintf("%s-%d.txt", kind, time.Now().UnixNano())
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+		return ""
+	}
+	head := text
+	if idx := strings.Index(head, "\n"); idx >= 0 {
+		if second := strings.Index(head[idx+1:], "\n"); second >= 0 {
+			head = head[:idx+1+second]
+		}
+	}
+	return fmt.Sprintf("%s\n\n[%s written to %s — %d characters, %d lines. "+
+		"Read that file when you need the detail; it is the same content this "+
+		"response would otherwise have inlined. If you have no way to read files, "+
+		"ask the operator to unset OPEN_COMPUTER_USE_OUTPUT_MODE.]",
+		head, kind, path, len(text), strings.Count(text, "\n")+1)
+}
+
 func (s *appSnapshot) result() toolCallResult {
 	return s.resultWithNotes(nil)
 }
@@ -166,6 +243,9 @@ func (s *appSnapshot) resultWithNotes(notes []string) toolCallResult {
 		}
 		lines = append(lines, "", text)
 		text = strings.Join(lines, "\n")
+	}
+	if spilled := spillToFile("snapshot", text); spilled != "" {
+		text = spilled
 	}
 	result := toolCallResult{
 		Content: []contentItem{{Type: "text", Text: text}},

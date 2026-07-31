@@ -1298,3 +1298,61 @@ func TestTextAttributeChanges(t *testing.T) {
 		t.Fatalf("没有动作前的快照就不该报变化：%v", got)
 	}
 }
+
+// 大输出落盘只回路径——照抄 playwright-mcp 的 --output-mode file|stdout。
+//
+// 它的解法不是压缩内容，是**把大输出写文件、只回一个路径**，agent 需要细节时
+// 自己去读。LibreOffice 的树 17694 字符、VS Code 24731 字符，而 agent 通常
+// 只关心其中一两个元素。
+func TestOutputSpillsToFileOnlyWhenAskedAndOnlyWhenBig(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("OPEN_COMPUTER_USE_OUTPUT_DIR", dir)
+
+	big := strings.Repeat("a very long tree line\n", 500)
+
+	// 默认 stdout：一个字都不落盘。
+	t.Setenv("OPEN_COMPUTER_USE_OUTPUT_MODE", "")
+	if got := spillToFile("snapshot", big); got != "" {
+		t.Fatalf("默认不该落盘：%s", got[:60])
+	}
+
+	// 开了 file 模式，但内容小于阈值时也不落盘——
+	// 落盘把一次调用变成两次，对小树是净损失（gedit 的树只有 659 字符）。
+	t.Setenv("OPEN_COMPUTER_USE_OUTPUT_MODE", "file")
+	if got := spillToFile("snapshot", "short tree"); got != "" {
+		t.Fatalf("小输出不该落盘：%s", got)
+	}
+
+	replacement := spillToFile("snapshot", big)
+	if replacement == "" {
+		t.Fatal("大输出应当落盘")
+	}
+	for _, fragment := range []string{dir, "characters", "lines", "Read that file"} {
+		if !strings.Contains(replacement, fragment) {
+			t.Fatalf("替代文本要说清写到哪、有多大、怎么读，缺 %q：%s", fragment, replacement)
+		}
+	}
+	// 替代文本必须**远小于**原文，否则这个机制毫无意义。
+	if len(replacement) >= len(big)/4 {
+		t.Fatalf("替代文本没省下东西：%d vs %d", len(replacement), len(big))
+	}
+
+	// 写出去的必须是原文，一个字节都不能少——agent 读它是为了拿全量。
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("应当只写出一个文件：%v %v", entries, err)
+	}
+	written, err := os.ReadFile(filepath.Join(dir, entries[0].Name()))
+	if err != nil || string(written) != big {
+		t.Fatalf("落盘内容与原文不一致")
+	}
+}
+
+// 落盘失败绝不能让工具失败——原样回文本即可。
+func TestSpillFailureFallsBackToInlineText(t *testing.T) {
+	t.Setenv("OPEN_COMPUTER_USE_OUTPUT_MODE", "file")
+	t.Setenv("OPEN_COMPUTER_USE_OUTPUT_DIR", "/proc/definitely-not-writable")
+	if got := spillToFile("snapshot", strings.Repeat("x", 9000)); got != "" {
+		t.Fatalf("写不成时应当退回内联，而不是给出一个不存在的路径：%s", got[:60])
+	}
+}
