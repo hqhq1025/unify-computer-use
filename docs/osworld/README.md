@@ -21,13 +21,24 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **72** / 369 |
-| 我手工通过 | 57 / 72 |
-| cc 通过 | **58 / 71** |
-| cc 平均步数 | 15.5 |
-| cc 平均观测 token | 45956 |
-| cc 平均用时 | 210s |
-| 执行轴 a11y 占比 | 50% （478/947）|
+| 已跑题数 | **73** / 369 |
+| 我手工通过 | 58 / 73 |
+| cc 通过 | **59 / 72** |
+| cc 平均步数 | 15.7 |
+| cc 平均观测 token | 45474 |
+| cc 平均用时 | 211s |
+| 执行轴 a11y 占比 | 51% （479/948）|
+
+### 两种口径要分开看
+
+从第 70 题起 Bash 是开着的。开了 Bash 之后通过率**不再单纯反映**
+这条 MCP 链路的能力——有些题可以完全绕开桌面用 shell 做完，
+第 70 题就是这样（13 步里 11 步是 Bash）。
+
+| 口径 | 题数 | 通过 | 平均步数 |
+|---|---|---|---|
+| Bash 关闭（纯链路） | 68 | 56 | 15.2 |
+| Bash 打开 | 4 | 3 | 26.5 |
 
 ## cc 未通过的题，成因分类
 
@@ -125,6 +136,7 @@
 | 70 | gimp | Please batch process all images on the desktop by in | ✗ 0.0 | ✗ 0.0 | 13 | 2417 | 201.5s |
 | 71 | gimp | Could you turn my image into CYMK mode within GIMP ? | ✅ | ✅ | 33 | 9818 | 572.2s |
 | 72 | gimp | Use GIMP only to convert my new RAW image into a JPE | ✅ | ✅ | 31 | 6784 | 488.8s |
+| 73 | libreoffice_calc | I have calculated the total work hours from the ever | ✅ | ✅ | 29 | 2574 | 307.7s |
 
 ## 每题的过程记录
 
@@ -610,4 +622,10 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 31 步一次通过。
+### 第 73 题 · 357ef137
+
+> I have calculated the total work hours from the everday hours. And I have an hourly rate. Now I want to multiply the total hours with the hourly rate to get a total earned amount. However, I can't get a correct answer by directly multiply the two cells. Here the "total hours" is of time and "hourly rate" is just a number. How can I get the correct product of them? Help me fill in the cell the correct answer. Don't touch irrelevant blank regions.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 29 步一次通过（compare_table 判据）。
 

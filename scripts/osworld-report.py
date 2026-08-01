@@ -87,6 +87,32 @@ def main():
         if sem + syn:
             out.write("| 执行轴 a11y 占比 | {:.0f}% （{}/{}）|\n".format(
                 100.0 * sem / (sem + syn), sem, sem + syn))
+    # **按口径分开报。**
+    #
+    # 从第 70 题起 Bash 是开着的，而开了 Bash 之后通过率不再单纯反映这条 MCP
+    # 链路的能力——第 70 题当场证明了：13 步里 11 步是 Bash，cc 用 headless
+    # GIMP 跑批处理，整条桌面链路没碰。把两种口径的数字合成一个平均值，
+    # 等于把两个不同的实验说成一个。
+    # 缺 bash 字段的是第 70 题之前写下的记录——那时字段还不存在，而 Bash
+    # 确实是关着的。按事实归到"关闭"一侧，不要因为字段缺失就把它们丢掉。
+    with_bash = [r for r in cc_rows if r.get("bash")]
+    without = [r for r in cc_rows if not r.get("bash")]
+    if with_bash and without:
+        out.write("\n### 两种口径要分开看\n\n")
+        out.write("从第 70 题起 Bash 是开着的。开了 Bash 之后通过率**不再单纯反映**\n"
+                  "这条 MCP 链路的能力——有些题可以完全绕开桌面用 shell 做完，\n"
+                  "第 70 题就是这样（13 步里 11 步是 Bash）。\n\n")
+        out.write("| 口径 | 题数 | 通过 | 平均步数 |\n|---|---|---|---|\n")
+        for name, group in (("Bash 关闭（纯链路）", without), ("Bash 打开", with_bash)):
+            tasks_in = {}
+            for row in group:
+                tasks_in[row["task"]] = max(tasks_in.get(row["task"], 0.0),
+                                            row.get("score") or 0)
+            steps_in = [r["steps"] for r in group if r.get("steps")]
+            out.write("| {} | {} | {} | {} |\n".format(
+                name, len(tasks_in),
+                sum(1 for v in tasks_in.values() if v >= 1.0),
+                "{:.1f}".format(sum(steps_in) / len(steps_in)) if steps_in else "—"))
     out.write("\n")
 
     # 失败成因分类。**没有这一段，数字会被误读**：cc 未通过的题里，
