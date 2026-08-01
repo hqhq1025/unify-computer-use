@@ -373,6 +373,74 @@ def app_windows(app):
     return windows
 
 
+def x11_active_client_size():
+    """X11 认定的活动窗口，去掉不可见阴影之后的真实尺寸。
+
+    用来在 AT-SPI 分不出高下时做**裁决**。返回 (宽, 高)，拿不到就 None。
+
+    为什么用尺寸而不是位置或标题：
+      - 位置不行：GTK4 的 a11y 窗口把 extents 报成 (0,0) 起点，和屏幕坐标对不上；
+      - 标题不行：挡在最前面的那个二级对话框**没有标题**；
+      - 尺寸行，而且精确：X11 的窗口尺寸包含 GTK 画的不可见阴影边框，
+        减掉 `_GTK_FRAME_EXTENTS` 之后与 a11y 报的尺寸**逐像素相等**。
+        实测：X11 827x291，阴影 (61,61,55,67)，相减 705x169，
+        与那个无名确认框的 a11y 尺寸完全一致。
+    """
+    try:
+        active = subprocess.run(["xdotool", "getactivewindow"],
+                                capture_output=True, text=True, timeout=3)
+        if active.returncode != 0 or not active.stdout.strip():
+            return None
+        window_id = active.stdout.strip()
+        info = subprocess.run(["xwininfo", "-id", window_id],
+                              capture_output=True, text=True, timeout=3).stdout
+        width = re.search(r"Width:\s+(\d+)", info)
+        height = re.search(r"Height:\s+(\d+)", info)
+        if not (width and height):
+            return None
+        size = [int(width.group(1)), int(height.group(1))]
+        extents = subprocess.run(["xprop", "-id", window_id, "_GTK_FRAME_EXTENTS"],
+                                 capture_output=True, text=True, timeout=3).stdout
+        numbers = [int(n) for n in re.findall(r"\d+", extents)]
+        if len(numbers) >= 4:
+            left, right, top, bottom = numbers[:4]
+            size[0] -= left + right
+            size[1] -= top + bottom
+        return tuple(size)
+    except Exception:
+        return None
+
+
+def x11_preferred_window(candidates):
+    """在多个候选里挑出 X11 认为在最前面的那个。唯一命中才返回。
+
+    这条判据修的是一个**根因**，不是症状：GNOME 门户的文件对话框和它的二级
+    确认框（"文件已存在，是否替换？"）是同一个应用下的两个窗口，
+    状态位**完全相同**（MODAL + VISIBLE，都没有 ACTIVE / SHOWING）。
+    原来的顺序取"第一个模态"，于是永远拿到文件选择器，
+    而真正挡在前面、握着焦点的是那个无名确认框。
+
+    实测代价：OSWorld 第 4 题（网页存 PDF 到桌面）因此卡死，
+    我一度断定"那个确认框根本不在 a11y 树里"——**那个结论是错的**，
+    它在树里，只是我们选错了窗口。
+
+    命中不唯一时返回 None、让原有顺序接管：一个裁决判据在自己也含糊时
+    不该硬裁。
+    """
+    target = x11_active_client_size()
+    if target is None:
+        return None
+    matched = []
+    for index, window in candidates:
+        frame = safe(lambda: extents(window))
+        if not frame:
+            continue
+        if (abs(int(frame["width"]) - target[0]) <= 2
+                and abs(int(frame["height"]) - target[1]) <= 2):
+            matched.append((index, window))
+    return matched[0] if len(matched) == 1 else None
+
+
 def main_window(app):
     """挑出当前真正该操作的顶层窗口。
 
@@ -407,6 +475,16 @@ def main_window(app):
     for index, window in modal:
         if state_contains(window, Atspi.StateType.ACTIVE):
             return index, window
+    # X11 裁决放在这里，而且判据是**全部窗口**，不是上面那个 modal 列表。
+    #
+    # 第一版只裁决 modal，结果一次都没跑到——因为 modal 的条件是
+    # `MODAL and SHOWING`，而门户的两个窗口都**没有 SHOWING**。
+    # 这正是本仓库反复记的那条：状态位设不设全凭工具包自觉，
+    # 只能从"存在"推语义，不能从"缺失"推语义。候选集合本身就不该依赖 SHOWING。
+    if len(windows) > 1:
+        preferred = x11_preferred_window(windows)
+        if preferred is not None:
+            return preferred
     if modal:
         return modal[0]
     for index, window in windows:

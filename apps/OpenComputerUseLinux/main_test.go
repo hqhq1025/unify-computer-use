@@ -1989,3 +1989,33 @@ func TestFocusGuardMustNotGiveFalsePositives(t *testing.T) {
 		t.Fatal("激活请求之后必须重新确认焦点，不能直接返回成功")
 	}
 }
+
+func TestX11ArbitratesWhichWindowIsInFrontWhenAtspiCannotTell(t *testing.T) {
+	// 这条修的是一个**根因**，不是症状。
+	//
+	// GNOME 门户的文件对话框和它的二级确认框（"文件已存在，是否替换？"）是同一个
+	// 应用下的两个窗口，状态位**完全相同**：MODAL + VISIBLE，都没有 ACTIVE，
+	// 也都没有 SHOWING。按顺序取第一个，就永远拿到文件选择器，
+	// 而真正挡在前面、握着焦点的是那个无名确认框。
+	//
+	// 我一度断定"那个确认框根本不在 a11y 树里"——**结论是错的**。它在树里，
+	// 2418 个节点，只是我们选错了窗口。
+	if !strings.Contains(linuxRuntimeScript, "def x11_preferred_window(") {
+		t.Fatal("AT-SPI 分不出高下时要让 X11 裁决")
+	}
+	// 判据必须是尺寸：位置不行（GTK4 把 a11y extents 报成 (0,0) 起点），
+	// 标题不行（那个确认框没有标题）。尺寸行，减掉 _GTK_FRAME_EXTENTS 之后
+	// 与 a11y 逐像素相等——实测 827x291 - (61,61,55,67) = 705x169。
+	if !strings.Contains(linuxRuntimeScript, "_GTK_FRAME_EXTENTS") {
+		t.Fatal("尺寸对比必须先减掉 GTK 的不可见阴影边框")
+	}
+	// 候选集合**不能**依赖 SHOWING。第一版就是因为只在 `MODAL and SHOWING`
+	// 的列表上裁决，而门户窗口没有 SHOWING，于是一次都没跑到。
+	if !strings.Contains(linuxRuntimeScript, "x11_preferred_window(windows)") {
+		t.Fatal("裁决要在全部窗口上做，不能只在 modal+showing 的子集上做")
+	}
+	// 命中不唯一时要让原有顺序接管——裁决判据在自己含糊时不该硬裁。
+	if !strings.Contains(linuxRuntimeScript, "return matched[0] if len(matched) == 1 else None") {
+		t.Fatal("命中不唯一时必须放弃裁决")
+	}
+}
