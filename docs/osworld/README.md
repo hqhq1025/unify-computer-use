@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **59** / 369 |
-| 我手工通过 | 46 / 59 |
-| cc 通过 | **48 / 58** |
-| cc 平均步数 | 14.8 |
-| cc 平均观测 token | 51339 |
-| cc 平均用时 | 194s |
-| 执行轴 a11y 占比 | 51% （413/813）|
+| 已跑题数 | **60** / 369 |
+| 我手工通过 | 47 / 60 |
+| cc 通过 | **49 / 59** |
+| cc 平均步数 | 14.7 |
+| cc 平均观测 token | 50728 |
+| cc 平均用时 | 192s |
+| 执行轴 a11y 占比 | 51% （415/816）|
 
 ## cc 未通过的题，成因分类
 
@@ -109,6 +109,7 @@
 | 57 | gimp | Could you help me set the image to Palette-Based? | ✗ 0.0 | — | — | — | — |
 | 58 | gimp | Can you assist me in moving the text box to the left | ✅ | ✅ | 30 | 26797 | 476.7s |
 | 59 | gimp | I'd like to make the picture's contrast stronger to  | ✗ 0.0 | ✗ 0.0 | 9 | 5194 | 87.5s |
+| 60 | gimp | Please rotate my figure to mirror it horizontally. | ✅ | ✅ | 7 | 3616 | 84.1s |
 
 ## 每题的过程记录
 
@@ -515,4 +516,10 @@
 - **我手工**（第 2 次，得分 0.0）：第二次与第一次相同。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次完全一致（9 步、5192 token）。转下一题。
+### 第 60 题 · 72f83cdc
+
+> Please rotate my figure to mirror it horizontally.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 7 步一次通过（镜像翻转）。
 

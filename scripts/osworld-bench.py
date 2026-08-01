@@ -222,6 +222,19 @@ REFUSAL_MARKERS = (
     "was removed", "has been removed", "not available", "no longer available",
     "unable to", "there is no", "there's no", "not supported",
     "isn't supported", "is not supported", "no way to",
+    # "GIMP doesn't have a \"Blue\" theme" —— 第 65 题 cc 的原话。
+    #
+    # 它做的事完全正确：进到 Edit → Preferences → Theme，核实了列表里只有
+    # Dark/Gray/Light/System 四项、没有 Blue，还把四个主题的路径一并列了出来。
+    # 这是一次**有证据的**拒绝，比空口说"做不到"强得多。而旧的关键词表把它判成
+    # 0.0，理由是"它可能以为自己做成了"——恰恰相反，它比谁都清楚做不成。
+    #
+    # 仪器的假阴性和模型的失败混在一起，是这套跑测里最该避免的污染：
+    # 它会让人去修一个并不存在的模型问题。
+    "does not have", "doesn't have", "has no ", "have no ",
+    "not offer", "does not offer", "doesn't offer",
+    "no option", "no built-in", "no such option",
+    "not one of", "isn't one of", "is not one of",
 )
 
 
