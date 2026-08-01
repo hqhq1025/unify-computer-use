@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **12** / 369 |
-| 我手工通过 | 10 / 12 |
-| cc 通过 | **10 / 12** |
-| cc 平均步数 | 10.2 |
-| cc 平均观测 token | 28315 |
-| cc 平均用时 | 125s |
-| 执行轴 a11y 占比 | 41% （45/109）|
+| 已跑题数 | **15** / 369 |
+| 我手工通过 | 12 / 15 |
+| cc 通过 | **13 / 15** |
+| cc 平均步数 | 10.6 |
+| cc 平均观测 token | 25229 |
+| cc 平均用时 | 129s |
+| 执行轴 a11y 占比 | 42% （57/136）|
 
 ## 逐题
 
@@ -45,6 +45,9 @@
 | 10 | chrome | My grandmother has been using the Chrome lately and  | ✅ | ✅ | 11 | 7830 | 137.0s |
 | 11 | chrome | I am from the country of Atlantis, and my mother ton | ✅ | ✅ | 2 | 191 | 24.8s |
 | 12 | chrome | Please help me set Chrome to delete my browsing data | ✅ | ✅ | 8 | 17631 | 96.0s |
+| 13 | chrome | Computer, please navigate to the area in my browser  | ✅ | ✅ | 7 | 10737 | 76.0s |
+| 14 | chrome | Could you help me unzip the downloaded extension fil | ✅ | ✅ | 27 | 27863 | 315.7s |
+| 15 | chrome | Could you assist me in turning off the dark mode fea | ✗ 0.0 | ✅ | 6 | 9949 | 73.5s |
 
 ## 每题的过程记录
 
@@ -91,6 +94,7 @@
 
 - **我手工**（第 1 次，得分 1.0）：手工：ctrl+shift+o 开书签管理器 → 选中 tree item「Bookmarks bar」→ Organise 菜单 → Add new folder → 输入 Favorites → Return
 - **cc**（第 1 次，得分 1.0）：cc 第一次
+- **cc**（第 2 次，得分 1.0）：cc 第二次（对照：应用名指南上线后，看是否还先 list_apps）
 ### 第 7 题 · 7a5a7856
 
 > Can you save this webpage I'm looking at to bookmarks bar so I can come back to it later?
@@ -132,5 +136,26 @@
 
 - **我手工**（第 1 次，得分 0.0）：手工：chrome://settings/content/siteData → 选中 radio「Delete data … when you close all windows」。注意 chrome://settings/cookies 会重定向到第三方 Cookie 页，那里没有这个选项。
 - **我手工**（第 2 次，得分 1.0）：手工成功。两点：(1) chrome://settings/cookies 会重定向到第三方 Cookie 页，那里没有这个选项，正确页面是 chrome://settings/content/siteData；(2) 第一次失败是 Chrome 被内存压力挤崩了——机器只有 3.8G，同时开着 GIMP/VS Code/Thunderbird/VLC/LibreOffice 时可用内存 1.8G，关掉重应用后才稳定。这属于环境问题，不是链路问题。
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+### 第 13 题 · 12086550
+
+> Computer, please navigate to the area in my browser settings where my passwords are stored. I want to check my login information for Etsy without revealing it just yet.
+
+- **我手工**（第 1 次，得分 0.0）：手工：地址栏直达 chrome://password-manager/passwords
+- **我手工**（第 2 次，得分 1.0）：补上 get_accessibility_tree 垫片（XML 格式照抄官方 server 的 _create_atspi_node）后重新判分
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+### 第 14 题 · 6766f2b8
+
+> Could you help me unzip the downloaded extension file from /home/user/Desktop/ to /home/user/Desktop/ and configure it in Chrome's extensions?
+
+- **我手工**（第 1 次，得分 0.0）：手工：chrome://extensions → 开 Developer mode → Load unpacked → **门户目录选择器用 ctrl+l 直接输路径**（比点侧栏可靠，第 4 题点侧栏失败过）→ Return。'另一个应用在前台'那条提示直接指出了该问 xdg-desktop-portal-gnome。
+- **我手工**（第 2 次，得分 0.0）：手工成功。关键：门户对话框弹出后**焦点会漂回主应用**——第一次输路径全打进了 Chrome。要先 wmctrl 激活对话框窗口再操作。这也暴露一个真问题：焦点守卫放行了，但键实际落到了别的窗口，守卫在这种场景下给了假阳性。
+- **我手工**（第 3 次，得分 1.0）：手工成功。链路上两条真发现：(1) 门户对话框弹出后**焦点会漂回主应用**，第一次输的路径全打进了 Chrome——而焦点守卫放行了，这是守卫的假阳性；要先 wmctrl 激活对话框。(2) ctrl+l 在 GTK 文件选择器里开位置栏直接输路径，比点侧栏可靠（第 4 题点侧栏失败过）。判分要等 Chrome 把 Preferences 落盘，这题没有 postconfig，所以得多等一会儿。
+- **cc**（第 1 次，得分 1.0）：cc 第一次（应用名指南上线后）
+### 第 15 题 · 93eabf48
+
+> Could you assist me in turning off the dark mode feature in Google Chrome? I've noticed that while dark mode is great for reducing glare, it actually makes it more challenging for me to read text clearly, especially with my astigmatism.
+
+- **我手工**（第 1 次，得分 0.0）：手工未完成，且我认为**这道题在 Linux 上没有 UI 路径**：截图证实 chrome://settings/appearance 页上根本没有 Mode(Light/Dark/Device) 控件——只有 Theme(GTK / Use Classic / Use QT)、工具栏、若干开关、字号、缩放。Linux 版 Chrome 跟随系统 GTK 主题，那个模式选择器只在 Windows/macOS/ChromeOS 上存在。点了唯一相关的「Use Classic」，界面变了 6.45% 像素，但 Preferences 里 browser.theme.color_scheme 仍是 2（dark）。题目的 config 是直接写 Preferences 强制成 dark 的，而 UI 上没有对应的反向操作。链路没问题，是题与平台不匹配。
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 
