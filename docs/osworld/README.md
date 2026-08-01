@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **20** / 369 |
-| 我手工通过 | 16 / 20 |
-| cc 通过 | **18 / 20** |
-| cc 平均步数 | 11.1 |
-| cc 平均观测 token | 34403 |
-| cc 平均用时 | 135s |
-| 执行轴 a11y 占比 | 44% （88/199）|
+| 已跑题数 | **24** / 369 |
+| 我手工通过 | 20 / 24 |
+| cc 通过 | **22 / 24** |
+| cc 平均步数 | 11.4 |
+| cc 平均观测 token | 42160 |
+| cc 平均用时 | 138s |
+| 执行轴 a11y 占比 | 44% （105/236）|
 
 ## 逐题
 
@@ -53,6 +53,10 @@
 | 18 | chrome | Can you enable the 'Do Not Track' feature in Chrome  | ✅ | ✅ | 11 | 18168 | 131.6s |
 | 19 | chrome | I want Chrome to warn me whenever I visit a potentia | ✅ | ✅ | 8 | 11282 | 97.4s |
 | 20 | chrome | Find flights from New York–Kennedy Airport to Chicag | ✗ 0.0 | ✅ | 22 | 186941 | 319.3s |
+| 21 | chrome | In the FlightAware Discussions forum, navigate to th | ✅ | ✅ | 12 | 67310 | 130.8s |
+| 22 | chrome | Find a large car from next Monday to Friday in Zuric | ✅ | ✅ | 20 | 100304 | 235.8s |
+| 23 | chrome | Find the FAQ page about ticket delivery. | ✅ | ✅ | 7 | 36711 | 82.8s |
+| 24 | chrome | On next Monday, look up a flight from Mumbai to Stoc | ✅ | ✅ | 13 | 165995 | 191.6s |
 
 ## 每题的过程记录
 
@@ -198,4 +202,28 @@
 - **我手工**（第 1 次，得分 0.0）：链路观察：delta.com 加载后树里有 346 个元素，但**可交互控件只有浏览器自身的按钮**——页面的出发地/目的地/日期输入框没有出现在 a11y 树里。这类重前端站点把控件画成自定义组件，Blink 不一定给它们可用的角色。交给 cc 看它能否靠坐标/截图绕过去。
 - **cc**（第 1 次，得分 0.0）：cc 第一次
 - **cc**（第 2 次，得分 1.0）：cc 第二次（预算加到 6）
+### 第 21 题 · a96b564e
+
+> In the FlightAware Discussions forum, navigate to the FlightAware > General category and open the topic with the most posts or replies.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：链路验证通过（FlightAware 页面树可用），题目本身由 cc 一次完成。
+### 第 22 题 · 1704f00f
+
+> Find a large car from next Monday to Friday in Zurich, sorted by price.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：链路验证：页面先出现 Human Verification（反爬），树里 40 个元素可用。题目由 cc 一次完成（conj=or，两个判据命中其一即可）。
+### 第 23 题 · f3b19d1e
+
+> Find the FAQ page about ticket delivery.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：链路验证通过，cc 7 步一次完成。
+### 第 24 题 · 82bc8d6a
+
+> On next Monday, look up a flight from Mumbai to Stockholm.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：链路验证通过，cc 13 步一次完成。
 
