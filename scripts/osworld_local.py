@@ -31,6 +31,17 @@ OSWORLD_ROOT = os.environ.get("OSWORLD_ROOT", "/home/user/OSWorld")
 STUBS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "osworld-stubs")
 CACHE_DIR = os.environ.get("OSWORLD_CACHE", "/tmp/osworld-cache")
 
+# Chrome 的远程调试端口，**只有这一个来源**。
+#
+# 原来这里是两个数：官方任务 config 用 `--remote-debugging-port=1337` 起 Chrome，
+# 而垫片里的 CDP 客户端写死连 9222，中间靠一个手工起的
+# `socat tcp-listen:9222,fork tcp:localhost:1337` 桥着。那条 socat 不在任何脚本里，
+# 换台机器复现时没人会知道要起它——而缺了它不会报错，只是 chrome_open_tabs /
+# chrome_close_tabs / 取当前标签页**全部静默失效**，题目环境布置不全，
+# 失败会被记到模型头上。隐藏依赖比多一行配置危险得多。
+CHROME_CDP_PORT = int(os.environ.get("CHROME_CDP_PORT", "1337"))
+CDP = "http://localhost:{}".format(CHROME_CDP_PORT)
+
 
 def _ensure_paths():
     for path in (OSWORLD_ROOT, STUBS):
@@ -240,7 +251,7 @@ class LocalEnv:
         self.vm_platform = "Linux"
         self.vm_ip = "localhost"
         self.server_port = 5000
-        self.chromium_port = 9222
+        self.chromium_port = CHROME_CDP_PORT
         self.vlc_port = 8080
         self.vm_machine = "local"
         self.current_use_proxy = False
@@ -288,7 +299,7 @@ def _chrome_activate_tab(url):
     deadline = time.time() + 40
     while time.time() < deadline:
         try:
-            with urllib.request.urlopen("http://localhost:9222/json", timeout=5) as r:
+            with urllib.request.urlopen(CDP + "/json", timeout=5) as r:
                 targets = json.loads(r.read().decode("utf-8"))
         except (urllib.error.URLError, OSError):
             time.sleep(1)
@@ -296,11 +307,11 @@ def _chrome_activate_tab(url):
         for target in targets:
             if target.get("type") != "page":
                 continue
-            got = (target.get("url") or "").rstrip("/")
-            if got.startswith(url.rstrip("/")) or url.rstrip("/").startswith(got) and got:
+            got = target.get("url") or ""
+            if _same_page(got, url):
                 try:
                     urllib.request.urlopen(
-                        "http://localhost:9222/json/activate/" + target["id"],
+                        CDP + "/json/activate/" + target["id"],
                         timeout=5).read()
                     return True
                 except Exception:
@@ -323,7 +334,7 @@ def _chrome_inject_js(js):
         return False
     import urllib.error
     try:
-        with urllib.request.urlopen("http://localhost:9222/json", timeout=5) as r:
+        with urllib.request.urlopen(CDP + "/json", timeout=5) as r:
             targets = json.loads(r.read().decode("utf-8"))
     except (urllib.error.URLError, OSError):
         return False
@@ -356,7 +367,7 @@ def _chrome_close_tabs(urls):
     targets = []
     while time.time() < deadline:
         try:
-            with urllib.request.urlopen("http://localhost:9222/json", timeout=5) as r:
+            with urllib.request.urlopen(CDP + "/json", timeout=5) as r:
                 targets = json.loads(r.read().decode("utf-8"))
             break
         except (urllib.error.URLError, OSError):
@@ -368,7 +379,7 @@ def _chrome_close_tabs(urls):
         if any(url.rstrip("/").startswith(want.rstrip("/")) for want in urls):
             try:
                 urllib.request.urlopen(
-                    "http://localhost:9222/json/close/" + target["id"], timeout=5).read()
+                    CDP + "/json/close/" + target["id"], timeout=5).read()
             except Exception:
                 pass
 
@@ -454,7 +465,7 @@ def ensure_app_running(app_group, log=print):
     那是对的，但它回答的是另一个问题，而这道题问的是别的。
     """
     launchers = {
-        "chrome": ["google-chrome", "--remote-debugging-port=1337"],
+        "chrome": ["google-chrome", "--remote-debugging-port={}".format(CHROME_CDP_PORT)],
         "vlc": ["vlc"],
         "thunderbird": ["thunderbird"],
         "gimp": ["gimp"],
@@ -526,7 +537,7 @@ def apply_config(task, log=print):
             elif kind == "chrome_open_tabs":
                 urls = params.get("urls_to_open") or []
                 subprocess.Popen(
-                    ["google-chrome", "--remote-debugging-port=1337"] + urls,
+                    ["google-chrome", "--remote-debugging-port={}".format(CHROME_CDP_PORT)] + urls,
                     start_new_session=True,
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 # 目标标签要切到前台，但**不能在这里切**——实测第 7 题：
@@ -790,3 +801,29 @@ def _evaluate_isolated(task, env, retry_on_zero):
     if kind == "err":
         return None, "评估器抛异常：{}".format(value)
     return value
+
+
+def _normalize_url(url):
+    """把 URL 压成能互相比对的形式：去掉协议、开头的 www.、结尾的斜杠。
+
+    题目里写的是 `https://drugs.com`，而 Chrome 真正停在
+    `https://www.drugs.com/`——差一个 `www.`。原来的前缀比对两边都对不上，
+    于是环境明明布置对了（那个页面就开着），却报"这道题的环境不完整"。
+    这类假警报比漏报更坏：它会让人把一次正常的失败当成环境问题放过去，
+    也会让一次正常的成功背上"数据存疑"的标签。
+    """
+    text = str(url or "").strip()
+    for prefix in ("https://", "http://"):
+        if text.startswith(prefix):
+            text = text[len(prefix):]
+            break
+    if text.startswith("www."):
+        text = text[4:]
+    return text.rstrip("/")
+
+
+def _same_page(got, want):
+    a, b = _normalize_url(got), _normalize_url(want)
+    if not a or not b:
+        return False
+    return a.startswith(b) or b.startswith(a)

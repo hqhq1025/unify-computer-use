@@ -18,8 +18,10 @@ agent 会绕开缺陷（它会换一条路），我不会，我会把缺陷记�
 """
 
 import argparse
+import gzip
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -30,7 +32,14 @@ import osworld_local as local  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OSWORLD = local.OSWORLD_ROOT
-RESULTS = os.path.join(REPO, "docs", "osworld", "results.jsonl")
+# 结果文件可以按 worker 分开。
+#
+# 并行跑的时候多个进程会同时往这里追加，而单条记录带着整段自述、
+# 经常超过 4KB——超过 PIPE_BUF 的 O_APPEND 写**不保证原子**，交错写会把
+# 两条 JSON 拧成一行，事后谁也解析不出来。数据只追加不重写的前提是
+# 每一行都完整，所以并行时每个 worker 写自己的文件，跑完再合并。
+RESULTS = os.environ.get(
+    "OSWORLD_RESULTS", os.path.join(REPO, "docs", "osworld", "results.jsonl"))
 DEFAULT_BIN = os.path.join(REPO, "dist", "linux", "amd64", "open-computer-use")
 SERVER_NAME = "ocu"
 
@@ -272,7 +281,10 @@ def cmd_agent(args):
             print("⚠️ 未执行的 config: {}".format(", ".join(skipped)))
         time.sleep(5)
 
-    workdir = "/tmp/ocu-agent-run"
+    # agent 的工作目录也要能按 worker 分开：`claude mcp add` 把服务器写进
+    # **这个目录**的项目级配置，两个 worker 共用一个目录就会互相覆盖，
+    # 而且 rmtree 会把对方正在用的配置删掉。
+    workdir = os.environ.get("OSWORLD_WORKDIR", "/tmp/ocu-agent-run")
     shutil.rmtree(workdir, ignore_errors=True)
     register_mcp(args.binary, workdir)
     transcript = "/tmp/osworld-agent-{}.jsonl".format(task_id[:8])
@@ -311,6 +323,7 @@ def cmd_agent(args):
                        stderr=subprocess.DEVNULL, text=True, env=environ)
     elapsed = time.time() - started
 
+    archive_trace(transcript)
     stats = summarize(transcript)
     funcs = task.get("evaluator", {}).get("func")
     funcs = [funcs] if isinstance(funcs, str) else (funcs or [])
@@ -400,3 +413,29 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+TRACES = os.path.join(REPO, "docs", "osworld", "traces")
+
+
+def archive_trace(path):
+    """把这一趟的轨迹**剥掉截图**再 gzip 存进版本库。
+
+    为什么要自动做：轨迹是这套跑测里最值钱的东西——缺陷几乎全是从里面读出来的
+    （agent 卡住不会报错，它会换一条路，摩擦只体现为多出来的步数和重复调用）。
+    而 /tmp 会被清、磁盘会满（本机一度 98%），手工归档必然漏。
+
+    剥 base64 截图的理由是量出来的：26 条原始轨迹含图 172MB，剥图后 16.7MB，
+    gzip 后 2.1MB。分析只需要结构，不需要像素。
+    """
+    try:
+        os.makedirs(TRACES, exist_ok=True)
+        out = os.path.join(TRACES, os.path.basename(path) + ".gz")
+        with open(path, encoding="utf-8", errors="ignore") as src, \
+                gzip.open(out, "wt", encoding="utf-8") as dst:
+            for line in src:
+                dst.write(re.sub(r'"data"\s*:\s*"[A-Za-z0-9+/=]{200,}"',
+                                 '"data":"<stripped>"', line))
+    except Exception:
+        # 归档失败**不许影响判分**。它是诊断设施，不是判据的一部分。
+        pass
