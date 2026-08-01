@@ -21,13 +21,25 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **30** / 369 |
-| 我手工通过 | 24 / 30 |
-| cc 通过 | **26 / 30** |
-| cc 平均步数 | 13.6 |
-| cc 平均观测 token | 54487 |
-| cc 平均用时 | 174s |
-| 执行轴 a11y 占比 | 51% （188/372）|
+| 已跑题数 | **31** / 369 |
+| 我手工通过 | 24 / 31 |
+| cc 通过 | **26 / 31** |
+| cc 平均步数 | 13.9 |
+| cc 平均观测 token | 55228 |
+| cc 平均用时 | 180s |
+| 执行轴 a11y 占比 | 49% （190/390）|
+
+## cc 未通过的题，成因分类
+
+> 不分类就会把环境与题目的账记到模型头上，也会掩盖真正该修的东西。
+
+| # | 成因 | 题目 |
+|---|---|---|
+| 3 | 环境：官方 setup 用 CDP 关标签 | Can you make my computer bring back the last t |
+| 4 | 未归类（可能是模型或链路） | Computer, can you turn the webpage I'm looking |
+| 28 | 未归类（可能是模型或链路） | Find flights from Seattle to New York on 5th n |
+| 30 | 题目：评估器选择器过时 | Find a Hotel in New York City with lowest pric |
+| 31 | 环境：站点地理路由 | Browse the list of women's Nike jerseys over $ |
 
 ## 逐题
 
@@ -63,6 +75,7 @@
 | 28 | chrome | Find flights from Seattle to New York on 5th next mo | ✗ 0.0 | ✗ 0.0 | 32 | 80431 | 484.8s |
 | 29 | chrome | Search for a one way flight from Dublin to Vienna on | ✅ | ✅ | 15 | 86609 | 224.7s |
 | 30 | chrome | Find a Hotel in New York City with lowest price poss | ✗ 0.0 | ✗ 0.0 | 19 | 135059 | 334.3s |
+| 31 | chrome | Browse the list of women's Nike jerseys over $60. | ✗ 0.0 | ✗ 0.0 | 29 | 84148 | 396.5s |
 
 ## 每题的过程记录
 
@@ -274,4 +287,10 @@
 - **cc**（第 2 次，得分 0.0）：cc 第二次
 - **我手工**（第 2 次，得分 0.0）：查清了第 30 题失败的原因，**不在模型也不在链路**：评估器接受四种日期解释（Aug 8-9 / 7-9 / 15-16 / 14-16），而 agent 选的 Aug 8-9 正是第一种，日期完全正确；它的自述里城市、房客数、排序也都对。真正失败的是评估器的 HTML 解析——日志里反复出现 No elements found for xpath: //button[@data-automation=checkin]//div[contains(@class,Wh)]，即**这些选择器是照着旧版 Tripadvisor DOM 写的，站点已经改版**。这属于题目与当前站点不匹配。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
+### 第 31 题 · 9f3f70fc
+
+> Browse the list of women's Nike jerseys over $60.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：环境因素：store.nba.com 从这台机器**硬跳转到 nbastore.jp**（日文站、日元计价），题目要求的 $60 过滤在那里不存在。agent 正确诊断了这一点并改用 Fanatics（美国站，同样卖 Nike 球衣、美元计价），但预算用尽。这是地理路由问题，不是模型也不是链路。
 

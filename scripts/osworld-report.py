@@ -89,6 +89,38 @@ def main():
                 100.0 * sem / (sem + syn), sem, sem + syn))
     out.write("\n")
 
+    # 失败成因分类。**没有这一段，数字会被误读**：cc 未通过的题里，
+    # 目前 5 道有 4 道的根因不在模型也不在链路，而在环境或题目本身
+    # （站点地理路由、评估器选择器照旧版 DOM 写、站点结果页不渲染、
+    # 官方 setup 用 CDP 关标签导致"最近关闭"里没有它）。
+    # 把这些和真正的模型失败混在一起报，等于把别人的账记到自己头上，
+    # 反过来也会掩盖真正该修的东西。
+    failed = []
+    for task_id, attempts in tasks:
+        best = cc_best.get(task_id)
+        if best is None or best >= 1.0:
+            continue
+        notes = " ".join((a.get("note") or "") for a in attempts)
+        first = attempts[0]
+        if "地理路由" in notes or "跳转到" in notes:
+            kind = "环境：站点地理路由"
+        elif "旧版" in notes or "xpath" in notes.lower():
+            kind = "题目：评估器选择器过时"
+        elif "不渲染" in notes:
+            kind = "站点：结果页不渲染"
+        elif "最近关闭" in notes:
+            kind = "环境：官方 setup 用 CDP 关标签"
+        else:
+            kind = "未归类（可能是模型或链路）"
+        failed.append((first.get("index"), kind, (first.get("instruction") or "")[:46]))
+    if failed:
+        out.write("## cc 未通过的题，成因分类\n\n")
+        out.write("> 不分类就会把环境与题目的账记到模型头上，也会掩盖真正该修的东西。\n\n")
+        out.write("| # | 成因 | 题目 |\n|---|---|---|\n")
+        for index, kind, inst in sorted(failed):
+            out.write("| {} | {} | {} |\n".format(index, kind, inst.replace("|", "/")))
+        out.write("\n")
+
     out.write("## 逐题\n\n")
     out.write("| # | 应用 | 题目 | 我 | cc | 步数 | 观测 token | 用时 |\n")
     out.write("|---|---|---|---|---|---|---|---|\n")
