@@ -123,12 +123,24 @@ def main():
                 repeats[key[0]] += 1
             if index + 1 < len(steps):
                 pairs[(step["tool"], steps[index + 1]["tool"])] += 1
-            # 语义 → 坐标的退让：同一次运行里先 click 后 click_xy
-            if step["tool"] == "click_xy":
-                for earlier in steps[:index]:
-                    if earlier["tool"] == "click":
-                        fallback["click → click_xy"] += 1
-                        break
+            # 语义 → 坐标的退让。
+            #
+            # **这个指标的第一版是错的，会误导人。** 它当初统计的是"整条轨迹里
+            # 同时出现过 click 和 click_xy"，于是报出 23/26 条轨迹都在退让——
+            # 而逐条看前一步之后，click_xy 大多是**正当用法**：连续坐标操作 8、
+            # 零效果后兜底 3（那正是设计好的行为）、截图后按图点 2。
+            # 真正"刚看完树就直接用坐标"的只有 1 次。
+            #
+            # 一个把正常行为算成病症的指标，比没有指标更糟：它会让人去修一个
+            # 不存在的问题。现在只认**紧邻**且**前一步确实失望了**的情形。
+            if step["tool"] == "click_xy" and index > 0:
+                prev = steps[index - 1]
+                if prev["error"]:
+                    fallback["上一步报错 → 坐标"] += 1
+                elif "Nothing on screen stayed changed" in (prev["result"] or ""):
+                    fallback["上一步零效果 → 坐标（设计内的兜底）"] += 1
+                elif prev["tool"] in ("find", "get_app_state"):
+                    fallback["刚看完树就直接用坐标"] += 1
 
     print("扫了 {} 条轨迹，共 {} 步\n".format(runs, total_steps))
 
