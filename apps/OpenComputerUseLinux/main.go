@@ -2229,6 +2229,18 @@ func lookupBySelectorFor(snapshot *appSnapshot, selector, declared, tool string)
 			// 而不是名字抄错了。先说这一条，再说通用建议。
 			e.next = "the predicates are matched against the element's current state, which may have changed since the snapshot — try the selector without them first, then call get_app_state to see the state now. " + e.next
 		}
+		// 快照小得离谱时**直接点破**，而不是把数字摆在那儿让 agent 自己看出来。
+		//
+		// 出处是第 44 题的轨迹：Chrome 跳到"网络错误"页之后，快照里只剩 1 个元素，
+		// 选择器当然找不到地址栏。错误如实报了
+		// `Snapshot: captured 13.5s ago, 1 elements`——数字是对的，但没人会停下来
+		// 品这个 1 的含义。agent 白花一步重试了同一个选择器，才改用 ctrl+l 绕过去。
+		//
+		// 一位数的元素数只有两种可能：窗口还在加载，或者抓到了别的窗口。两种都不是
+		// "名字抄错了"，而通用建议只谈后者，等于把它往错路上引。
+		if n := len(snapshot.Elements); n > 0 && n < 10 {
+			e.next = fmt.Sprintf("this snapshot has only %d element(s), which almost always means the window was still loading or a different window got captured — not that the selector is wrong. Call get_app_state again before trying another selector. ", n) + e.next
+		}
 		return nil, e
 	}
 
