@@ -2607,3 +2607,49 @@ class ProcessNameAliasTests(unittest.TestCase):
                                     comm="soffice.bin")
         self.assertIn("soffice.bin", names)
         self.assertIn("soffice", names)
+
+
+class HiddenMenuItemsTests(AtspiPatchedTestCase):
+    """菜单的子项一个都没渲染出来时，要在这个菜单自己身上说明白。
+
+    出处是第 47、48 题：agent 要把 GIMP 里的图导出，而树里找不到任何
+    Export/Save As，只能得出"这个应用没有导出"的结论。真相是 File 底下就有
+    `Export to <文件名>`，只是那 39 个菜单项自己不 SHOWING，被逐个裁掉了。
+
+    原有的 "N items collapsed" 提示救不了这种情况，因为它的判据是「菜单自己不
+    SHOWING」——而 GIMP 的 File 菜单**是** SHOWING 的，它就挂在菜单栏上。
+    树末尾那句全局的 "N node(s) omitted" 也救不了：它不指名道姓，
+    没人能从中知道是哪个菜单藏了东西。
+    """
+
+    def _hidden(self):
+        """造一个"不在屏幕上"的菜单项——GIMP 未打开的菜单项就是这个状态：
+        AT-SPI 里它存在、有名字，但没有可见的几何。"""
+        node = _TreeNode(role="menu item", name="Export As...", w=0, h=0)
+        node.states = set()
+        return node
+
+    def test_menu_with_all_children_pruned_says_how_many(self):
+        item = self._hidden()
+        menu = _TreeNode(role="menu", name="File", w=40, h=20, kids=(item,))
+        root = _TreeNode(role="frame", name="GIMP", w=100, h=100, kids=(menu,))
+
+        _records, lines = runtime.render_tree(root, None, [0], prune=True)
+        text = "\n".join(lines)
+
+        self.assertIn('menu "File"', text)
+        # 数字要对得上，措辞要说清"打开之后才看得见"。
+        self.assertIn("1 items not listed", text)
+        self.assertIn("after this menu is opened", text)
+
+    def test_menu_with_visible_children_gets_no_such_note(self):
+        # 子项渲染得出来时不该多这一句——否则每个正常菜单都要付这行字节。
+        item = _TreeNode(role="menu item", name="Export As...", w=40, h=10)
+        menu = _TreeNode(role="menu", name="File", w=40, h=20, kids=(item,))
+        root = _TreeNode(role="frame", name="GIMP", w=100, h=100, kids=(menu,))
+
+        _records, lines = runtime.render_tree(root, None, [0], prune=True)
+        text = "\n".join(lines)
+
+        self.assertIn("Export As...", text)
+        self.assertNotIn("not listed", text)

@@ -1761,6 +1761,8 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
         # 这是比 should_enumerate_children() 更底层的兜底：后者依赖容器正确
         # 声明 MANAGES_DESCENDANTS，而这里不依赖任何声明。
         fanout = min(child_count(node), MAX_CHILD_FANOUT)
+        before_records = len(records)
+        before_lines = len(lines)
         for child_index in range(fanout):
             if len(records) >= max_tree_nodes:
                 break
@@ -1769,6 +1771,31 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
             # 把本节点渲染出来的文字传下去，供子节点判断"我是否只是重复了父亲"。
             visit(child, depth + 1, path + [child_index], render_depth + 1,
                   str(record.get("name") or record.get("value") or ""))
+
+        # 菜单的子项**一个都没渲染出来**时，在这个菜单自己身上说明白。
+        #
+        # 上面那条 "N items collapsed" 的判据是「菜单自己不 SHOWING」，
+        # 而 GIMP（GAIL）根本不是这样：File 菜单自己**是** SHOWING 的——它就挂在
+        # 菜单栏上——不 SHOWING 的是它底下那 39 个菜单项。于是那条判据不触发，
+        # 39 项被逐个裁掉，agent 看到的是光秃秃一行 `menu "File"`，
+        # 和一个真正的空菜单**长得一模一样**。
+        #
+        # 后果是实测到的：第 47、48 题里 agent 要把图导出，而树里
+        # 找不到任何 Export/Save As——它只能得出"这个应用没有导出"的结论。
+        # 真相是 File 底下就有 `Export to <文件名>`，点一下 File 就全出来了。
+        # 树末尾那句全局的 "3092 node(s) omitted" 救不了它：那句话不指名道姓，
+        # 没人能从中知道**是这个菜单**藏了东西。
+        #
+        # 判据改成看**结果**而不是看状态位：递归完一圈，如果这个菜单一条子记录
+        # 都没产出、而 AT-SPI 说它有子节点，就照实说有多少项藏着。
+        if (fanout and len(records) == before_records
+                and len(lines) == before_lines
+                and role.lower() in MENU_ROLES):
+            lines.append(
+                ("\t" * (render_depth + 2))
+                + "({} items not listed; they only become visible after this menu "
+                  "is opened — click it, then call get_app_state again)".format(fanout)
+            )
 
     visit(root, 0, root_path)
     if dropped["count"]:
