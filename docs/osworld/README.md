@@ -158,4 +158,5 @@
 
 - **我手工**（第 1 次，得分 0.0）：手工未完成，且我认为**这道题在 Linux 上没有 UI 路径**：截图证实 chrome://settings/appearance 页上根本没有 Mode(Light/Dark/Device) 控件——只有 Theme(GTK / Use Classic / Use QT)、工具栏、若干开关、字号、缩放。Linux 版 Chrome 跟随系统 GTK 主题，那个模式选择器只在 Windows/macOS/ChromeOS 上存在。点了唯一相关的「Use Classic」，界面变了 6.45% 像素，但 Preferences 里 browser.theme.color_scheme 仍是 2（dark）。题目的 config 是直接写 Preferences 强制成 dark 的，而 UI 上没有对应的反向操作。链路没问题，是题与平台不匹配。
 - **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 2 次，得分 0.0）：撤回上一条结论。我说 Linux 上没有 Mode 控件是错的——cc 6 步就过了，它在树里找到了 combo box Mode 并用 set_value 设成 Light，再用 verify 确认。我的错误在于：两次观测（find 搜 dark、以及截图）看的都是改动前就已经渲染好的那个页面，没有重新加载就下了控件不存在的结论。教训：下这种结论之前必须先重新加载——设置页是在 config 写 Preferences 之前渲染的，Chrome 不会自己把新出现的行补上。截图也救不了：陈旧页面会拍出一张同样陈旧、同样有说服力的图。
 
