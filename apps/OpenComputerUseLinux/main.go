@@ -1221,8 +1221,47 @@ func observablyChanged(before, after *appSnapshot) bool {
 	return false
 }
 
+// looseKey 把应用名压成"只剩字母数字"，用于缓存查找的宽松比对。
+// 与 runtime.py 里 loose() 同一套规则——两处规则不一致，
+// 就会出现"解析得到但缓存查不到"这种没人能猜到的状态。
+func looseKey(text string) string {
+	var out strings.Builder
+	for _, r := range strings.ToLower(text) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			out.WriteRune(r)
+		}
+	}
+	return out.String()
+}
+
 func (s *service) currentSnapshot(app string) *appSnapshot {
-	return s.snapshots[strings.ToLower(app)]
+	if snapshot, ok := s.snapshots[strings.ToLower(app)]; ok {
+		return snapshot
+	}
+	// 精确键找不到时**按同样的宽松规则再找一遍**。
+	//
+	// 实测踩到过，而且是我自己引入的：get_app_state 允许不传 app 之后，
+	// 快照按解析出的真名（"Google Chrome"）缓存，而 agent 下一步动作写的是
+	// "chrome"——于是它刚刚成功取过状态，紧接着就被告知
+	// "No app state is available for chrome. Run get_app_state before action tools."
+	//
+	// 对 agent 来说这是最迷惑的一类回答：它照做了，工具却说它没做。
+	// 应用名解析已经是宽松的，缓存查找也必须一样宽松，否则两套规则之间
+	// 会漏出这种没人猜得到的缝。
+	needle := looseKey(app)
+	if needle == "" {
+		return nil
+	}
+	for key, snapshot := range s.snapshots {
+		tight := looseKey(key)
+		if tight == "" {
+			continue
+		}
+		if tight == needle || strings.Contains(tight, needle) || strings.Contains(needle, tight) {
+			return snapshot
+		}
+	}
+	return nil
 }
 
 func (s *service) refreshSnapshot(app string, request linuxRequest) (*appSnapshot, []string, toolCallResult) {

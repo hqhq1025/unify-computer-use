@@ -2110,3 +2110,25 @@ func TestGetAppStateWorksWithNoAppArgument(t *testing.T) {
 		t.Fatal("前台判据要问 X11，不要只信 AT-SPI 的 ACTIVE")
 	}
 }
+
+func TestSnapshotCacheLookupIsAsLooseAsAppResolution(t *testing.T) {
+	// 这个回归是我自己引入的：get_app_state 允许不传 app 之后，快照按解析出的
+	// 真名（"Google Chrome"）缓存，而 agent 下一步动作写的是 "chrome"——
+	// 于是它刚刚成功取过状态，紧接着被告知
+	// "No app state is available for chrome. Run get_app_state before action tools."
+	//
+	// 对 agent 来说这是最迷惑的一类回答：它照做了，工具却说它没做。
+	// 应用名解析已经是宽松的，缓存查找必须一样宽松，否则两套规则之间会漏出
+	// 这种没人猜得到的缝。
+	service := newService()
+	service.rememberSnapshot("", &appSnapshot{App: appDescriptor{Name: "Google Chrome"}})
+	for _, spelling := range []string{"chrome", "Chrome", "google-chrome", "google chrome"} {
+		if service.currentSnapshot(spelling) == nil {
+			t.Fatalf("用 %q 应当能查到刚缓存的 Google Chrome 快照", spelling)
+		}
+	}
+	// 但**不能松到匹配别的应用**——那会让动作打到错误的目标上。
+	if service.currentSnapshot("thunderbird") != nil {
+		t.Fatal("宽松匹配不能把无关的应用名也匹上")
+	}
+}
