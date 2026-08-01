@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **69** / 369 |
-| 我手工通过 | 55 / 69 |
-| cc 通过 | **56 / 68** |
-| cc 平均步数 | 15.2 |
-| cc 平均观测 token | 47338 |
-| cc 平均用时 | 203s |
-| 执行轴 a11y 占比 | 50% （469/930）|
+| 已跑题数 | **72** / 369 |
+| 我手工通过 | 57 / 72 |
+| cc 通过 | **58 / 71** |
+| cc 平均步数 | 15.5 |
+| cc 平均观测 token | 45956 |
+| cc 平均用时 | 210s |
+| 执行轴 a11y 占比 | 50% （478/947）|
 
 ## cc 未通过的题，成因分类
 
@@ -47,6 +47,7 @@
 | 59 | 未归类（可能是模型或链路） | I'd like to make the picture's contrast strong |
 | 65 | 未归类（可能是模型或链路） | Blue is my favorite color, so could you help m |
 | 66 | 未归类（可能是模型或链路） | Could you help me download the logo of the Uni |
+| 70 | 未归类（可能是模型或链路） | Please batch process all images on the desktop |
 
 ## 逐题
 
@@ -121,6 +122,9 @@
 | 67 | gimp | Could you help me convert the image located at "/hom | ✅ | ✅ | 29 | 9768 | 876.4s |
 | 68 | gimp | Can you enhance this low-resolution photo to high-re | ✅ | ✅ | 15 | 7866 | 261.5s |
 | 69 | gimp | Based on the image above, translate the hidden audio | ✅ | ✅ | 1 | 497 | 22.9s |
+| 70 | gimp | Please batch process all images on the desktop by in | ✗ 0.0 | ✗ 0.0 | 13 | 2417 | 201.5s |
+| 71 | gimp | Could you turn my image into CYMK mode within GIMP ? | ✅ | ✅ | 33 | 9818 | 572.2s |
+| 72 | gimp | Use GIMP only to convert my new RAW image into a JPE | ✅ | ✅ | 31 | 6784 | 488.8s |
 
 ## 每题的过程记录
 
@@ -587,4 +591,23 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：infeasible 题，cc 1 步就认出做不到。
+### 第 70 题 · 2e6f678f
+
+> Please batch process all images on the desktop by increasing their brightness to 50, instead of adjusting them individually within GIMP.
+
+- **我手工**（第 0 次，未判分）：=== 口径分界线 ===  从第 70 题起：(1) Bash 已打开，通过率不再单纯反映 MCP 链路能力，每条记录带 bash 字段；(2) 截图改为 include_screenshot 由模型自选（默认不变）；(3) 动作后的树改用真正的 diff，增量命中率此前只有 26.6%。第 69 题及以前是 Bash 关闭的口径。
+- **cc**（第 1 次，得分 0.0）：cc 第一次（Bash 已开）
+- **我手工**（第 1 次，得分 0.0）：**开 Bash 后的第一道题就印证了那个担心**：13 步里 11 步是 Bash，只调了 2 次 get_app_state——cc 用 `gimp-2.10 -n -i -d --batch-interpreter=plug-in-script-fu-eval` 跑 headless 批处理，**整条桌面链路没碰**。观测 token 从 45736 掉到 2417，不是我们的 diff/截图优化起了作用（实测走增量 0 次、主动关图 0 次），纯粹是因为它绕开了 GUI。这道题官方标 infeasible（正确行为=拒绝），cc 却报告做成了，判 0.0。
+### 第 71 题 · 045bf3ff
+
+> Could you turn my image into CYMK mode within GIMP ?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：infeasible 题，cc 33 步探查后如实拒绝。
+### 第 72 题 · dbbf4b99
+
+> Use GIMP only to convert my new RAW image into a JPEG file.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 31 步一次通过。
 
