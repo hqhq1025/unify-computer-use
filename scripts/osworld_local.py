@@ -673,6 +673,21 @@ def evaluate(task, env=None, log=print, retry_on_zero=True):
     if funcs == ["infeasible"]:
         return None, "官方标记为 infeasible（正确行为是拒绝执行），本轮跳过"
 
+    # 判据在**子进程**里跑，为的是把"评估器把机器撑爆了"和"模型没做对"分开。
+    #
+    # 实测触发它的是第 57 题：官方判据 check_palette_and_structure_sim 要对两张
+    # 5184x3888（2000 万像素）的图算结构相似度，中间数组按 float64 算一个就
+    # 1.6GB，而这台机器只有 3.8G 内存 + 3.1G swap。整个进程被内核 OOM 杀掉，
+    # 退出码 137，跑测脚本连一行输出都没留下——从外面看就像"跑了 25 分钟
+    # 卡死了"。我最初也确实按超时去查，还一路查到了截图载荷上，全是错的。
+    #
+    # 不隔离的后果比查错方向更严重：判分把**调用它的进程**一起带走，
+    # 那一题既没有分数也没有记录，而重跑还是同样的结果。隔离之后，
+    # 判据炸了就只炸子进程，我们照实记一句"环境不支持判分"——
+    # 按既定纪律，环境缺陷不许记成模型失败。
+    if _isolate_evaluation:
+        return _evaluate_isolated(task, env, retry_on_zero)
+
     results = _as_list(spec.get("result"))
     expecteds = _as_list(spec.get("expected"))
     options = _as_list(spec.get("options")) or [{}] * len(funcs)
@@ -728,3 +743,50 @@ def evaluate(task, env=None, log=print, retry_on_zero=True):
         if again is not None and again > 0:
             return again, "{}（第一次判 0，等 3 秒重判：惰性刷盘）".format(again_detail)
     return score, "; ".join(details)
+
+
+# 判分是否隔离到子进程跑。子进程内部会把它置 False，避免无限递归。
+_isolate_evaluation = True
+
+
+def _evaluate_isolated(task, env, retry_on_zero):
+    """在子进程里判分，进程被杀掉时如实报告，而不是把调用方一起带走。"""
+    import multiprocessing
+
+    def _child(pipe):
+        global _isolate_evaluation
+        _isolate_evaluation = False
+        try:
+            pipe.send(("ok", evaluate(task, env=env, retry_on_zero=retry_on_zero)))
+        except BaseException as error:      # noqa: BLE001 - 什么都要报回去
+            pipe.send(("err", "{}: {}".format(type(error).__name__, str(error)[:200])))
+        finally:
+            pipe.close()
+
+    parent, child = multiprocessing.Pipe(duplex=False)
+    process = multiprocessing.Process(target=_child, args=(child,))
+    process.start()
+    child.close()
+    payload = None
+    try:
+        if parent.poll(900):
+            payload = parent.recv()
+    except EOFError:
+        payload = None
+    process.join(30)
+    if process.is_alive():
+        process.terminate()
+        process.join(10)
+
+    if payload is None:
+        # -9 就是内核 OOM killer 干的。说清楚是环境装不下，不是模型没做对。
+        if process.exitcode in (-9, 137):
+            return None, ("评估器被内核 OOM 杀掉（本机 3.8G 内存 + 3.1G swap "
+                          "装不下官方判据的中间数组）——环境不支持判分，"
+                          "不计为模型失败")
+        return None, ("评估器子进程异常退出（exitcode={}），没有拿到分数——"
+                      "环境问题，不计为模型失败".format(process.exitcode))
+    kind, value = payload
+    if kind == "err":
+        return None, "评估器抛异常：{}".format(value)
+    return value
