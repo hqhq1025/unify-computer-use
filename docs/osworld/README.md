@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **39** / 369 |
-| 我手工通过 | 30 / 39 |
-| cc 通过 | **32 / 39** |
-| cc 平均步数 | 15.5 |
-| cc 平均观测 token | 65340 |
-| cc 平均用时 | 196s |
-| 执行轴 a11y 占比 | 45% （241/539）|
+| 已跑题数 | **46** / 369 |
+| 我手工通过 | 37 / 46 |
+| cc 通过 | **39 / 46** |
+| cc 平均步数 | 14.9 |
+| cc 平均观测 token | 63619 |
+| cc 平均用时 | 189s |
+| 执行轴 a11y 占比 | 44% （258/592）|
 
 ## cc 未通过的题，成因分类
 
@@ -86,6 +86,13 @@
 | 37 | chrome | Find Dota 2 game and add all DLC to cart. | ✅ | ✅ | 14 | 92607 | 193.3s |
 | 38 | chrome | Find the Monthly forecast for Manchester, GB for thi | ✅ | ✅ | 9 | 47268 | 110.7s |
 | 39 | chrome | What are the similar names to the name carl | ✗ 0.0 | ✗ 0.0 | 0 | 0 | 12.5s |
+| 40 | chrome | Find the Driver License Eligibility Requirements | ✅ | ✅ | 6 | 26593 | 76.4s |
+| 41 | chrome | Show side effects of Tamiflu. | ✅ | ✅ | 4 | 31266 | 54.1s |
+| 42 | chrome | Browse the natural products database. | ✅ | ✅ | 6 | 27346 | 71.4s |
+| 43 | chrome | Browse list of Civil Division forms. | ✅ | ✅ | 9 | 46296 | 122.5s |
+| 44 | chrome | Please help me find the score record for the Super B | ✅ | ✅ | 22 | 98806 | 286.2s |
+| 45 | chrome | Browse spider-man toys for kids and sort by lowest p | ✅ | ✅ | 11 | 60160 | 139.8s |
+| 46 | chrome | I am looking for an website address I accessed a mon | ✅ | ✅ | 13 | 67065 | 179.4s |
 
 ## 每题的过程记录
 
@@ -359,4 +366,46 @@
 - **cc**（第 2 次，得分 0.0）：cc 第二次
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 2 次，得分 0.0）：三次都是 0 步、直接作答。量了一下题库：369 道里 105 道（28%）是疑问句形式，但绝大多数是**礼貌请求**（"Could you help me push the changes…"），明确隐含动作；真正有歧义的是**纯信息型提问**这一小类，本题即是。不能因此去加提示——框定已逐字照抄官方，再加就是给自己开小灶。
+### 第 40 题 · a728a36e
+
+> Find the Driver License Eligibility Requirements
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：链路验证通过，cc 6 步一次完成。
+### 第 41 题 · b070486d
+
+> Show side effects of Tamiflu.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 4 步一次通过（判据是三选一的 URL 模式，命中第二个）。
+### 第 42 题 · 0d8b7de3
+
+> Browse the natural products database.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 6 步一次通过。
+### 第 43 题 · 9f935cce
+
+> Browse list of Civil Division forms.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 9 步一次通过。
+### 第 44 题 · f0b971a1
+
+> Please help me find the score record for the Super Bowl of the 2019 NFL season (played in 2020) in the NFL website.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 通过，但 22 步 / 98806 token / 286s——本轮最贵的一道，值得看轨迹找摩擦。
+### 第 45 题 · cabb3bae
+
+> Browse spider-man toys for kids and sort by lowest price.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 11 步一次通过（蜘蛛侠玩具按最低价排序）。
+### 第 46 题 · 44ee5668
+
+> I am looking for an website address I accessed a month ago, but Youtube websites which take almost all of my browsing history are interrupting my search. This is too annoying. I want to remove all my Youtube browsing history first to facilitate my search. Could you help me clear browsing history from Youtube?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 13 步一次通过（在历史记录里找一个月前的地址并删掉 YouTube 记录）。
 
