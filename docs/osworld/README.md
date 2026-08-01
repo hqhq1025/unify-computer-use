@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **73** / 369 |
-| 我手工通过 | 58 / 73 |
-| cc 通过 | **59 / 72** |
-| cc 平均步数 | 15.7 |
-| cc 平均观测 token | 45474 |
-| cc 平均用时 | 211s |
-| 执行轴 a11y 占比 | 51% （479/948）|
+| 已跑题数 | **78** / 369 |
+| 我手工通过 | 63 / 78 |
+| cc 通过 | **64 / 77** |
+| cc 平均步数 | 16.5 |
+| cc 平均观测 token | 43287 |
+| cc 平均用时 | 226s |
+| 执行轴 a11y 占比 | 50% （481/953）|
 
 ### 两种口径要分开看
 
@@ -38,7 +38,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 4 | 3 | 26.5 |
+| Bash 打开 | 9 | 8 | 29.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -137,6 +137,11 @@
 | 71 | gimp | Could you turn my image into CYMK mode within GIMP ? | ✅ | ✅ | 33 | 9818 | 572.2s |
 | 72 | gimp | Use GIMP only to convert my new RAW image into a JPE | ✅ | ✅ | 31 | 6784 | 488.8s |
 | 73 | libreoffice_calc | I have calculated the total work hours from the ever | ✅ | ✅ | 29 | 2574 | 307.7s |
+| 74 | libreoffice_calc | Compute the sum of "Revenue" and "Total Expenses" an | ✅ | ✅ | 49 | 3677 | 1074.3s |
+| 75 | libreoffice_calc | Calculate revenue in a new column according to the R | ✅ | ✅ | 38 | 4121 | 524.6s |
+| 76 | libreoffice_calc | Create a Pivot Table in a new sheet (Sheet2) to coun | ✅ | ✅ | 23 | 1361 | 351.7s |
+| 77 | libreoffice_calc | Make sparkline charts for each order id with the dat | ✅ | ✅ | 34 | 7944 | 463.8s |
+| 78 | libreoffice_calc | Could you help me to export the current sheet to a c | ✅ | ✅ | 11 | 2457 | 88.2s |
 
 ## 每题的过程记录
 
@@ -628,4 +633,35 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 29 步一次通过（compare_table 判据）。
+### 第 74 题 · 42e0a640
+
+> Compute the sum of "Revenue" and "Total Expenses" and put the results under two columns named "Total Revenue" and "Total Expenses" of a new sheet (Sheet2)
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 49 步 / 1074s 一次通过。
+### 第 75 题 · 51719eea
+
+> Calculate revenue in a new column according to the Retail Price sheet (consider product price and quantity and discount), and generate a Pivot Table in a new sheet (Sheet2) that summarizes the revenue of each product.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 38 步一次通过。
+### 第 76 题 · 1954cced
+
+> Create a Pivot Table in a new sheet (Sheet2) to count how many times each "Invoice No." appears.
+
+- **我手工**（第 1 次，得分 0.0）：第一次跑满 25 分钟被 timeout 杀掉，没留下分数（轨迹 5.5MB 已归档）。看轨迹：80 步里 **55 步是 Bash**——它在写 LibreOffice Basic 宏、用 xdotool 驱动 Basic IDE、试 xclip 贴代码，绕开桌面链路自己造工具。这是开 Bash 之后第三次同一模式（第 70、73、76 题）。第二次给 40 分钟。
+- **cc**（第 2 次，得分 1.0）：cc 第二次（时限 40 分钟）
+- **我手工**（第 2 次，得分 1.0）：第二次 23 步 / 352s 通过。第一次是 80 步撞上 25 分钟时限——同一道题两次差别这么大，说明第一次它走进了"自己造工具"的死胡同（写 Basic 宏 + xdotool 驱动 IDE），第二次换了直路。
+### 第 77 题 · 2bd59342
+
+> Make sparkline charts for each order id with the data from Jan to Mar in the "Chart" column.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：infeasible 题，cc 34 步探查后如实拒绝。
+### 第 78 题 · 3aaa4e37
+
+> Could you help me to export the current sheet to a csv file? Export the contents just as they are shown on the screen. Just keep the other options untouched. A default csv format is ok. The csv should share the file name with the original xlsx.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 11 步一次通过。
 
