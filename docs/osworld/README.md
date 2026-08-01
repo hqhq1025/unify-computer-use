@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **31** / 369 |
-| 我手工通过 | 24 / 31 |
-| cc 通过 | **26 / 31** |
-| cc 平均步数 | 14.9 |
-| cc 平均观测 token | 57523 |
-| cc 平均用时 | 196s |
-| 执行轴 a11y 占比 | 46% （196/426）|
+| 已跑题数 | **34** / 369 |
+| 我手工通过 | 26 / 34 |
+| cc 通过 | **28 / 34** |
+| cc 平均步数 | 15.7 |
+| cc 平均观测 token | 64282 |
+| cc 平均用时 | 209s |
+| 执行轴 a11y 占比 | 46% （231/502）|
 
 ## cc 未通过的题，成因分类
 
@@ -40,6 +40,7 @@
 | 28 | 未归类（可能是模型或链路） | Find flights from Seattle to New York on 5th n |
 | 30 | 题目：评估器选择器过时 | Find a Hotel in New York City with lowest pric |
 | 31 | 环境：站点地理路由 | Browse the list of women's Nike jerseys over $ |
+| 34 | 未归类（可能是模型或链路） | Show me all men's large-size short-sleeve shir |
 
 ## 逐题
 
@@ -76,6 +77,9 @@
 | 29 | chrome | Search for a one way flight from Dublin to Vienna on | ✅ | ✅ | 15 | 86609 | 224.7s |
 | 30 | chrome | Find a Hotel in New York City with lowest price poss | ✗ 0.0 | ✗ 0.0 | 19 | 135059 | 334.3s |
 | 31 | chrome | Browse the list of women's Nike jerseys over $60. | ✗ 0.0 | ✗ 0.0 | 29 | 84148 | 396.5s |
+| 32 | chrome | On Google Shopping, search for drip coffee makers an | ✅ | ✅ | 16 | 56385 | 189.4s |
+| 33 | chrome | Find electric cars with a maximum price of $50,000 w | ✅ | ✅ | 10 | 21334 | 122.4s |
+| 34 | chrome | Show me all men's large-size short-sleeve shirts wit | ✗ 0.0 | ✗ 0.0 | 25 | 174441 | 388.5s |
 
 ## 每题的过程记录
 
@@ -295,4 +299,25 @@
 - **我手工**（第 1 次，得分 0.0）：环境因素：store.nba.com 从这台机器**硬跳转到 nbastore.jp**（日文站、日元计价），题目要求的 $60 过滤在那里不存在。agent 正确诊断了这一点并改用 Fanatics（美国站，同样卖 Nike 球衣、美元计价），但预算用尽。这是地理路由问题，不是模型也不是链路。
 - **cc**（第 2 次，得分 0.0）：cc 第二次（预算加到 7）
 - **cc**（第 3 次，得分 0.0）：cc 第三次
+### 第 32 题 · 7f52cab9
+
+> On Google Shopping, search for drip coffee makers and filter the results to show only items that are on sale, priced between $25-60, and have a black finish. Stay on the search results page.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：链路验证通过，cc 16 步一次完成（两个判据全中）。
+### 第 33 题 · 82279c77
+
+> Find electric cars with a maximum price of $50,000 within 50 miles of 10001.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：链路验证通过，cc 10 步一次完成。
+### 第 34 题 · 2888b4e6
+
+> Show me all men's large-size short-sleeve shirts with a discount of 50% or more.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：从这题的轨迹里挖到一个真缺陷并修了：**意图守卫必然误拒单字符名字的元素**。agent 声明 "Size L checkbox"，元素是 check box "L"，操作完全正确却被拒——因为守卫分词时跳过长度<2 的词元（为滤掉 a/of 这类噪声），而这个元素的名字整个就是一个字符，于是任何声明都匹配不上。尺码、单选字母、表格列标题都是这一类。已按代码里既有的"判不了就别判"原则放行（名字≤2 字符且无描述时不校验），有描述时仍然校验。
+- **cc**（第 2 次，得分 0.0）：cc 第二次（意图守卫修复后）
+- **cc**（第 3 次，得分 0.0）：cc 第三次（预算加到 8）
+- **我手工**（第 2 次，得分 0.0）：三次未过。第二、三次的意图守卫误拒**已消失**（修复生效），失败转为预算/页面复杂度问题：Macys 的筛选要精确命中 URL 里的 Men_regular_size_t=L 与 Price_discount_range=50_PERCENT_ off & more，agent 三次都摸到了正确的筛选面板但没凑齐完整 URL 结构。
 
