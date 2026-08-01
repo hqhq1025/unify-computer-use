@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **51** / 369 |
-| 我手工通过 | 40 / 51 |
-| cc 通过 | **42 / 51** |
-| cc 平均步数 | 14.5 |
-| cc 平均观测 token | 56638 |
-| cc 平均用时 | 189s |
-| 执行轴 a11y 占比 | 48% （329/690）|
+| 已跑题数 | **59** / 369 |
+| 我手工通过 | 46 / 59 |
+| cc 通过 | **48 / 58** |
+| cc 平均步数 | 14.8 |
+| cc 平均观测 token | 51339 |
+| cc 平均用时 | 194s |
+| 执行轴 a11y 占比 | 51% （413/813）|
 
 ## cc 未通过的题，成因分类
 
@@ -44,6 +44,7 @@
 | 39 | 未归类（可能是模型或链路） | What are the similar names to the name carl |
 | 47 | 未归类（可能是模型或链路） | Could you tone down the brightness of my photo |
 | 48 | 未归类（可能是模型或链路） | Could you assist me in enhancing the color vib |
+| 59 | 未归类（可能是模型或链路） | I'd like to make the picture's contrast strong |
 
 ## 逐题
 
@@ -100,6 +101,14 @@
 | 49 | gimp | Could you assist me in placing my photo on the deskt | ✅ | ✅ | 10 | 13849 | 113.6s |
 | 50 | gimp | Help me choose the yellow triangle and positioning i | ✅ | ✅ | 38 | 45736 | 697.3s |
 | 51 | gimp | Could you help me remove the dock on the left side o | ✅ | ✅ | 6 | 8122 | 129.0s |
+| 52 | gimp | Could you make the background of this image transpar | ✅ | ✅ | 33 | 11151 | 602.2s |
+| 53 | gimp | Could you assist me in adding a new layer and naming | ✅ | ✅ | 5 | 3857 | 45.1s |
+| 54 | gimp | Help me open up the Vignette filter window. | ✅ | ✅ | 9 | 5062 | 89.4s |
+| 55 | gimp | Set the minimum number of undo steps to 100. | ✅ | ✅ | 13 | 11377 | 130.8s |
+| 56 | gimp | Could you assist me with resizing the dog layer of a | ✅ | ✅ | 38 | 27951 | 502.0s |
+| 57 | gimp | Could you help me set the image to Palette-Based? | ✗ 0.0 | — | — | — | — |
+| 58 | gimp | Can you assist me in moving the text box to the left | ✅ | ✅ | 30 | 26797 | 476.7s |
+| 59 | gimp | I'd like to make the picture's contrast stronger to  | ✗ 0.0 | ✗ 0.0 | 9 | 5194 | 87.5s |
 
 ## 每题的过程记录
 
@@ -455,4 +464,55 @@
 - **我手工**（第 1 次，得分 0.0）：cc 31 步、零报错，但路子选错了：判据要的是 sessionrc 里 hide-docks: yes（对应 Windows → Hide Docks，快捷键 Tab），它却把四个停靠对话框一个个关掉，最后卡在删不掉的工具箱条上。链路没有误导它——Windows 菜单现在会报出"21 items not listed，点开就看得见"，Hide Docks 就在里面。
 - **cc**（第 2 次，得分 1.0）：cc 第二次
 - **我手工**（第 2 次，得分 1.0）：第二次 6 步通过，走的正是 Windows → Hide Docks。同一道题从 31 步失败变成 6 步通过——菜单隐藏项那条修复的直接效果。
+### 第 52 题 · 2a729ded
+
+> Could you make the background of this image transparent for me?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 33 步 / 602s 通过。
+### 第 53 题 · b148e375
+
+> Could you assist me in adding a new layer and naming it 'Square'?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 5 步一次通过。
+### 第 54 题 · a746add2
+
+> Help me open up the Vignette filter window.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 9 步一次通过。
+### 第 55 题 · 7b7617bd
+
+> Set the minimum number of undo steps to 100.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 13 步一次通过。
+### 第 56 题 · d16c99dc
+
+> Could you assist me with resizing the dog layer of an image? I need to adjust the height to 512 pixels while maintaining the original aspect ratio?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 38 步一次通过（改尺寸，两个判据全中）。
+### 第 57 题 · 06ca5602
+
+> Could you help me set the image to Palette-Based?
+
+- **我手工**（第 1 次，未判分）：**这道题本机判不了分。** agent 其实 123 秒就跑完了（11 步、12 轮），是**判分**把整个进程带走了：官方判据 check_palette_and_structure_sim 要对两张 5184x3888（2000 万像素）的图算结构相似度，float64 中间数组一个就 1.6GB，而本机 3.8G 内存 + 3.1G swap 装不下，被内核 OOM 杀掉（退出码 137）。从外面看就像"跑了 25 分钟卡死"——我最初也确实按超时去查，还一路查到截图载荷上，全错。已把判分隔离到子进程：炸了只炸子进程，并如实记成"环境不支持判分"，不计为模型失败。
+### 第 58 题 · e2dd0213
+
+> Can you assist me in moving the text box to the left side? I keep accidentally selecting the image layer beneath it.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 30 步一次通过。
+### 第 59 题 · f723c744
+
+> I'd like to make the picture's contrast stronger to really bring out the main subject. Could you assist me in boosting the contrast?
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：与 47/48 同一模式：Colors → Brightness-Contrast 调对了，不保存。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次与第一次相同。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次完全一致（9 步、5192 token）。转下一题。
 
