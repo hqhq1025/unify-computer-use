@@ -608,7 +608,7 @@ def _as_list(value):
     return value if isinstance(value, list) else [value]
 
 
-def evaluate(task, env=None, log=print):
+def evaluate(task, env=None, log=print, retry_on_zero=True):
     """用官方评估器判分。返回 (分数, 说明)。
 
     `options` **必须原样传下去**。忘了传的代价是实测过的：几何任务的
@@ -625,7 +625,7 @@ def evaluate(task, env=None, log=print):
     # 正是 `pkill chrome` + 重启来强制这次刷盘。少跑这一段，
     # 一次真实的成功会被记成失败，然后让人去修一个并不存在的产品缺陷。
     post = spec.get("postconfig") or []
-    if post:
+    if post and retry_on_zero:
         log("  跑 postconfig（{} 步）以固化被测状态".format(len(post)))
         apply_config({"config": post}, log=lambda *a: None)
         time.sleep(3)
@@ -672,4 +672,22 @@ def evaluate(task, env=None, log=print):
     if not scores:
         return None, "没有得到任何分数"
     score = max(scores) if conj == "or" else min(scores)
+
+    # 判 0 分时**等一下再判一次**。
+    #
+    # 到目前为止这套仪器给过 6 次假阴性，其中多次同一个成因：应用把状态**惰性
+    # 刷盘**，判分读到的是刷盘前的旧值。第 1 题（默认搜索引擎）和第 8 题
+    # （配置文件用户名）靠官方 postconfig 的 pkill+重启强制落盘躲过去了，
+    # 而第 17 题（去掉启动页）的评估器**没有 postconfig**——第一次判 0.0，
+    # 几秒后原样再判就是 1.0，磁盘上的值自己变对了。
+    #
+    # 重判只在 0 分时做，代价 3 秒。它不会把真失败变成通过：只有应用确实在
+    # 稍后提交了状态，第二次才会读到不同的值——而那本来就该算通过。
+    # 反过来，不重判就会把一次真实的成功记成失败，那是最坏的一种数据污染。
+    if score == 0 and retry_on_zero:
+        time.sleep(3)
+        again, again_detail = evaluate(task, env=env, log=lambda *a: None,
+                                       retry_on_zero=False)
+        if again is not None and again > 0:
+            return again, "{}（第一次判 0，等 3 秒重判：惰性刷盘）".format(again_detail)
     return score, "; ".join(details)

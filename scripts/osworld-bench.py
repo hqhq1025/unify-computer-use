@@ -263,6 +263,19 @@ def cmd_agent(args):
 
     command = [
         "claude", "-p", task["instruction"],
+        # OSWorld 给 agent 的系统提示第一句就是
+        #   "You are an agent which follow my instruction and perform desktop
+        #    computer tasks as instructed."
+        # 我们此前只喂原始指令，**这是仪器的不公平**：实测第 17 题的指令是疑问句
+        # （"…What should I do?"），cc 于是把它当问题回答了——给了一份正确的
+        # 操作建议，一步也没动手。它没做错，是我们没告诉它该动手。
+        #
+        # 这里只补 OSWorld 那句框定，**不加任何关于本 MCP 工具的提示**——
+        # 那会变成给自己的实现开小灶，测出来的数就不能和别人比了。
+        "--append-system-prompt",
+        "You are an agent which follows my instruction and performs desktop "
+        "computer tasks as instructed. Actually operate the computer to carry the "
+        "task out; do not merely explain how it could be done.",
         "--permission-mode", "bypassPermissions",
         "--output-format", "stream-json", "--verbose",
         "--max-budget-usd", str(args.budget),

@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **15** / 369 |
-| 我手工通过 | 12 / 15 |
-| cc 通过 | **13 / 15** |
-| cc 平均步数 | 10.6 |
-| cc 平均观测 token | 25229 |
-| cc 平均用时 | 129s |
-| 执行轴 a11y 占比 | 42% （57/136）|
+| 已跑题数 | **17** / 369 |
+| 我手工通过 | 14 / 17 |
+| cc 通过 | **15 / 17** |
+| cc 平均步数 | 10.5 |
+| cc 平均观测 token | 24963 |
+| cc 平均用时 | 123s |
+| 执行轴 a11y 占比 | 39% （59/151）|
 
 ## 逐题
 
@@ -48,6 +48,8 @@
 | 13 | chrome | Computer, please navigate to the area in my browser  | ✅ | ✅ | 7 | 10737 | 76.0s |
 | 14 | chrome | Could you help me unzip the downloaded extension fil | ✅ | ✅ | 27 | 27863 | 315.7s |
 | 15 | chrome | Could you assist me in turning off the dark mode fea | ✗ 0.0 | ✅ | 6 | 9949 | 73.5s |
+| 16 | chrome | Could you please change the number of search results | ✅ | ✅ | 2 | 346 | 36.9s |
+| 17 | chrome | On my surface pro whenever I launch Chrome it always | ✅ | ✅ | 17 | 44261 | 195.2s |
 
 ## 每题的过程记录
 
@@ -159,4 +161,18 @@
 - **我手工**（第 1 次，得分 0.0）：手工未完成，且我认为**这道题在 Linux 上没有 UI 路径**：截图证实 chrome://settings/appearance 页上根本没有 Mode(Light/Dark/Device) 控件——只有 Theme(GTK / Use Classic / Use QT)、工具栏、若干开关、字号、缩放。Linux 版 Chrome 跟随系统 GTK 主题，那个模式选择器只在 Windows/macOS/ChromeOS 上存在。点了唯一相关的「Use Classic」，界面变了 6.45% 像素，但 Preferences 里 browser.theme.color_scheme 仍是 2（dark）。题目的 config 是直接写 Preferences 强制成 dark 的，而 UI 上没有对应的反向操作。链路没问题，是题与平台不匹配。
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 2 次，得分 0.0）：撤回上一条结论。我说 Linux 上没有 Mode 控件是错的——cc 6 步就过了，它在树里找到了 combo box Mode 并用 set_value 设成 Light，再用 verify 确认。我的错误在于：两次观测（find 搜 dark、以及截图）看的都是改动前就已经渲染好的那个页面，没有重新加载就下了控件不存在的结论。教训：下这种结论之前必须先重新加载——设置页是在 config 写 Preferences 之前渲染的，Chrome 不会自己把新出现的行补上。截图也救不了：陈旧页面会拍出一张同样陈旧、同样有说服力的图。
+### 第 16 题 · ae78f875
+
+> Could you please change the number of search results displayed on one page to 50? I find that having more results visible at once significantly enhances my research efficiency, as it reduces the need to constantly click through multiple pages. 
+
+- **我手工**（第 1 次，得分 1.0）：手工确认做不到：chrome://settings/search 页上 find 搜 results 零命中（144 个元素全扫）。每页搜索结果数是 Google 搜索自己的偏好，不是浏览器设置。这次是新导航过去的，观测的是当前状态——吸取第 15 题的教训。
+- **cc**（第 1 次，得分 1.0）：cc 第一次（infeasible）
+### 第 17 题 · 3299584d
+
+> On my surface pro whenever I launch Chrome it always opens "funbrain.com." I don't want this. I cleared my cache but it still happens. What should I do?
+
+- **我手工**（第 1 次，得分 0.0）：手工：chrome://settings/onStartup → funbrain 那一行的 More actions → Remove。链路全程顺畅，无新缺陷。
+- **我手工**（第 2 次，得分 1.0）：重新判分即通过——Chrome 的 Preferences 是惰性刷盘的，而这道题的评估器**没有 postconfig**（不会 pkill+重启强制落盘）。第一次判分时磁盘上还是旧值，几秒后再读就对了。
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **cc**（第 2 次，得分 1.0）：cc 第二次（补上 OSWorld 等价的系统框定）
 
