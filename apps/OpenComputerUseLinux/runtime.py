@@ -652,12 +652,68 @@ def loose(text):
     return "".join(ch for ch in str(text or "").lower() if ch.isalnum())
 
 
+def process_names(pid, proc_root="/proc"):
+    """一个 pid 的进程名与命令行首段的 basename，全小写。
+
+    为什么要读 /proc：a11y 名和进程名在 Linux 上**经常是两个不相干的词**，
+    而 agent 猜的往往是后者。轨迹里的实例是 `appNotFound("file-roller")`——
+    这台机器上那个应用的 a11y 名叫 `Archive Manager`，两个名字之间没有任何
+    公共子串，分隔符归一化再宽松也救不回来。但 `file-roller` 恰恰**就是**它的
+    进程名，答案一直躺在 /proc/<pid>/comm 里，只是我们从来没去看。
+
+    同类的还有 `soffice`（LibreOffice）、`nautilus`（Files）、`code`（Visual
+    Studio Code）——桌面上最常见的那批应用几乎都有这个分裂。
+    """
+    names = set()
+    if not pid:
+        return names
+    try:
+        comm_path = os.path.join(proc_root, str(int(pid)), "comm")
+        with open(comm_path, encoding="utf-8") as handle:
+            comm = handle.read().strip().lower()
+        if comm:
+            names.add(comm)
+    except Exception:
+        pass
+    try:
+        cmd_path = os.path.join(proc_root, str(int(pid)), "cmdline")
+        with open(cmd_path, "rb") as handle:
+            raw = handle.read()
+        # 先按 \0 切，再按空白切。
+        #
+        # 为什么两步都要：cmdline 的约定是 \0 分隔，但**并非所有进程都守约**——
+        # 这台机器上 Chrome 那条读出来是一整块
+        # `chrome --remote-debugging-port=1337`，中间是空格。只按 \0 切就会把整块
+        # 当成 argv[0]，再取 basename，于是从 `…/drugs.com` 里读出 "drugs.com"，
+        # 把一个**网页地址**注册成了 Chrome 的别名。那样 `resolve_app("drugs")`
+        # 会解析到 Chrome——工具凭空编出一个不存在的应用名，正是最该避免的那种谎。
+        first = raw.split(b"\0")[0].decode("utf-8", "replace").split()
+        base = os.path.basename(first[0]).strip().lower() if first else ""
+        if base:
+            names.add(base)
+            # soffice.bin 这类带后缀的，去掉扩展名再存一份。
+            stem = base.rsplit(".", 1)[0]
+            if stem:
+                names.add(stem)
+    except Exception:
+        pass
+    return names
+
+
 def matches_query(app, query):
     normalized = query.strip().lower()
     if not normalized:
         return False
     if normalized.isdigit() and node_pid(app) == int(normalized):
         return True
+    tight = loose(normalized)
+    if tight:
+        for candidate in process_names(node_pid(app)):
+            tight_process = loose(candidate)
+            if tight_process and (tight == tight_process
+                                  or tight in tight_process
+                                  or tight_process in tight):
+                return True
     app_name = node_name(app).lower()
     if app_name == normalized or normalized in app_name:
         return True
@@ -761,16 +817,24 @@ def resolve_app(query):
     try:
         for app in iter_apps():
             name = str(node_name(app) or "").strip()
-            if name:
-                running.append(name)
+            if not name:
+                continue
+            # 一并给出进程名。a11y 名和进程名常常毫不相干（Archive Manager /
+            # file-roller），而 agent 猜的多半是后者——把两者摆在一起，它下一次
+            # 就知道该怎么对应，而不是再猜一轮。
+            others = sorted(n for n in process_names(node_pid(app))
+                            if loose(n) and loose(n) != loose(name))
+            running.append("{} ({})".format(name, others[0]) if others else name)
     except Exception:
         pass
     if running:
         raise RuntimeError(
             'appNotFound("{}"). Applications currently visible to the '
-            'accessibility bus: {}. Names are matched case- and '
-            'separator-insensitively, so "google-chrome" finds "Google Chrome"; '
-            'a window title works too.'.format(query, ", ".join(sorted(set(running))[:20])))
+            'accessibility bus, with their process names in parentheses: {}. '
+            'Names are matched case- and separator-insensitively against the '
+            'display name, the window title and the process name, so both '
+            '"google-chrome" and "file-roller" resolve.'.format(
+                query, ", ".join(sorted(set(running))[:20])))
     raise RuntimeError('appNotFound("{}")'.format(query))
 
 

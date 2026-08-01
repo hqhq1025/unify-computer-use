@@ -2557,3 +2557,53 @@ class ResolvedNoteTests(AtspiPatchedTestCase):
         # click_xy 不定位任何元素，硬报一条只会是噪声
         self.assertIsNone(runtime.resolved_note(None, {"index": 1}))
         self.assertIsNone(runtime.resolved_note(_NamedNode(), None))
+
+
+class ProcessNameAliasTests(unittest.TestCase):
+    """应用名可以用**进程名**去猜——以及别把网页地址当成进程名。
+
+    第一条来自轨迹：`appNotFound("file-roller")`，而那个应用的 a11y 名是
+    `Archive Manager`。两个名字之间没有公共子串，分隔符归一化再宽松也救不回来，
+    但 `file-roller` 恰恰就是它的进程名。真机上同类的还有
+    org.gnome.Software / snap-store。
+
+    第二条是我加第一条时**自己引入的**：cmdline 的约定是 \0 分隔，但 Chrome
+    那条读出来是一整块 `chrome --remote-debugging-port=1337`（空格分隔）。
+    只按 \0 切再取 basename，就会从 `…/drugs.com` 里读出 "drugs.com"，
+    把一个网页地址注册成 Chrome 的别名——工具凭空编出一个不存在的应用名。
+    这两条都钉在这里。
+    """
+
+    def _process_names(self, blob, comm="x"):
+        # 不去补丁 builtins.open——那既脆又会波及无关代码。process_names 接受
+        # 一个 proc_root，测试造一棵假的 /proc 就够了。
+        import tempfile
+        with tempfile.TemporaryDirectory() as root:
+            pid_dir = os.path.join(root, "4242")
+            os.makedirs(pid_dir)
+            with open(os.path.join(pid_dir, "comm"), "w") as handle:
+                handle.write(comm + "\n")
+            with open(os.path.join(pid_dir, "cmdline"), "wb") as handle:
+                handle.write(blob)
+            return runtime.process_names(4242, proc_root=root)
+
+    def test_null_separated_cmdline_gives_binary_name(self):
+        names = self._process_names(b"/usr/bin/file-roller\0/tmp/a.zip\0",
+                                    comm="file-roller")
+        self.assertIn("file-roller", names)
+
+    def test_space_separated_cmdline_does_not_leak_a_url(self):
+        # 真机上 Chrome 就是这样：整块、空格分隔、末尾是访问过的地址。
+        names = self._process_names(
+            b"/opt/google/chrome/chrome --app=https://www.drugs.com",
+            comm="chrome")
+        self.assertIn("chrome", names)
+        self.assertNotIn("drugs.com", names)
+        self.assertNotIn("drugs", names)
+
+    def test_suffixed_binary_also_registers_its_stem(self):
+        # soffice.bin 要能被 "soffice" 猜中。
+        names = self._process_names(b"/usr/lib/libreoffice/program/soffice.bin\0",
+                                    comm="soffice.bin")
+        self.assertIn("soffice.bin", names)
+        self.assertIn("soffice", names)

@@ -3193,14 +3193,17 @@ func enabledChannels() map[string]bool {
 // 让它敢于第一次就猜，猜错也能从错误里拿到候选名单。
 const appArgumentHelp = "Which application to act on. Matching is deliberately " +
 	"forgiving: case-insensitive, separator-insensitive, and substring-based, and " +
-	"it also matches window titles and a numeric PID. So \"google-chrome\", " +
-	"\"Google Chrome\" and \"chrome\" all find the same app. " +
+	"it matches the display name, the window title, the process name, and a " +
+	"numeric PID. So \"google-chrome\", \"Google Chrome\" and \"chrome\" all find " +
+	"the same app, and \"file-roller\" finds the one displayed as \"Archive " +
+	"Manager\". " +
 	"Names on Linux follow three different conventions with no rule to tell them " +
 	"apart, so just guess the obvious one: a display name (\"Google Chrome\", " +
-	"\"Thunderbird\"), a binary name (\"vlc\", \"gedit\", \"code\"), or a " +
-	"reverse-DNS app id (\"org.gnome.Nautilus\" — the Files manager, whose " +
+	"\"Thunderbird\"), a binary name (\"vlc\", \"gedit\", \"code\", \"soffice\"), " +
+	"or a reverse-DNS app id (\"org.gnome.Nautilus\" — the Files manager, whose " +
 	"process is just `nautilus`). A wrong guess is cheap: the error lists every " +
-	"application currently visible, so you rarely need list_apps first."
+	"application currently visible together with its process name, so you rarely " +
+	"need list_apps first."
 
 var toolChannel = map[string]string{
 	"get_app_state":         "a11y",
