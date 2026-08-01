@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **29** / 369 |
-| 我手工通过 | 24 / 29 |
-| cc 通过 | **26 / 29** |
-| cc 平均步数 | 13.6 |
-| cc 平均观测 token | 49476 |
-| cc 平均用时 | 171s |
-| 执行轴 a11y 占比 | 54% （182/340）|
+| 已跑题数 | **30** / 369 |
+| 我手工通过 | 24 / 30 |
+| cc 通过 | **26 / 30** |
+| cc 平均步数 | 13.7 |
+| cc 平均观测 token | 51789 |
+| cc 平均用时 | 175s |
+| 执行轴 a11y 占比 | 53% （186/354）|
 
 ## 逐题
 
@@ -62,6 +62,7 @@
 | 27 | chrome | Book an appointment to apply for a transportation ac | ✅ | ✅ | 29 | 69811 | 324.9s |
 | 28 | chrome | Find flights from Seattle to New York on 5th next mo | ✗ 0.0 | ✗ 0.0 | 32 | 80431 | 484.8s |
 | 29 | chrome | Search for a one way flight from Dublin to Vienna on | ✅ | ✅ | 15 | 86609 | 224.7s |
+| 30 | chrome | Find a Hotel in New York City with lowest price poss | ✗ 0.0 | ✗ 0.0 | 19 | 135059 | 334.3s |
 
 ## 每题的过程记录
 
@@ -263,4 +264,11 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：链路验证通过，cc 15 步一次完成。
+### 第 30 题 · b7895e80
+
+> Find a Hotel in New York City with lowest price possible for 2 adults next weekend. Sort the search results by price and stay on the results page.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **cc**（第 1 次，得分 0.0）：cc 第一次 0.0（19 步 334s，四个判据全 0）。
+- **我手工**（第 1 次，得分 0.0）：本轮暴露一个我自己的测量错误：**基线和 agent 不能并行跑**——它们驱动同一个桌面，抢应用与焦点。并行时基线一度报 3/5，把 agent 跑完、内存腾出来（可用 229Mi → 1.2Gi）之后原样再跑就是 5/5。这条要写进流程：任何一次基线读数，前提是桌面上没有别的 agent 在动。
 
