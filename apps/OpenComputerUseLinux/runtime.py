@@ -632,6 +632,36 @@ def matches_query(app, query):
     return False
 
 
+def foreground_app():
+    """X11 认定的前台窗口属于哪个 a11y 应用。拿不到就 None。
+
+    这条存在的理由是轨迹给的：13 条真实 agent 轨迹里 **12 条**的第一步是
+    `list_apps`，第二步才是 `get_app_state`。它们真正想知道的是同一件事——
+    "我现在面前是什么"——而这件事此前需要两次调用外加一次猜名字。
+
+    改用 X11 的活动窗口而不是 AT-SPI 的 ACTIVE 位：后者在门户对话框、
+    LibreOffice 等一大类窗口上**根本不设**（本仓库反复实测过），
+    拿它当"前台"的判据会经常判空。
+    """
+    try:
+        active = subprocess.run(["xdotool", "getactivewindow"],
+                                capture_output=True, text=True, timeout=3)
+        if active.returncode != 0 or not active.stdout.strip():
+            return None
+        prop = subprocess.run(["xprop", "-id", active.stdout.strip(), "_NET_WM_PID"],
+                              capture_output=True, text=True, timeout=3).stdout
+    except Exception:
+        return None
+    digits = [int(n) for n in re.findall(r"\d+", prop)]
+    if not digits:
+        return None
+    target_pid = digits[-1]
+    for app in iter_apps():
+        if node_pid(app) == target_pid:
+            return app
+    return None
+
+
 def resolve_app(query):
     """按名字/标题/pid 找应用，找不到时**重试几次**再宣告失败。
 
@@ -648,6 +678,16 @@ def resolve_app(query):
 
     重试上限很小：应用真的不存在时不该让调用方多等。
     """
+    # 空查询 = "现在前台是什么"。这是 agent 真正想问的第一个问题，
+    # 让它一次调用就能问出来，而不是先 list_apps 再猜名字。
+    if not str(query or "").strip():
+        app = foreground_app()
+        if app is not None:
+            return app
+        raise RuntimeError(
+            "No app was given and the foreground window could not be attributed to "
+            "any application on the accessibility bus. Pass an app name, or call "
+            "list_apps to see what is running.")
     last_error = None
     for attempt in range(RESOLVE_APP_ATTEMPTS):
         try:

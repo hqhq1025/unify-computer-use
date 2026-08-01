@@ -287,9 +287,15 @@ func TestGetAppStateSchemaIncludesTextLimit(t *testing.T) {
 	if got := maxTreeDepth["minimum"]; got != 1 {
 		t.Fatalf("max_tree_depth minimum = %v, want 1", got)
 	}
-	required := tool.InputSchema["required"].([]string)
-	if len(required) != 1 || required[0] != "app" {
-		t.Fatalf("required = %#v, want [app]", required)
+	// app **不再必填**。这条断言以前钉的是"必须指定应用"，那个契约是有意改掉的：
+	// 13 条真实 agent 轨迹里 12 条的开局是 `list_apps → get_app_state`，
+	// 它们想问的是"我现在面前是什么"，而那此前要两次调用外加一次猜名字。
+	// 留空现在表示"当前前台那个应用"。
+	// required 为空时 objectSchema 干脆不写这个键，所以这里不能直接断言类型。
+	if raw, present := tool.InputSchema["required"]; present {
+		if names, ok := raw.([]string); ok && len(names) != 0 {
+			t.Fatalf("required = %#v, want 空（app 现在可选）", names)
+		}
 	}
 }
 
@@ -2075,5 +2081,32 @@ func TestAppArgumentHelpTeachesTheThreeNamingConventions(t *testing.T) {
 	}
 	if used < 10 {
 		t.Fatalf("只有 %d 个工具用了统一的 app 说明，其余还在用旧文案", used)
+	}
+}
+
+func TestGetAppStateWorksWithNoAppArgument(t *testing.T) {
+	// 轨迹证据：13 条真实 agent 轨迹里 **12 条**的开局是
+	// `list_apps → get_app_state`。它们想问的是同一件事——"我现在面前是什么"
+	// ——而那此前要两次调用外加一次猜名字。
+	//
+	// 只把命名规则写进描述**没能改掉这个习惯**（对照跑过一次，仍然先列）。
+	// 所以从工具本身消掉这一步：app 留空就是"当前前台那个"。
+	definition := findToolDefinition(t, "get_app_state")
+	required, _ := definition.InputSchema["required"].([]string)
+	for _, name := range required {
+		if name == "app" {
+			t.Fatal("app 不该再是必填——留空表示当前前台应用")
+		}
+	}
+	if !strings.Contains(definition.Description, "FOREGROUND") {
+		t.Fatal("描述里要说明留空 app 会返回前台应用，否则没人会去用")
+	}
+	// 前台判据必须走 X11，不能走 AT-SPI 的 ACTIVE 位：后者在门户对话框、
+	// LibreOffice 等一大类窗口上根本不设，拿它当判据会经常判空。
+	if !strings.Contains(linuxRuntimeScript, "def foreground_app(") {
+		t.Fatal("需要一个基于 X11 活动窗口的前台应用解析")
+	}
+	if !strings.Contains(linuxRuntimeScript, `["xdotool", "getactivewindow"]`) {
+		t.Fatal("前台判据要问 X11，不要只信 AT-SPI 的 ACTIVE")
 	}
 }

@@ -423,6 +423,7 @@ func (s *service) dispatch(name string, args map[string]any) toolCallResult {
 	case "get_screenshot":
 		return s.getScreenshot(requiredString(args, "app"))
 	case "get_app_state":
+		// app 现在可选：不传就是"当前前台那个"。轨迹证据见 appArgumentHelp。
 		maxTreeNodes, err := optionalPositiveInt(args, "max_tree_nodes")
 		if err != nil {
 			return textResult(err.Error(), true)
@@ -542,9 +543,9 @@ func (s *service) listApps() toolCallResult {
 }
 
 func (s *service) getAppState(app string, textLimit *textLimit, maxTreeNodes, maxTreeDepth *int, prune, boxes *bool) toolCallResult {
-	if app == "" {
-		return textResult("Missing required argument: app", true)
-	}
+	// app 留空是**合法**的，表示"当前前台那个应用"。
+	// 13 条真实轨迹里 12 条的开局是 `list_apps → get_app_state`——它们想问的
+	// 是同一件事"我现在面前是什么"，而那此前要两次调用外加一次猜名字。
 	request := linuxRequest{Tool: "get_app_state", App: app}
 	if textLimit != nil {
 		request.TextLimit = textLimit.runtimeValue()
@@ -3102,7 +3103,7 @@ func allToolDefinitions() []toolDefinition {
 		},
 		{
 			Name:        "get_app_state",
-			Description: "CHANNEL: ACCESSIBILITY (with a screenshot attached). Get the state of an already running app's key window and return its accessibility tree. This does NOT return a screenshot — use get_screenshot for that, and only when the tree is insufficient. This must be called once per assistant turn before interacting with the app. This tool is part of plugin `Computer Use`.",
+			Description: "CHANNEL: ACCESSIBILITY (with a screenshot attached). `app` is OPTIONAL: leave it out to get whatever is in the FOREGROUND right now. That is usually the right first call and it saves a list_apps round trip. Get the state of an already running app's key window and return its accessibility tree. This does NOT return a screenshot — use get_screenshot for that, and only when the tree is insufficient. This must be called once per assistant turn before interacting with the app. This tool is part of plugin `Computer Use`.",
 			Annotations: readOnlyAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"app":            stringProperty(appArgumentHelp),
@@ -3111,7 +3112,7 @@ func allToolDefinitions() []toolDefinition {
 				"max_tree_depth": positiveIntegerProperty("Maximum accessibility tree depth to render. Defaults to 64."),
 				"boxes":          booleanProperty("Defaults to false. When true, each element line ends with its rectangle as {x,y,width,height} in window-relative pixels. Off by default because the geometry costs 16-25% of the tree and is redundant: a screenshot is attached to every snapshot and uses the SAME coordinate space, so read points off the image; and click(element_index) resolves coordinates server-side without needing them rendered. Turn it on when you want to reason about layout numerically."),
 				"prune":          booleanProperty("Defaults to true. Pruning keeps only interactable, on-screen elements and cuts the tree to roughly a fifth without losing anything you can act on; the omission notice reports how many nodes were left out. Set false only if you suspect a needed element was filtered."),
-			}, []string{"app"}),
+			}, []string{}),
 		},
 		{
 			Name:        "get_screenshot",
