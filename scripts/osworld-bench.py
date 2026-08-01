@@ -45,8 +45,21 @@ SERVER_NAME = "ocu"
 
 # 这些内建工具必须禁掉，否则 agent 会绕开 GUI 直接改文件/跑脚本，
 # 测的就不是这条链路了。
-DISALLOWED = [
-    "Bash", "Read", "Write", "Edit", "NotebookEdit", "Glob", "Grep",
+# 禁用的内置工具。
+#
+# **Bash 现在是开的。** 原来它在禁用列表里，理由是"不禁的话 agent 会绕开 GUI
+# 直接改文件，测的就不是这条链路"。这个理由站得住，但它测的也不是**真实的
+# Claude Code**——真实用户的 Bash 一直开着，OSWorld 官方那套 agent 在虚拟机里
+# 同样能开终端。而且轨迹已经证明禁不住：67 条里有 2 条，模型自己通过 GUI 打开
+# GNOME 终端、往里 type_text 打 Python 代码，把终端当成一个图形应用来用。
+#
+# 代价要说清楚：开了 Bash 之后，**通过率不再单纯反映这条 MCP 链路的能力**，
+# 因为有些题可以完全绕开桌面用 shell 做完。所以每条记录都会带上 `bash` 字段，
+# 两种口径的数据可以分开算，不许混在一起报。
+#
+# 想跑"纯链路"口径时加 --no-bash。
+DISALLOWED_BASE = [
+    "Read", "Write", "Edit", "NotebookEdit", "Glob", "Grep",
     "WebFetch", "WebSearch", "Task", "TodoWrite", "KillShell", "BashOutput",
 ]
 
@@ -291,6 +304,10 @@ def cmd_agent(args):
     trace = "/tmp/osworld-trace-{}.jsonl".format(task_id[:8])
     environ = dict(os.environ, OPEN_COMPUTER_USE_TRACE_FILE=trace)
 
+    # Bash 默认开着，--no-bash 可以退回"纯链路"口径。见 DISALLOWED_BASE。
+    disallowed = list(DISALLOWED_BASE)
+    if args.no_bash:
+        disallowed.append("Bash")
     command = [
         "claude", "-p", task["instruction"],
         # OSWorld 给 agent 的系统提示第一句就是
@@ -315,7 +332,7 @@ def cmd_agent(args):
         "--permission-mode", "bypassPermissions",
         "--output-format", "stream-json", "--verbose",
         "--max-budget-usd", str(args.budget),
-        "--disallowedTools", *DISALLOWED,
+        "--disallowedTools", *disallowed,
     ]
     started = time.time()
     with open(transcript, "w", encoding="utf-8") as handle:
@@ -350,6 +367,10 @@ def cmd_agent(args):
         "observation_tokens": stats["observation_tokens"],
         "semantic": stats["semantic"], "synthesis": stats["synthesis"],
         "seconds": round(elapsed, 1),
+        # 口径必须随每条记录一起存。开了 Bash 的跑测**不再单纯反映这条 MCP
+        # 链路的能力**——有些题可以完全绕开桌面用 shell 做完。两种口径的数字
+        # 混在一起报，等于把两个不同的实验说成一个。
+        "bash": not args.no_bash,
         "transcript": transcript, "trace": trace,
         # infeasible 题的判据是读自述，所以自述必须留档供复核。
         "final_text": stats["final"][:2000],
@@ -420,6 +441,8 @@ def main():
     p.add_argument("--budget", type=float, default=3.0)
     p.add_argument("--attempt", type=int, default=1)
     p.add_argument("--skip-config", action="store_true")
+    p.add_argument("--no-bash", action="store_true",
+                   help="禁用 Bash，跑纯 MCP 链路口径")
     p.add_argument("--note", default="")
     p.set_defaults(fn=cmd_agent)
 

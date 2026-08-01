@@ -205,23 +205,23 @@ func TestClickMethodSchemaAndParser(t *testing.T) {
 func TestLinuxClickMethodSafetyAndPlatformSupport(t *testing.T) {
 	service := newService()
 
-	result := service.click("Text Editor", "7", "", nil, nil, 1, "left", "app_post")
+	result := service.click("Text Editor", "7", "", nil, nil, 1, "left", "app_post", nil)
 	if !result.IsError || result.Content[0].Text != "click_method 'app_post' is not supported on Linux" {
 		t.Fatalf("app_post click result = %#v", result)
 	}
 
-	result = service.click("Text Editor", "7", "", nil, nil, 1, "left", "sky_click")
+	result = service.click("Text Editor", "7", "", nil, nil, 1, "left", "sky_click", nil)
 	if !result.IsError || result.Content[0].Text != "click_method 'sky_click' is not supported on Linux" {
 		t.Fatalf("sky_click result = %#v", result)
 	}
 
 	// click 不再接受 x/y——坐标点击是另一条通道，另一个工具。
 	x, y := 10.0, 20.0
-	result = service.click("Text Editor", "7", "", &x, &y, 1, "left", "auto")
+	result = service.click("Text Editor", "7", "", &x, &y, 1, "left", "auto", nil)
 	if !result.IsError || !strings.Contains(result.Content[0].Text, "use click_xy") {
 		t.Fatalf("click 收到 x/y 应当指向 click_xy: %#v", result)
 	}
-	result = service.click("Text Editor", "", "", nil, nil, 1, "left", "auto")
+	result = service.click("Text Editor", "", "", nil, nil, 1, "left", "auto", nil)
 	if !result.IsError || !strings.Contains(result.Content[0].Text, "click requires element_index") {
 		t.Fatalf("click 缺 element_index 应当明确报错: %#v", result)
 	}
@@ -615,28 +615,59 @@ func TestLinuxRuntimeReportsExecutionPath(t *testing.T) {
 }
 
 func TestIncrementalTreeOnlyWhenSafeAndCheaper(t *testing.T) {
-	// 实测依据：无结构变化的步骤上增量省 62%，有结构变化的步骤上反而亏 7%——
-	// 增删两边都要付钱。所以判据是行数不变：它同时保证了划算（只有内容变了）
-	// 和正确（#15 证明结构一变 element_index 就永久重排，行数不变即无结构变化）。
+	// 这个测试原来的判据是**前后行数必须完全相同**，理由写着"结构一变
+	// element_index 就永久重排，行数不变即无结构变化"。判断没错，但它是个
+	// 过强的代理条件：菜单展开、对话框弹出、列表增删一行都会改变行数，
+	// 而那恰恰是最常见的动作。实测 67 条轨迹、753 次动作，增量只命中 26.6%，
+	// 于是"动作的副产品"吃掉了 87% 的观测开销。
+	//
+	// 真正的安全不变量比行数细一层：**下标就印在行文本里**（StableIndexer 按
+	// 树内路径 + role + name 发号，见 runtime.py index_for）。所以
+	//
+	//     一行逐字节相同  ⇒  路径、role、name 都没变  ⇒  下标也没变
+	//
+	// 反过来，插入一个节点会让后面兄弟的路径全变、领到新下标，
+	// 于是**它们的行文本也变了**，必然出现在 diff 里——不会被悄悄漏掉。
+	// 而那种大范围重排会让变化行数超过三分之一，按下面的比例判据自动退回全量。
+	// 也就是说这套机制在"索引重排"这件事上是自纠的。
 	base := func(lines ...string) *appSnapshot { return &appSnapshot{TreeLines: lines} }
 
 	if _, ok := incrementalTree(base("a", "b", "c"), base("a", "b", "c")); ok {
 		t.Fatal("完全没变时不该走增量——那属于 nothing-changed，另有提示")
 	}
+
 	diff, ok := incrementalTree(base("a", "b", "c", "d", "e", "f"),
 		base("a", "b", "X", "d", "e", "f"))
 	if !ok {
 		t.Fatal("只有一行变化时应该走增量")
 	}
-	if len(diff) != 2 || diff[1] != "X" {
-		t.Fatalf("增量应只含表头和变化行，得到 %v", diff)
+	if len(diff) != 3 || diff[1] != "-c" || diff[2] != "+X" {
+		t.Fatalf("一行被替换时应给出 -旧 +新，得到 %v", diff)
 	}
 	if !strings.Contains(diff[0], "keeps the same element_index") {
 		t.Fatal("表头必须说明未变的行仍沿用同一个 element_index")
 	}
-	if _, ok := incrementalTree(base("a", "b"), base("a", "b", "c")); ok {
-		t.Fatal("行数变化意味着结构变化，索引会重排，绝不能走增量")
+
+	// 纯插入：这正是老判据挡掉、而实际最常见的那一类。
+	diff, ok = incrementalTree(base("a", "b", "c", "d", "e", "f", "g"),
+		base("a", "b", "NEW", "c", "d", "e", "f", "g"))
+	if !ok {
+		t.Fatal("插入一行应该走增量——老判据在这里退回全量，占了绝大多数动作")
 	}
+	if len(diff) != 2 || diff[1] != "+NEW" {
+		t.Fatalf("纯插入应只给出 +新行，得到 %v", diff)
+	}
+
+	// 纯删除。
+	diff, ok = incrementalTree(base("a", "b", "GONE", "c", "d", "e", "f"),
+		base("a", "b", "c", "d", "e", "f"))
+	if !ok {
+		t.Fatal("删除一行应该走增量")
+	}
+	if len(diff) != 2 || diff[1] != "-GONE" {
+		t.Fatalf("纯删除应只给出 -旧行，得到 %v", diff)
+	}
+
 	if _, ok := incrementalTree(base("a", "b", "c"), base("X", "Y", "c")); ok {
 		t.Fatal("变化占比过大时增量不划算，应回退全量")
 	}

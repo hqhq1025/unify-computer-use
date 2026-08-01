@@ -239,6 +239,32 @@ func (s *appSnapshot) resultWithNotes(notes []string) toolCallResult {
 	return s.textWithNotes(s.renderedText(), notes)
 }
 
+// notesOnlyResult 只回诊断 Note，不回树、不回截图。
+//
+// 为什么需要它：量过 67 条真实轨迹，**87% 的观测开销是动作的副产品**——
+// 每个 click/press_key 都把整棵树重渲一遍再附一张图，平均 13640 字符 + 92%
+// 带图，比 get_app_state 本身还大。而调用方连打三四个已知动作时，
+// 中间那几棵树它根本没读。
+//
+// 但树不能默认砍掉：动作后的树正是"这一步到底生效没有"的证据，
+// 砍了就等于让调用方盲着走。所以这是**调用方自己选**的，默认仍是全量。
+//
+// 即便只回 Note，证据也没丢干净：解析到了哪个元素、像素变了百分之几并且
+// 跨两帧仍然保持、有没有弹出模态框——这些都在 Note 里。丢的是"完整现状"。
+func (s *appSnapshot) notesOnlyResult(notes []string) toolCallResult {
+	lines := make([]string, 0, len(notes)+1)
+	for _, note := range notes {
+		lines = append(lines, "Note: "+note)
+	}
+	lines = append(lines, "",
+		"(observe=\"notes\": the tree and screenshot were refreshed server-side but "+
+			"not returned. element_index values stay valid. Call get_app_state when "+
+			"you need to see the current state.)")
+	return toolCallResult{Content: []contentItem{
+		{Type: "text", Text: capInline(strings.Join(lines, "\n"))},
+	}}
+}
+
 // textWithNotes 走和整棵树完全相同的出口：诊断在前、正文在后、超阈值落盘。
 // find 的输出必须和 get_app_state 共用这条路径，否则"树太大"这个问题
 // 会在 find 上原样复发一遍——命中 300 个元素时它一样是一份大输出。
@@ -346,6 +372,10 @@ type linuxRequest struct {
 	Boxes        *bool          `json:"boxes,omitempty"`
 	// nil = 按运行时的默认策略。find / verify 显式传 false 省掉视觉 token。
 	IncludeScreenshot *bool `json:"includeScreenshot,omitempty"`
+	// Observe 决定动作**回给调用方**多少东西。"full"（默认）回整棵树加截图，
+	// "notes" 只回证据性的 Note。服务端无论哪种都照常刷新快照缓存，
+	// 所以 element_index 不会因此失效——省的只是发出去的字节。
+	Observe string `json:"observe,omitempty"`
 	// scroll 没给 element_index 时置真：落点是窗口中心，不是某个具体元素。
 	// **必须显式传**，不能让运行时去猜——合成记录的 index 是 0 而不是 null，
 	// 推断会把"滚窗口"说成"滚这个元素"，那就是工具在骗 agent。
@@ -492,7 +522,7 @@ func (s *service) dispatch(name string, args map[string]any) toolCallResult {
 		if err != nil {
 			return textResult(err.Error(), true)
 		}
-		return s.getAppState(requiredString(args, "app"), textLimit, maxTreeNodes, maxTreeDepth, optionalBool(args, "prune"), optionalBool(args, "boxes"))
+		return s.getAppState(requiredString(args, "app"), textLimit, maxTreeNodes, maxTreeDepth, optionalBool(args, "prune"), optionalBool(args, "boxes"), optionalBool(args, "include_screenshot"))
 	case "find":
 		limit, err := optionalPositiveInt(args, "limit")
 		if err != nil {
@@ -541,6 +571,7 @@ func (s *service) dispatch(name string, args map[string]any) toolCallResult {
 			intValue(optionalFloat(args, "click_count"), 1),
 			defaultString(optionalString(args, "mouse_button"), "left"),
 			clickMethod,
+			optionalBool(args, "include_screenshot"),
 		)
 	case "click_xy":
 		return s.clickXY(
@@ -598,7 +629,7 @@ func (s *service) listApps() toolCallResult {
 	return textResult(response.Text, false)
 }
 
-func (s *service) getAppState(app string, textLimit *textLimit, maxTreeNodes, maxTreeDepth *int, prune, boxes *bool) toolCallResult {
+func (s *service) getAppState(app string, textLimit *textLimit, maxTreeNodes, maxTreeDepth *int, prune, boxes, includeScreenshot *bool) toolCallResult {
 	// app 留空是**合法**的，表示"当前前台那个应用"。
 	// 13 条真实轨迹里 12 条的开局是 `list_apps → get_app_state`——它们想问的
 	// 是同一件事"我现在面前是什么"，而那此前要两次调用外加一次猜名字。
@@ -614,6 +645,9 @@ func (s *service) getAppState(app string, textLimit *textLimit, maxTreeNodes, ma
 	}
 	request.Prune = prune
 	request.Boxes = boxes
+	// nil = 按当前策略（带图）。截图是**服务端无条件附**的历史行为，
+	// 现在把这个决定交给调用方，但不改默认值。
+	request.IncludeScreenshot = includeScreenshot
 	snapshot, notes, result := s.refreshSnapshot(app, request)
 	if result.IsError {
 		return result
@@ -642,7 +676,7 @@ func (s *service) getScreenshot(app string) toolCallResult {
 	}}
 }
 
-func (s *service) click(app, elementIndex, declared string, x, y *float64, clickCount int, mouseButton, clickMethod string) toolCallResult {
+func (s *service) click(app, elementIndex, declared string, x, y *float64, clickCount int, mouseButton, clickMethod string, includeScreenshot *bool) toolCallResult {
 	if app == "" {
 		return textResult("Missing required argument: app", true)
 	}
@@ -685,6 +719,8 @@ func (s *service) click(app, elementIndex, declared string, x, y *float64, click
 		MouseButton:  mouseButton,
 		ClickMethod:  clickMethod,
 		WindowBounds: snapshot.WindowBounds,
+		// nil = 按当前策略（带图）。调用方显式传 false 时才省。
+		IncludeScreenshot: includeScreenshot,
 	}
 	if elementIndex != "" {
 		record, err := lookupElementFor(snapshot, elementIndex, declared, "click")
@@ -1354,25 +1390,76 @@ func incrementalTree(before, after *appSnapshot) ([]string, bool) {
 	if before == nil || after == nil {
 		return nil, false
 	}
-	if len(before.TreeLines) != len(after.TreeLines) || len(after.TreeLines) == 0 {
+	if len(after.TreeLines) == 0 {
 		return nil, false
 	}
-	changed := make([]string, 0, 8)
-	for i := range after.TreeLines {
-		if before.TreeLines[i] != after.TreeLines[i] {
-			changed = append(changed, after.TreeLines[i])
+	old, now := before.TreeLines, after.TreeLines
+
+	// 掐掉公共前后缀，剩下的中间段就是这次动作真正动过的地方。
+	//
+	// **第一版的判据是"前后行数必须完全相同"，这在 GUI 上几乎等于不生效。**
+	// 实测 67 条轨迹、753 次动作，只命中 26.6%——因为菜单展开、对话框弹出、
+	// 列表增删一行都会改变行数，而那恰恰是最常见的动作。行数一变就退回全量，
+	// 于是"动作的副产品"吃掉了 87% 的观测开销。
+	//
+	// 前后缀掐掉之后，插入和删除都能被表达出来，不再要求行数相等。
+	// 代价是"开头和结尾各变一行"这种分布会让中间段覆盖整棵树——那时按下面的
+	// 比例判据退回全量，本来也该退。
+	prefix := 0
+	for prefix < len(old) && prefix < len(now) && old[prefix] == now[prefix] {
+		prefix++
+	}
+	suffix := 0
+	for suffix < len(old)-prefix && suffix < len(now)-prefix &&
+		old[len(old)-1-suffix] == now[len(now)-1-suffix] {
+		suffix++
+	}
+	removed := old[prefix : len(old)-suffix]
+	added := now[prefix : len(now)-suffix]
+
+	// 长度相同时再按行比一次：中间段里往往只有个别行真的变了
+	// （比如某个 checkbox 从 unchecked 变 checked），逐行比能把噪音再削一层。
+	if len(removed) == len(added) {
+		var r, a []string
+		for i := range added {
+			if removed[i] != added[i] {
+				r = append(r, removed[i])
+				a = append(a, added[i])
+			}
 		}
+		removed, added = r, a
 	}
-	if len(changed) == 0 || len(changed)*3 >= len(after.TreeLines) {
-		// 变化超过三分之一就没必要绕弯，直接给全量更好读。
+
+	if len(removed)+len(added) == 0 {
 		return nil, false
 	}
-	header := fmt.Sprintf(
-		"Incremental view: %d of %d tree lines changed since your previous get_app_state; "+
-			"everything else is byte-identical and keeps the same element_index. "+
-			"Call get_app_state again for the full tree.",
-		len(changed), len(after.TreeLines))
-	return append([]string{header}, changed...), true
+	// 变化超过三分之一就没必要绕弯，直接给全量更好读。
+	//
+	// 比的是**受影响的树行数**（两边取大），不是输出行数之和：一行被替换会
+	// 产生 -旧 +新 两行输出，但树上只有一行变了。按和去比会把它当成两行，
+	// 于是小树上的单行改动都被判成"变化太大"，增量再次形同虚设。
+	affected := len(removed)
+	if len(added) > affected {
+		affected = len(added)
+	}
+	if affected*3 >= len(now) {
+		return nil, false
+	}
+
+	out := make([]string, 0, len(removed)+len(added)+1)
+	out = append(out, fmt.Sprintf(
+		"Incremental view: %d line(s) gone, %d line(s) new, out of %d lines now in the "+
+			"tree. Every line not shown here is byte-identical to your previous "+
+			"get_app_state and keeps the same element_index. Lines are prefixed - for "+
+			"gone and + for new. Call get_app_state for the full tree.",
+		len(removed), len(added), len(now)))
+	for _, line := range removed {
+		out = append(out, "-"+line)
+	}
+	for _, line := range added {
+		out = append(out, "+"+line)
+	}
+	return out, true
 }
 
 // observablyChanged 比较动作前后两份快照里 agent 能观察到的部分。
@@ -3296,6 +3383,23 @@ func enabledChannels() map[string]bool {
 //
 // 既然规则推不出来，就直接把规则告诉调用方，并说明匹配有多宽松——
 // 让它敢于第一次就猜，猜错也能从错误里拿到候选名单。
+// screenshotArgumentHelp 说明"这次要不要回截图"。
+//
+// 为什么要把这个决定交出去：截图原来是**服务器无条件附**的，调用方连表达
+// "这一步我不需要看图"的办法都没有。量过 67 条真实轨迹：动作类工具 86%~100%
+// 都带着图，而全部观测开销里 87% 是动作的副产品，不是调用方主动要的观测。
+//
+// 这里刻意**不替调用方定策略**——默认保持原样（带图），什么时候省由它自己判断。
+// 它比服务器更清楚下一步要做什么：连打几个已知动作时不需要看图，
+// 要确认一个树里看不出来的效果时非看不可。
+const screenshotArgumentHelp = "Whether to return a screenshot with the result. " +
+	"Defaults to true. A window screenshot costs roughly a thousand tokens, and many " +
+	"steps do not need one — chaining several actions you already decided on, for " +
+	"instance. Set false for those and the accessibility notes still come back, " +
+	"including which element the index resolved to and how much of the window " +
+	"changed on screen. Set true (or omit) when the effect is one the tree cannot " +
+	"show: formatting, canvas drawing, video position."
+
 const appArgumentHelp = "Which application to act on. Matching is deliberately " +
 	"forgiving: case-insensitive, separator-insensitive, and substring-based, and " +
 	"it matches the display name, the window title, the process name, and a " +
@@ -3364,6 +3468,7 @@ func allToolDefinitions() []toolDefinition {
 				"element":       stringProperty("Human-readable description of the element you intend to act on, e.g. \"the Save button\" or \"Position Y spin button\". Optional but strongly recommended: it is cross-checked against what element_index actually resolves to, which catches the common and otherwise SILENT failure of reusing an index from an earlier snapshot after the indices were renumbered."),
 				"app":           stringProperty(appArgumentHelp),
 				"element_index": stringProperty("Either an index from the most recent get_app_state, or a SELECTOR written exactly as the snapshot renders it, e.g. `push button \"Save\"` (or just `\"Save\"` to match by name alone). When several elements share a role and name, append one of the predicates the snapshot prints for them: `toggle button \"Menu\" [desc=\"View options\"]`, `check menu item \"Ruler\" [checked]`. Selectors survive the renumbering that happens whenever the UI changes; indices do not."),
+				"include_screenshot": booleanProperty(screenshotArgumentHelp),
 				"click_count":   integerProperty("Number of clicks. Defaults to 1"),
 				"mouse_button":  enumStringProperty("Mouse button to click. Defaults to left.", []string{"left", "right", "middle"}),
 				"click_method":  enumStringProperty("Click implementation: auto (default), accessibility, app_post, sky_click, or global. Linux supports global AT-SPI mouse synthesis and does not currently support app_post or sky_click.", clickMethodValues),
@@ -3429,6 +3534,7 @@ func allToolDefinitions() []toolDefinition {
 				"text_limit":     textLimitProperty("Maximum text characters to return. Use \"max\" for full text. Defaults to 500."),
 				"max_tree_nodes": positiveIntegerProperty("Maximum accessibility tree nodes to render. Defaults to 1200."),
 				"max_tree_depth": positiveIntegerProperty("Maximum accessibility tree depth to render. Defaults to 64."),
+				"include_screenshot": booleanProperty(screenshotArgumentHelp),
 				"boxes":          booleanProperty("Defaults to false. When true, each element line ends with its rectangle as {x,y,width,height} in window-relative pixels. Off by default because the geometry costs 16-25% of the tree and is redundant: a screenshot is attached to every snapshot and uses the SAME coordinate space, so read points off the image; and click(element_index) resolves coordinates server-side without needing them rendered. Turn it on when you want to reason about layout numerically."),
 				"prune":          booleanProperty("Defaults to true. Pruning keeps only interactable, on-screen elements and cuts the tree to roughly a fifth without losing anything you can act on; the omission notice reports how many nodes were left out. Set false only if you suspect a needed element was filtered."),
 			}, []string{}),
