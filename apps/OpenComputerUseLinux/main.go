@@ -1966,7 +1966,26 @@ func (s *service) verify(app, selector string, goal verifyGoal, timeoutMS int) t
 			// 此前的失败提示是"去 call get_app_state 读一读"，而那棵树有
 			// **286 个元素**——等于让它把整棵树重读一遍再猜第二次。
 			// 选择器找不到时列候选这件事，click 那边早就在做了，verify 没接上。
-			if hint := closestElements(snapshot, selectorHint(selector), 5); len(hint) > 0 {
+			// `exists:false` 超时时，多半是在拿"旧元素消失"当"页面跳转"的代理。
+			//
+			// 轨迹证据（第 28 题 delta.com）：agent 连着四次
+			// verify(exists=false, 15/20/25/20s)，全部超时，白烧 80 秒预算。
+			// 那个判据本身选错了：单页应用点完之后旧节点常常**留在 DOM 里**，
+			// 于是它永远不会满足，等多久都一样。
+			//
+			// 正确的等法是**等新东西出现**，而不是等旧东西消失。这条建议只在
+			// 确实是 exists:false 且界面没动时给——界面动了说明它等的方向没错，
+			// 只是判据挑得不好，那种情况上面的候选列表更有用。
+			if goal.exists != nil && !*goal.exists &&
+				snapshot.WindowTitle == firstWindow && len(snapshot.Elements) == firstCount {
+				e.next = "waiting for an element to DISAPPEAR is a poor proxy for " +
+					"\"the page moved on\": single-page apps routinely leave the old " +
+					"node in the DOM, so this condition may never become true no " +
+					"matter how long you wait. Wait for something NEW instead — a " +
+					"heading you expect on the next screen, or the address bar's " +
+					"value changing — and note that nothing moved at all here, which " +
+					"usually means the action before this did not land."
+			} else if hint := closestElements(snapshot, selectorHint(selector), 5); len(hint) > 0 {
 				e.log = append(e.log, "  closest elements currently in the tree:")
 				for _, line := range hint {
 					e.log = append(e.log, "  "+line)

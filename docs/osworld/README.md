@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **24** / 369 |
-| 我手工通过 | 20 / 24 |
-| cc 通过 | **22 / 24** |
-| cc 平均步数 | 11.4 |
-| cc 平均观测 token | 42160 |
-| cc 平均用时 | 138s |
-| 执行轴 a11y 占比 | 44% （105/236）|
+| 已跑题数 | **29** / 369 |
+| 我手工通过 | 24 / 29 |
+| cc 通过 | **26 / 29** |
+| cc 平均步数 | 13.6 |
+| cc 平均观测 token | 49476 |
+| cc 平均用时 | 171s |
+| 执行轴 a11y 占比 | 54% （182/340）|
 
 ## 逐题
 
@@ -57,6 +57,11 @@
 | 22 | chrome | Find a large car from next Monday to Friday in Zuric | ✅ | ✅ | 20 | 100304 | 235.8s |
 | 23 | chrome | Find the FAQ page about ticket delivery. | ✅ | ✅ | 7 | 36711 | 82.8s |
 | 24 | chrome | On next Monday, look up a flight from Mumbai to Stoc | ✅ | ✅ | 13 | 165995 | 191.6s |
+| 25 | chrome | On the current website, show me the cars available f | ✅ | ✅ | 22 | 150914 | 287.1s |
+| 26 | chrome | Open the baggage fee calculator in United Airlines w | ✅ | ✅ | 13 | 38812 | 146.5s |
+| 27 | chrome | Book an appointment to apply for a transportation ac | ✅ | ✅ | 29 | 69811 | 324.9s |
+| 28 | chrome | Find flights from Seattle to New York on 5th next mo | ✗ 0.0 | ✗ 0.0 | 32 | 80431 | 484.8s |
+| 29 | chrome | Search for a one way flight from Dublin to Vienna on | ✅ | ✅ | 15 | 86609 | 224.7s |
 
 ## 每题的过程记录
 
@@ -226,4 +231,36 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：链路验证通过，cc 13 步一次完成。
+### 第 25 题 · 47543840
+
+> On the current website, show me the cars available for pickup at Boston Logan Intl Airport from the 10th to the 11th of next month, sorted by the number of seats to find the largest capacity.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：链路验证通过，cc 22 步一次完成（三个判据全中）。
+### 第 26 题 · c1fa57f3
+
+> Open the baggage fee calculator in United Airlines website.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：链路验证通过，cc 13 步一次完成。
+### 第 27 题 · da46d875
+
+> Book an appointment to apply for a transportation access pass at the Charlie Card store on the first Monday eight months later at any available time from 9:00 am to 12:00 pm, fill in my details (James Smith, james.smith@gmail.com). And do not click "book" directly. Let me review it.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次（树预算修复后）
+- **我手工**（第 1 次，得分 1.0）：链路验证：MBTA 页面树 24KB（修复前这类页面会到 100KB+ 被客户端丢弃）。cc 29 步一次完成，四个判据全中。
+### 第 28 题 · 6c4c23a1
+
+> Find flights from Seattle to New York on 5th next month and only show those that can be purchased with miles.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **cc**（第 2 次，得分 0.0）：cc 第二次：shell 层 10 分钟超时（这类网页任务单次 5–8 分钟）。不是模型放弃，是我的运行窗口不够。
+- **cc**（第 3 次，得分 0.0）：cc 第三次（后台，放宽时限）
+- **我手工**（第 1 次，得分 0.0）：三次未过，转下一题。三次的自述一致：delta.com 的结果页始终没渲染出来（搜索条件都填对了：SEA→JFK、单程、Shop with Miles）。链路侧无缺陷——新加的 verify 诊断在这里给出了正确判断："Nothing changed: same window, still 143 elements"，即点击之后界面确实纹丝不动，是站点没响应。顺带排除了一个疑似缺陷：报错里的 scroll: no element matches "document web"，事后单测 find/verify 用同一个选择器都正常，说明是当时页面状态，不是选择器解析问题。
+### 第 29 题 · f79439ad
+
+> Search for a one way flight from Dublin to Vienna on 10th next month for 2 adults.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：链路验证通过，cc 15 步一次完成。
 

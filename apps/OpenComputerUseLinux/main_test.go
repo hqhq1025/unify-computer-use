@@ -2256,3 +2256,28 @@ func TestTreeWalkHasAWallClockDeadline(t *testing.T) {
 		t.Fatal("时间预算耗尽要单独说明")
 	}
 }
+
+func TestVerifyRedirectsTheDisappearanceIdiom(t *testing.T) {
+	// 轨迹证据（第 28 题 delta.com）：agent 连着四次
+	// verify(exists=false, 15/20/25/20s) 当"等页面跳转"用，全部超时，
+	// 白烧 80 秒预算，最后放弃。
+	//
+	// 判据本身选错了：单页应用点完之后旧节点常常**留在 DOM 里**，
+	// 于是那个条件永远不会满足，等多久都一样。工具知道这一点，就该说出来，
+	// 而不是让它按 15→20→25 秒一路加码。
+	src := mainGoSource(t)
+	for _, fragment := range []string{
+		"is a poor proxy for ",
+		"leave the old ",
+		"Wait for something NEW instead",
+	} {
+		if !strings.Contains(src, fragment) {
+			t.Fatalf("exists:false 超时要指出这是个坏代理：缺 %q", fragment)
+		}
+	}
+	// 只在**界面确实没动**时才这么说。界面动了说明它等的方向没错，
+	// 那种情况列候选更有用——给错建议比不给建议更浪费。
+	if !strings.Contains(src, "snapshot.WindowTitle == firstWindow && len(snapshot.Elements) == firstCount") {
+		t.Fatal("这条建议要限定在界面没动的情形")
+	}
+}
