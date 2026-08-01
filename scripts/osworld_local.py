@@ -376,6 +376,43 @@ def _chrome_close_tabs(urls):
 CHROME_PROFILE = os.path.expanduser("~/.config/google-chrome/Default")
 
 
+def clean_gimp_session(log=print):
+    """把 GIMP 的崩溃恢复状态清掉，让每道题从确定的状态开始。
+
+    和 clean_chrome_session 是同一条纪律，触发它的证据来自第 47 题的轨迹：
+    GIMP 一起来就是个 **"Image Recovery" 模态对话框**——上一道 gimp 题结束时
+    被 pkill 掉了，GIMP 把它当成崩溃，于是下一题一开局先弹恢复框。
+    agent 点了 Recover，捞回来的图还是**坏的**（只剩顶上一条，其余透明），
+    并且作为第三个标签页留在那里。
+
+    在这种状态上跑出来的分数不管高低都是假的：题面说"我的照片"，
+    而 GIMP 里躺着三张图，其中一张是残片。gimp 段有 26 道题，
+    不清就是给后面 25 道全埋雷。
+
+    官方靠恢复虚拟机快照做到这一点，我们没有那一层，只能手工等价。
+    """
+    for name in ("gimp", "gimp-2.10", "script-fu"):
+        subprocess.run(["pkill", "-x", name], capture_output=True)
+    time.sleep(2)
+    removed = 0
+    # backups/ 是崩溃恢复的素材来源，sessionrc 记着上次的窗口摆位。
+    root = os.path.expanduser("~/.config/GIMP/2.10")
+    backups = os.path.join(root, "backups")
+    if os.path.isdir(backups):
+        for name in os.listdir(backups):
+            try:
+                os.remove(os.path.join(backups, name))
+                removed += 1
+            except OSError:
+                pass
+    log("GIMP 会话已清理（删掉 {} 个崩溃恢复备份）".format(removed))
+
+
+def _touches_gimp(task):
+    return "gimp" in json.dumps(task.get("config") or [], ensure_ascii=False).lower() \
+        or "gimp" in (task.get("related_apps") or [])
+
+
 def clean_chrome_session(log=print):
     """把 Chrome 的标签页会话清空，让每道题从确定的状态开始。
 

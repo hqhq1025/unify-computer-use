@@ -123,6 +123,11 @@ def cmd_deploy(args):
     if local._touches_chrome(task):
         local.snapshot_state(task)
         local.clean_chrome_session()
+    # GIMP 同理：被 pkill 掉之后它会把上次当成崩溃，下一题一开局先弹
+    # "Image Recovery" 模态框，还会把一张残片图当第三个标签页留下来。
+    # 见第 47 题轨迹。
+    if local._touches_gimp(task):
+        local.clean_gimp_session()
     ready, skipped = local.apply_config(task)
     if skipped:
         print("\n⚠️ 以下 config 步骤没有执行: {}".format(", ".join(skipped)))
