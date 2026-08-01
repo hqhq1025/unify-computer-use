@@ -2208,3 +2208,25 @@ func TestUniversalContextMenuActionIsNotAnAffordance(t *testing.T) {
 		t.Fatal("showContextMenu 必须在这一类里")
 	}
 }
+
+func TestVerifyFailureSaysWhatDidChange(t *testing.T) {
+	// 轨迹证据（OSWorld 第 28 题，delta.com 查航班）：agent 把
+	// verify(exists=false) 当"等页面跳走"用了**四次**，全部超时，
+	// 白烧 15+20+25+20 = 80 秒预算。
+	//
+	// 它反复重试是因为我们只说了"你要的那件事没发生"，没说"这段时间里
+	// 发生了什么"——于是它无法判断该继续等，还是那一次点击根本没生效。
+	//
+	// 三种处境要分开说，因为下一步完全不同：
+	//   窗口换了     → 你等的元素可能已经不在这个窗口里
+	//   树变了       → 界面在动，但不是你等的那样，该换判据
+	//   什么都没变   → 上一次动作多半没生效，别再等了
+	for _, fragment := range []string{
+		"Window changed", "Tree changed", "Nothing changed",
+		"did not move at all during ",
+	} {
+		if !strings.Contains(mainGoSource(t), fragment) {
+			t.Fatalf("verify 失败时要说清界面变没变：缺 %q", fragment)
+		}
+	}
+}

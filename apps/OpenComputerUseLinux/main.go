@@ -1899,6 +1899,14 @@ func (s *service) verify(app, selector string, goal verifyGoal, timeoutMS int) t
 	noScreenshot := false
 	deadline := time.Now().Add(time.Duration(timeoutMS) * time.Millisecond)
 	attempts := []string{}
+	// 等待期间界面**到底变没变**，是失败时最该说的一件事。
+	//
+	// 轨迹证据（OSWorld 第 28 题）：agent 把 verify(exists=false) 当"等页面跳走"
+	// 用了**四次**，全部超时，白烧 15+20+25+20 = 80 秒预算。它反复重试是因为
+	// 我们只说了"你要的那件事没发生"，没说"这段时间里发生了什么"——
+	// 于是它无法判断该继续等、还是那一次点击根本没生效。
+	var firstWindow string
+	var firstCount int
 	for attempt := 1; ; attempt++ {
 		snapshot, _, result := s.refreshSnapshot(app, linuxRequest{
 			Tool:              "get_app_state",
@@ -1912,6 +1920,9 @@ func (s *service) verify(app, selector string, goal verifyGoal, timeoutMS int) t
 		// 选择器都认，后者只认选择器。实测代价——传 "62" 时它会连报 6 轮
 		// `no element matches the selector "62"`，看上去像元素真的不见了，
 		// 而元素一直在那儿。一个断言工具给出这种假阴性比没有断言更糟。
+		if attempt == 1 {
+			firstWindow, firstCount = snapshot.WindowTitle, len(snapshot.Elements)
+		}
 		record, lookupErr := lookupElementFor(snapshot, selector, "", "verify")
 		ok, observed := goal.check(record, lookupErr)
 		attempts = append(attempts, fmt.Sprintf("attempt %d at +%dms — %s",
@@ -1928,6 +1939,20 @@ func (s *service) verify(app, selector string, goal verifyGoal, timeoutMS int) t
 				selector, goal.describe(), timeoutMS)}
 			e.add("Selector", strconv.Quote(selector))
 			e.add("Snapshot", snapshotAge(snapshot))
+			// 说清等待期间界面动没动。这两行区分的是三种完全不同的处境：
+			// 界面纹丝不动（多半上一次动作没生效）、界面变了但不是你等的那样
+			// （该换个判据）、窗口换了（你等的元素可能已经不在这个窗口里）。
+			if snapshot.WindowTitle != firstWindow {
+				e.add("Window changed", fmt.Sprintf("%q → %q", firstWindow, snapshot.WindowTitle))
+			} else if len(snapshot.Elements) != firstCount {
+				e.add("Tree changed", fmt.Sprintf("%d → %d elements, same window",
+					firstCount, len(snapshot.Elements)))
+			} else {
+				e.add("Nothing changed", fmt.Sprintf(
+					"same window, still %d elements — the UI did not move at all during "+
+						"the wait, so the action before this probably did not land",
+					firstCount))
+			}
 			for _, line := range attempts {
 				e.log = append(e.log, "  - "+line)
 			}
