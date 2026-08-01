@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **87** / 369 |
-| 我手工通过 | 72 / 87 |
-| cc 通过 | **73 / 86** |
-| cc 平均步数 | 16.5 |
-| cc 平均观测 token | 39938 |
+| 已跑题数 | **93** / 369 |
+| 我手工通过 | 78 / 93 |
+| cc 通过 | **79 / 92** |
+| cc 平均步数 | 16.3 |
+| cc 平均观测 token | 37975 |
 | cc 平均用时 | 228s |
-| 执行轴 a11y 占比 | 51% （489/963）|
+| 执行轴 a11y 占比 | 51% （495/969）|
 
 ### 两种口径要分开看
 
@@ -38,7 +38,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 18 | 17 | 22.8 |
+| Bash 打开 | 24 | 23 | 20.4 |
 
 ## cc 未通过的题，成因分类
 
@@ -151,6 +151,12 @@
 | 85 | libreoffice_calc | In a new sheet ("Sheet2") with 4 headers "Year", "CA | ✅ | ✅ | 12 | 3106 | 201.2s |
 | 86 | libreoffice_calc | I would like to copy all the numbers in the 'Old ID' | ✅ | ✅ | 18 | 6614 | 272.5s |
 | 87 | libreoffice_calc | Some data are missed by now and are filled by 'N/A'  | ✅ | ✅ | 14 | 5084 | 180.8s |
+| 88 | libreoffice_calc | Check the names in column "Names with duplicates" an | ✅ | ✅ | 12 | 2051 | 216.4s |
+| 89 | libreoffice_calc | The information are mixed in one field. Help me spli | ✅ | ✅ | 14 | 5846 | 201.4s |
+| 90 | libreoffice_calc | Create a table with two column headers ("Month" and  | ✅ | ✅ | 12 | 3828 | 225.5s |
+| 91 | libreoffice_calc | According to the scale table shown above, calculate  | ✅ | ✅ | 13 | 2924 | 239.7s |
+| 92 | libreoffice_calc | Help me fill in the Gross profit column by subtracti | ✅ | ✅ | 11 | 3057 | 218.9s |
+| 93 | libreoffice_calc | Fill the Sequence Numbers as "No. #" in the "Seq No. | ✅ | ✅ | 18 | 5921 | 277.7s |
 
 ## 每题的过程记录
 
@@ -727,4 +733,40 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 14 步一次通过。
+### 第 88 题 · abed40dc
+
+> Check the names in column "Names with duplicates" and put the unique ones in column "Unique Names". Keep the original order of the first occurrences. Finish the work and don't touch irrelevant regions, even if they are blank.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 12 步一次通过。
+### 第 89 题 · 37608790
+
+> The information are mixed in one field. Help me split them and fill in the columns of First Name, Last Name and Rank. Finish the work and don't touch the original data.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 14 步一次通过。
+### 第 90 题 · 26a8440e
+
+> Create a table with two column headers ("Month" and "Total") in a new sheet named "Sheet2" to show the total sales for all months.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 12 步一次通过。
+### 第 91 题 · d681960f
+
+> According to the scale table shown above, calculate and give each student a grade in the table below. Finish the work and don't touch irrelevant regions, even if they are blank.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 13 步一次通过。
+### 第 92 题 · 035f41ba
+
+> Help me fill in the Gross profit column by subtracting all the available expenses including discounts, allowances, material and labor charges, and overhead from the actual sale, i.e., the sales after deducting the returns. Then under column A named "Year_Profit" in a new sheet "Sheet2", display the Year Column in Sheet 1 as text appended by a "_" with the corresponding integer digits of Gross Profit value.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 11 步一次通过。
+### 第 93 题 · 7efeb4b1
+
+> Fill the Sequence Numbers as "No. #" in the "Seq No." column. Finish the work and don't touch irrelevant regions, even if they are blank.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 18 步一次通过。
 
