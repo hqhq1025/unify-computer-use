@@ -2274,10 +2274,29 @@ def focus_window(window, timeout=1.0):
             continue
         deadline = time.time() + timeout
         while time.time() < deadline:
-            if window_is_active(window):
+            if window_is_active(window) or x11_holds_focus(window):
                 return True
             time.sleep(0.05)
-    return window_is_active(window)
+    # 抢焦点失败时，最后再向窗口管理器请求一次激活。
+    #
+    # 为什么需要：GNOME 的门户对话框弹出后，焦点会**漂回发起它的主应用**。
+    # 实测（OSWorld 第 14 题，Chrome 加载解压扩展）：对话框开着，
+    # 我往它输路径，字符**全部打进了 Chrome**——而守卫放行了。
+    # 那是守卫的**假阳性**，比误拒危险得多：误拒会让 agent 看到一条报错，
+    # 假阳性会让输入静默落到别的窗口，且没有任何迹象。
+    #
+    # 这一步只做 WM 层的激活请求，仍然要重新确认焦点才返回 True——
+    # 请求成功不等于焦点到位，不再确认就等于把假阳性换了个位置。
+    title = str(node_name(window) or "").strip()
+    if title:
+        safe(lambda: subprocess.run(["wmctrl", "-a", title], capture_output=True,
+                                    timeout=3))
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if window_is_active(window) or x11_holds_focus(window):
+                return True
+            time.sleep(0.05)
+    return window_is_active(window) or x11_holds_focus(window)
 
 
 def active_accessible_window():

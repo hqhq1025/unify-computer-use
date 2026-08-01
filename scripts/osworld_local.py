@@ -253,6 +253,23 @@ class LocalEnv:
 # config：把一道题的初始环境布置出来
 # --------------------------------------------------------------------------
 
+def _substitute(command):
+    """把 config 里的 {CLIENT_PASSWORD} 占位符换掉。
+
+    官方在 setup.py:465 做同样的替换。不替换的后果是命令原样带着大括号跑，
+    `sudo -S` 拿到的密码是字面量 "{CLIENT_PASSWORD}"，安装步骤静默失败——
+    而失败的是**环境布置**，账却会记到 agent 头上。
+
+    密码从 OSWORLD_CLIENT_PASSWORD 取，没设就用官方镜像的默认值。
+    """
+    password = os.environ.get("OSWORLD_CLIENT_PASSWORD", "password")
+    if isinstance(command, str):
+        return command.replace("{CLIENT_PASSWORD}", password)
+    if isinstance(command, list):
+        return [str(x).replace("{CLIENT_PASSWORD}", password) for x in command]
+    return command
+
+
 def _download(url, dest):
     os.makedirs(CACHE_DIR, exist_ok=True)
     cached = os.path.join(CACHE_DIR, url.rsplit("/", 3)[-1].replace("/", "_"))
@@ -452,14 +469,14 @@ def apply_config(task, log=print):
                     shell=True, start_new_session=True)
                 log("  打开: {}".format(path))
             elif kind == "execute":
-                command = params["command"]
+                command = _substitute(params["command"])
                 if isinstance(command, list):
                     subprocess.run(command, capture_output=True, timeout=180)
                 else:
                     subprocess.run(command, shell=True, capture_output=True, timeout=180)
                 log("  执行: {}".format(str(command)[:90]))
             elif kind == "command":
-                command = params["command"]
+                command = _substitute(params["command"])
                 subprocess.run(command, shell=isinstance(command, str),
                                capture_output=True, timeout=180)
                 log("  命令: {}".format(str(command)[:90]))

@@ -1972,3 +1972,20 @@ func TestSetValueFallsBackToSynthesisWhenTheApiRefuses(t *testing.T) {
 		t.Fatal("降级路径要声明自己没有回读确认")
 	}
 }
+
+func TestFocusGuardMustNotGiveFalsePositives(t *testing.T) {
+	// 实测（OSWorld 第 14 题，Chrome 加载解压扩展）：GNOME 门户对话框开着，
+	// 焦点却漂回了发起它的 Chrome。我往对话框输路径，字符**全部打进了 Chrome**，
+	// 而守卫放行了。
+	//
+	// 守卫的假阳性比误拒危险得多：误拒会让 agent 看到一条报错、换条路；
+	// 假阳性让输入静默落到别的窗口，**没有任何迹象**——正是本仓库最恨的那类失败。
+	if !strings.Contains(linuxRuntimeScript, `subprocess.run(["wmctrl", "-a", title]`) {
+		t.Fatal("抢焦点失败时要向窗口管理器再请求一次激活")
+	}
+	// 但请求成功 ≠ 焦点到位。必须重新确认，否则只是把假阳性换了个位置。
+	after := linuxRuntimeScript[strings.Index(linuxRuntimeScript, `["wmctrl", "-a", title]`):]
+	if !strings.Contains(after[:600], "window_is_active(window) or x11_holds_focus(window)") {
+		t.Fatal("激活请求之后必须重新确认焦点，不能直接返回成功")
+	}
+}
