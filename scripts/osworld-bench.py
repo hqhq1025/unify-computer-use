@@ -372,6 +372,31 @@ def cmd_record(args):
     print("已记入 {}".format(RESULTS))
     return 0
 
+TRACES = os.path.join(REPO, "docs", "osworld", "traces")
+
+
+def archive_trace(path):
+    """把这一趟的轨迹**剥掉截图**再 gzip 存进版本库。
+
+    为什么要自动做：轨迹是这套跑测里最值钱的东西——缺陷几乎全是从里面读出来的
+    （agent 卡住不会报错，它会换一条路，摩擦只体现为多出来的步数和重复调用）。
+    而 /tmp 会被清、磁盘会满（本机一度 98%），手工归档必然漏。
+
+    剥 base64 截图的理由是量出来的：26 条原始轨迹含图 172MB，剥图后 16.7MB，
+    gzip 后 2.1MB。分析只需要结构，不需要像素。
+    """
+    try:
+        os.makedirs(TRACES, exist_ok=True)
+        out = os.path.join(TRACES, os.path.basename(path) + ".gz")
+        with open(path, encoding="utf-8", errors="ignore") as src, \
+                gzip.open(out, "wt", encoding="utf-8") as dst:
+            for line in src:
+                dst.write(re.sub(r'"data"\s*:\s*"[A-Za-z0-9+/=]{200,}"',
+                                 '"data":"<stripped>"', line))
+    except Exception:
+        # 归档失败**不许影响判分**。它是诊断设施，不是判据的一部分。
+        pass
+
 
 def main():
     parser = argparse.ArgumentParser(description="按顺序跑 OSWorld")
@@ -413,29 +438,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-
-
-TRACES = os.path.join(REPO, "docs", "osworld", "traces")
-
-
-def archive_trace(path):
-    """把这一趟的轨迹**剥掉截图**再 gzip 存进版本库。
-
-    为什么要自动做：轨迹是这套跑测里最值钱的东西——缺陷几乎全是从里面读出来的
-    （agent 卡住不会报错，它会换一条路，摩擦只体现为多出来的步数和重复调用）。
-    而 /tmp 会被清、磁盘会满（本机一度 98%），手工归档必然漏。
-
-    剥 base64 截图的理由是量出来的：26 条原始轨迹含图 172MB，剥图后 16.7MB，
-    gzip 后 2.1MB。分析只需要结构，不需要像素。
-    """
-    try:
-        os.makedirs(TRACES, exist_ok=True)
-        out = os.path.join(TRACES, os.path.basename(path) + ".gz")
-        with open(path, encoding="utf-8", errors="ignore") as src, \
-                gzip.open(out, "wt", encoding="utf-8") as dst:
-            for line in src:
-                dst.write(re.sub(r'"data"\s*:\s*"[A-Za-z0-9+/=]{200,}"',
-                                 '"data":"<stripped>"', line))
-    except Exception:
-        # 归档失败**不许影响判分**。它是诊断设施，不是判据的一部分。
-        pass
