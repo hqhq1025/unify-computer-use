@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **17** / 369 |
-| 我手工通过 | 14 / 17 |
-| cc 通过 | **15 / 17** |
-| cc 平均步数 | 10.5 |
-| cc 平均观测 token | 24963 |
-| cc 平均用时 | 123s |
-| 执行轴 a11y 占比 | 39% （59/151）|
+| 已跑题数 | **20** / 369 |
+| 我手工通过 | 16 / 20 |
+| cc 通过 | **18 / 20** |
+| cc 平均步数 | 11.1 |
+| cc 平均观测 token | 34403 |
+| cc 平均用时 | 135s |
+| 执行轴 a11y 占比 | 44% （88/199）|
 
 ## 逐题
 
@@ -50,6 +50,9 @@
 | 15 | chrome | Could you assist me in turning off the dark mode fea | ✗ 0.0 | ✅ | 6 | 9949 | 73.5s |
 | 16 | chrome | Could you please change the number of search results | ✅ | ✅ | 2 | 346 | 36.9s |
 | 17 | chrome | On my surface pro whenever I launch Chrome it always | ✅ | ✅ | 17 | 44261 | 195.2s |
+| 18 | chrome | Can you enable the 'Do Not Track' feature in Chrome  | ✅ | ✅ | 11 | 18168 | 131.6s |
+| 19 | chrome | I want Chrome to warn me whenever I visit a potentia | ✅ | ✅ | 8 | 11282 | 97.4s |
+| 20 | chrome | Find flights from New York–Kennedy Airport to Chicag | ✗ 0.0 | ✅ | 22 | 186941 | 319.3s |
 
 ## 每题的过程记录
 
@@ -175,4 +178,24 @@
 - **我手工**（第 2 次，得分 1.0）：重新判分即通过——Chrome 的 Preferences 是惰性刷盘的，而这道题的评估器**没有 postconfig**（不会 pkill+重启强制落盘）。第一次判分时磁盘上还是旧值，几秒后再读就对了。
 - **cc**（第 1 次，得分 0.0）：cc 第一次
 - **cc**（第 2 次，得分 1.0）：cc 第二次（补上 OSWorld 等价的系统框定）
+### 第 18 题 · 030eeff7
+
+> Can you enable the 'Do Not Track' feature in Chrome to enhance my online privacy?
+
+- **我手工**（第 1 次，得分 0.0）：手工：chrome://settings/cookies → 点 toggle「Send a Do Not Track request…」。链路顺畅。
+- **我手工**（第 2 次，得分 1.0）：手工成功：chrome://settings/cookies → 点 Do Not Track 开关 → **弹出确认对话框** → 点 Confirm。第一次失败是我漏了确认这一步（和第 7 题漏点 Done 同型）。模态提示帮我一眼看出对话框出现了。
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+### 第 19 题 · 9656a811
+
+> I want Chrome to warn me whenever I visit a potentially harmful or unsafe website. Can you enable this safety feature?
+
+- **我手工**（第 1 次，得分 1.0）：手工：chrome://settings/security → 选 Standard protection，用 verify 确认 checked。
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+### 第 20 题 · fc6d8143
+
+> Find flights from New York–Kennedy Airport to Chicago O'Hare Airport for tomorrow.
+
+- **我手工**（第 1 次，得分 0.0）：链路观察：delta.com 加载后树里有 346 个元素，但**可交互控件只有浏览器自身的按钮**——页面的出发地/目的地/日期输入框没有出现在 a11y 树里。这类重前端站点把控件画成自定义组件，Blink 不一定给它们可用的角色。交给 cc 看它能否靠坐标/截图绕过去。
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **cc**（第 2 次，得分 1.0）：cc 第二次（预算加到 6）
 
