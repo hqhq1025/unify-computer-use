@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **78** / 369 |
-| 我手工通过 | 63 / 78 |
-| cc 通过 | **64 / 77** |
+| 已跑题数 | **87** / 369 |
+| 我手工通过 | 72 / 87 |
+| cc 通过 | **73 / 86** |
 | cc 平均步数 | 16.5 |
-| cc 平均观测 token | 43287 |
-| cc 平均用时 | 226s |
-| 执行轴 a11y 占比 | 50% （481/953）|
+| cc 平均观测 token | 39938 |
+| cc 平均用时 | 228s |
+| 执行轴 a11y 占比 | 51% （489/963）|
 
 ### 两种口径要分开看
 
@@ -38,7 +38,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 9 | 8 | 29.0 |
+| Bash 打开 | 18 | 17 | 22.8 |
 
 ## cc 未通过的题，成因分类
 
@@ -142,6 +142,15 @@
 | 76 | libreoffice_calc | Create a Pivot Table in a new sheet (Sheet2) to coun | ✅ | ✅ | 23 | 1361 | 351.7s |
 | 77 | libreoffice_calc | Make sparkline charts for each order id with the dat | ✅ | ✅ | 34 | 7944 | 463.8s |
 | 78 | libreoffice_calc | Could you help me to export the current sheet to a c | ✅ | ✅ | 11 | 2457 | 88.2s |
+| 79 | libreoffice_calc | Copy the "Revenue" column along with the header to a | ✅ | ✅ | 13 | 4505 | 240.5s |
+| 80 | libreoffice_calc | Create a clustered column chart showing the Sales an | ✅ | ✅ | 21 | 4197 | 200.1s |
+| 81 | libreoffice_calc | Fill the missing rows and columns which show the tot | ✅ | ✅ | 20 | 3608 | 361.6s |
+| 82 | libreoffice_calc | Create two pivot tables in a new sheet named "Sheet2 | ✅ | ✅ | 15 | 2943 | 254.8s |
+| 83 | libreoffice_calc | I have a lookup table for the officers of each branc | ✅ | ✅ | 16 | 4517 | 264.7s |
+| 84 | libreoffice_calc | Here I want to use the numerical value from a cell i | ✅ | ✅ | 20 | 6755 | 300.1s |
+| 85 | libreoffice_calc | In a new sheet ("Sheet2") with 4 headers "Year", "CA | ✅ | ✅ | 12 | 3106 | 201.2s |
+| 86 | libreoffice_calc | I would like to copy all the numbers in the 'Old ID' | ✅ | ✅ | 18 | 6614 | 272.5s |
+| 87 | libreoffice_calc | Some data are missed by now and are filled by 'N/A'  | ✅ | ✅ | 14 | 5084 | 180.8s |
 
 ## 每题的过程记录
 
@@ -664,4 +673,58 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 11 步一次通过。
+### 第 79 题 · 1273e544
+
+> Copy the "Revenue" column along with the header to a new sheet named "Sheet2".
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 13 步一次通过。
+### 第 80 题 · 12382c62
+
+> Create a clustered column chart showing the Sales and COGS data for each week in a new sheet named "Sheet2". Set the chart title as "Sales & COGS".
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 21 步一次通过。
+### 第 81 题 · f9584479
+
+> Fill the missing rows and columns which show the total value
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 20 步一次通过。
+### 第 82 题 · 535364ea
+
+> Create two pivot tables in a new sheet named "Sheet2" showing the total revenue for each product and sales channel.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 15 步一次通过。
+### 第 83 题 · 7e429b8d
+
+> I have a lookup table for the officers of each branch. Please, here is another table in which I need to fill with the officer names according the headoffice (i.e., the branch name). Help me to complete this.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 16 步一次通过。
+### 第 84 题 · 4f07fbe9
+
+> Here I want to use the numerical value from a cell in the text. I can set its number of decimal digits to 2 in the original value cell but don't know how to fix it in the text as well. Please help me to do this. Finish the work and don't touch irrelevant regions, even if they are blank.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 20 步一次通过。
+### 第 85 题 · 04d9aeaf
+
+> In a new sheet ("Sheet2") with 4 headers "Year", "CA changes", "FA changes", and "OA changes", calculate the percentage annual changes compared to last year in 2015 to 2019 for the Current Assets, Fixed Assets, and Other Assets columns. 
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 12 步一次通过。
+### 第 86 题 · 0bf05a7d
+
+> I would like to copy all the numbers in the 'Old ID' column to the 'New 7 Digit Id' column, and pad them with zeros in front, to fill them up to seven digits. Finish the work and don't touch irrelevant regions, even if they are blank.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 18 步一次通过。
+### 第 87 题 · 6054afcb
+
+> Some data are missed by now and are filled by 'N/A' temporarily. Please hide them in the table for now. Do not delete any cells and filter is not needed.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 14 步一次通过。
 
