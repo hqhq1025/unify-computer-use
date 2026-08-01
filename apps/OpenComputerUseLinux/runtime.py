@@ -42,6 +42,21 @@ MAX_ELEMENTS = 1200
 # 不能等渲染完再截，那样 800 个节点的 record_for 开销白付了
 # （GIMP 实测 8.45ms/节点，白付 800 个就是 6.7 秒）。
 MAX_RENDERED_CHARS = 40000
+
+# 遍历一棵树最多花多少秒。**借鉴 maka-cu 的 macOS 侧**（它的四条硬预算里
+# 有一条是 deadline，我们此前只有节点数和深度）。
+#
+# 为什么节点预算管不住时间：每个节点的开销差一个数量级。本仓库实测 GIMP
+# （GAIL）完整 record_for 是 8.45ms/节点，一次 render_tree 调它 3162 次、
+# 整棵树 38 秒，**超过 Go 层 30 秒的超时**——a11y 通道在 GIMP 上默认直接不可用。
+# maka-cu 的注释记着同型的教训：跨进程的存取面板 23.6ms/节点，1500 个节点
+# 35 秒，而宿主只给 20 秒，"an unbounded walk does not merely return late,
+# it takes the session with it"。
+#
+# 我们后来靠"先便宜探针再建记录"把 GIMP 救回来了，但那是针对**那一种**开销
+# 分布的优化；deadline 是与分布无关的兜底：无论每个节点多贵，整棵树的耗时
+# 都有上界。两者不冲突，一个降低常态成本，一个封住最坏情况。
+TREE_DEADLINE_SECONDS = 20.0
 MAX_DEPTH = 64
 DEFAULT_TEXT_LIMIT = 500
 # 抬窗时最多尝试几个 FOCUSABLE 控件。抓焦点会真的改变应用内的焦点位置，
@@ -1519,12 +1534,14 @@ def render_visible_cells(
 def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
                 boxes=True, indexer=None,
                 max_tree_nodes=MAX_ELEMENTS, max_tree_depth=MAX_DEPTH, prune=True,
-                max_rendered_chars=MAX_RENDERED_CHARS):
+                max_rendered_chars=MAX_RENDERED_CHARS,
+                deadline_seconds=TREE_DEADLINE_SECONDS):
     records = []
     lines = []
 
-    dropped = {"count": 0, "chars": 0}
+    dropped = {"count": 0, "chars": 0, "time": 0}
     budget = {"chars": 0}
+    deadline = time.monotonic() + deadline_seconds if deadline_seconds else None
     pressure_at = max(1, int(max_tree_nodes * BUDGET_PRESSURE_RATIO))
 
     def is_structural_filler(record):
@@ -1555,6 +1572,13 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
         if budget["chars"] >= max_rendered_chars:
             dropped["count"] += 1
             dropped["chars"] += 1
+            return
+        # 时间预算与前两者都是两件事，见 TREE_DEADLINE_SECONDS。
+        # **根节点豁免**：一棵空树没有任何可寻址的元素，调用方连"这是什么窗口"
+        # 都答不上来——maka-cu 在同一处也留了这个豁免，理由相同。
+        if deadline is not None and records and time.monotonic() >= deadline:
+            dropped["count"] += 1
+            dropped["time"] += 1
             return
 
         # 裁剪：只保留"可操作角色 + 屏幕上可见"的节点。与 OSWorld 官方判据同源，
@@ -1687,7 +1711,14 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
         # 三种省略原因要**分开说**：一句笼统的"省略了 N 个"会让调用方以为
         # 提高 max_tree_nodes 就能看全，而字符预算耗尽时那样做只会让整份响应
         # 被客户端丢掉——那是本仓库实测过的最坏结果（agent 什么都没拿到）。
-        if dropped["chars"]:
+        if dropped["time"]:
+            reason = ("time budget exhausted ({:.0f}s). Per-node cost varies by an "
+                      "order of magnitude across toolkits (measured: 8.45ms/node on "
+                      "GIMP), so a node count cannot bound the wall clock. The tree "
+                      "you got is real but partial — narrow with `find`, or raise "
+                      "max_tree_nodes only if you also have time to spare"
+                      ).format(deadline_seconds)
+        elif dropped["chars"]:
             reason = ("character budget exhausted ({} chars). This budget exists "
                       "because MCP clients replace oversized tool results with an "
                       "unreadable file pointer — a bigger tree would have reached "

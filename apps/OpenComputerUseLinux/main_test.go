@@ -2230,3 +2230,29 @@ func TestVerifyFailureSaysWhatDidChange(t *testing.T) {
 		}
 	}
 }
+
+func TestTreeWalkHasAWallClockDeadline(t *testing.T) {
+	// **借鉴 maka-cu 的 macOS 侧**：它的四条硬预算里有一条是 deadline，
+	// 我们此前只有节点数和深度。
+	//
+	// 节点预算管不住时间，因为每个节点的开销差一个数量级：本仓库实测 GIMP
+	// 完整 record_for 是 8.45ms/节点，3162 次调用、整棵树 38 秒，
+	// **超过 Go 层 30 秒的超时**——a11y 通道在 GIMP 上默认直接不可用。
+	// maka-cu 记着同型的教训（跨进程存取面板 23.6ms/节点、1500 节点 35 秒、
+	// 宿主只给 20 秒）。
+	//
+	// 我们靠"先便宜探针再建记录"降低了常态成本，但那是针对某一种开销分布的
+	// 优化；deadline 是与分布无关的兜底。两者不冲突。
+	if !strings.Contains(linuxRuntimeScript, "TREE_DEADLINE_SECONDS") {
+		t.Fatal("遍历要有墙钟上限")
+	}
+	// 根节点必须豁免：空树没有任何可寻址元素，调用方连"这是什么窗口"都答不上来。
+	if !strings.Contains(linuxRuntimeScript,
+		"if deadline is not None and records and time.monotonic() >= deadline:") {
+		t.Fatal("超时判据要豁免根节点，否则可能返回一棵空树")
+	}
+	// 三种省略原因必须分开说：建议提高 max_tree_nodes 在时间耗尽时是错的建议。
+	if !strings.Contains(linuxRuntimeScript, "time budget exhausted") {
+		t.Fatal("时间预算耗尽要单独说明")
+	}
+}
