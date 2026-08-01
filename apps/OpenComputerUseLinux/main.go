@@ -1550,6 +1550,21 @@ func elementIntentMismatch(record *elementRecord, declared string) string {
 		// 声明是非 ASCII 文字（例如中文），而 name 通常是英文。判不了。
 		return ""
 	}
+	// 名字太短时**同样判不了**，理由和无名元素一模一样。
+	//
+	// 实测（OSWorld 第 34 题，Macy's 筛选尺码）：agent 声明 "Size L checkbox"，
+	// 元素是 `check box "L"`——**完全正确的操作，被守卫拒了**。
+	// 因为下面的分词会跳过长度 < 2 的词元（那是为了滤掉 "a"/"of" 这类噪声），
+	// 而这个元素的名字整个就是一个字符 "L"，于是任何声明都匹配不上，
+	// 守卫**必然**误拒。
+	//
+	// 守卫的价值在于拦住"声明 Save 却给了 New 的下标"，代价是偶尔误伤；
+	// 而这里不是"偶尔"——是这一类元素上 100% 误伤。尺码、单选字母、
+	// 表格列标题都是这样。宁可漏判，不可必然误判。
+	if len([]rune(strings.TrimSpace(record.Name))) <= 2 &&
+		strings.TrimSpace(record.Description) == "" {
+		return ""
+	}
 	haystack := strings.ToLower(record.Name + " " + record.Description)
 	matched := false
 	specific := 0

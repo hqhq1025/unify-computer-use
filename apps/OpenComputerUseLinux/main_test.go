@@ -2281,3 +2281,32 @@ func TestVerifyRedirectsTheDisappearanceIdiom(t *testing.T) {
 		t.Fatal("这条建议要限定在界面没动的情形")
 	}
 }
+
+func TestIntentGuardSkipsElementsWithVeryShortNames(t *testing.T) {
+	// 实测（OSWorld 第 34 题，Macy's 筛选尺码）：agent 声明 "Size L checkbox"，
+	// 元素是 `check box "L"`——**完全正确的操作被守卫拒了**。
+	//
+	// 因为分词会跳过长度 < 2 的词元（为了滤掉 "a"/"of" 这类噪声），
+	// 而这个元素的名字整个就是一个字符 "L"，于是任何声明都匹配不上，
+	// 守卫**必然**误拒。尺码、单选字母、表格列标题都是这一类。
+	//
+	// 守卫的价值是拦住"声明 Save 却给了 New 的下标"，代价是偶尔误伤；
+	// 这里不是偶尔，是这一类元素上 100% 误伤。宁可漏判，不可必然误判。
+	short := &elementRecord{Name: "L", ControlType: "check box"}
+	if got := elementIntentMismatch(short, "Size L checkbox"); got != "" {
+		t.Fatalf("单字符名字判不了，不该拒：%s", got)
+	}
+	if got := elementIntentMismatch(short, "the Save button"); got != "" {
+		t.Fatalf("单字符名字上一律不判，包括本该不符的声明：%s", got)
+	}
+	// 但有描述时仍然判得了，不能一并放行
+	withDesc := &elementRecord{Name: "L", ControlType: "check box", Description: "Large size filter"}
+	if elementIntentMismatch(withDesc, "the Save button") == "" {
+		t.Fatal("有描述时仍应校验")
+	}
+	// 正常长度的名字，原有行为不变
+	normal := &elementRecord{Name: "Save", ControlType: "push button"}
+	if elementIntentMismatch(normal, "the New button") == "" {
+		t.Fatal("正常名字上守卫必须照常拦截")
+	}
+}
