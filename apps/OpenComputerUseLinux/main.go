@@ -891,7 +891,7 @@ func (s *service) setValue(app, elementIndex, declared, value string) toolCallRe
 func unchangedNotes(deliveryVerified bool, pixels pixelVerdict, attrsChanged bool) []string {
 	if attrsChanged {
 		// 格式属性直接报出了"什么变成了什么"，没有再讨论的余地。
-		return []string{"The accessibility TREE STRUCTURE is unchanged, but the element's text attributes are not (see the [text-attrs] note above) — the action took effect. Structure and formatting are separate things in AT-SPI; only the former is rendered in the snapshot."}
+		return []string{"The accessibility TREE STRUCTURE is unchanged, but the element's text attributes are not (see the [text-attrs] note above) — the action most likely took effect. Structure and formatting are separate things in AT-SPI; only the former is rendered in the snapshot. This is strong evidence but not proof: confirm it against what you expected the action to do."}
 	}
 	// 「树没变」单独一条是**弱证据**，配上像素比对才有强弱之分。
 	//
@@ -941,6 +941,95 @@ const (
 // 比对不花额外的 AT-SPI 调用：属性跟着 record 走，而动作前的快照 Go 侧本来
 // 就缓存着。按 element 身份配对（automationId 优先，其次 role+name），
 // 不按下标——下标每次快照都会重排。
+// systemFontFamilies 是这台桌面上的**回退字体**。名字出现在 family-name 的
+// 变化两端时，说明发生的是字体替换，而不是谁把文字改粗了。
+var systemFontFamilies = map[string]bool{
+	"ubuntu": true, "cantarell": true, "dejavu sans": true, "dejavu serif": true,
+	"dejavu sans mono": true, "liberation sans": true, "liberation serif": true,
+	"liberation mono": true, "noto sans": true, "noto serif": true,
+	"freesans": true, "freeserif": true, "sans-serif": true, "serif": true,
+	"monospace": true, "sans": true,
+}
+
+// withoutRepaintNoise 去掉**页面自己重绘**造成的属性变化，只留真正可能是
+// 动作后果的那些。
+//
+// 为什么必须做：这条 note 原话是 "direct evidence the action took effect"。
+// 在 nfl.com 上它捕到的是 `family-name: Ubuntu -> All-Pro Sans`、
+// `size: 18pt -> 22.5pt`——网页字体**异步加载完了**，把回退字体换掉而已。
+// 轨迹第 16 步 agent 只是按了个 ctrl+l，却被告知"动作生效了，证据是某个标题
+// 的字体变了"。工具在替一件没发生的事作证，这比不给证据更坏。
+//
+// 两类噪声，判据都刻意保守：
+//
+//	字体替换   family-name 的任一端是系统回退字体。此时 size/weight/style 是
+//	           新字体的度量带来的，一并丢掉——但**只在这个节点上**丢，别的
+//	           节点该报还报，所以 LibreOffice 里真的加粗一段文字照样能报出来。
+//	肉眼不可见 *-color 的每个通道都只差 ≤8/255。244,248,248 -> 246,249,249
+//	           这种是抗锯齿/合成的舍入，看都看不出来，更不可能是谁点了什么。
+func withoutRepaintNoise(diffs []string) []string {
+	fontSwap := false
+	for _, diff := range diffs {
+		name, from, to, ok := splitDiff(diff)
+		if ok && name == "family-name" &&
+			(systemFontFamilies[strings.ToLower(from)] || systemFontFamilies[strings.ToLower(to)]) {
+			fontSwap = true
+			break
+		}
+	}
+	kept := make([]string, 0, len(diffs))
+	for _, diff := range diffs {
+		name, from, to, ok := splitDiff(diff)
+		if !ok {
+			kept = append(kept, diff)
+			continue
+		}
+		if fontSwap {
+			switch name {
+			case "family-name", "size", "weight", "style":
+				continue
+			}
+		}
+		if strings.HasSuffix(name, "color") && imperceptibleColorShift(from, to) {
+			continue
+		}
+		kept = append(kept, diff)
+	}
+	return kept
+}
+
+// splitDiff 把 "size: 18pt -> 22.5pt" 拆回三段。
+func splitDiff(diff string) (name, from, to string, ok bool) {
+	colon := strings.Index(diff, ": ")
+	arrow := strings.Index(diff, " -> ")
+	if colon < 0 || arrow < 0 || arrow < colon {
+		return "", "", "", false
+	}
+	return diff[:colon], diff[colon+2 : arrow], diff[arrow+4:], true
+}
+
+// imperceptibleColorShift 判断两个 "r,g,b" 是否近到看不出来。
+const colorNoiseThreshold = 8
+
+func imperceptibleColorShift(from, to string) bool {
+	a := strings.Split(from, ",")
+	b := strings.Split(to, ",")
+	if len(a) != 3 || len(b) != 3 {
+		return false
+	}
+	for i := range a {
+		x, err1 := strconv.Atoi(strings.TrimSpace(a[i]))
+		y, err2 := strconv.Atoi(strings.TrimSpace(b[i]))
+		if err1 != nil || err2 != nil {
+			return false
+		}
+		if diff := x - y; diff > colorNoiseThreshold || diff < -colorNoiseThreshold {
+			return false
+		}
+	}
+	return true
+}
+
 func textAttributeChanges(before, after *appSnapshot) []string {
 	if before == nil || after == nil {
 		return nil
@@ -989,6 +1078,10 @@ func textAttributeChanges(before, after *appSnapshot) []string {
 				diffs = append(diffs, fmt.Sprintf("%s: %s -> %s", name, from, value))
 			}
 		}
+		if len(diffs) == 0 {
+			continue
+		}
+		diffs = withoutRepaintNoise(diffs)
 		if len(diffs) == 0 {
 			continue
 		}
@@ -1167,7 +1260,7 @@ func (s *service) actionResult(app string, request linuxRequest) toolCallResult 
 		}
 		notes = append([]string{"[text-attrs] Formatting changed, read straight from the AT-SPI text attributes: " +
 			strings.Join(shown, " | ") +
-			". This is direct evidence the action took effect — the snapshot renders structure, not formatting, so the tree can look unchanged while this does not."}, notes...)
+			". The snapshot renders structure, not formatting, so the tree can look unchanged while this does not. Treat this as supporting evidence rather than proof: a page can also restyle itself on its own. Obvious repaint noise (a web font replacing the fallback font, colour shifts too small to see) is already filtered out."}, notes...)
 	}
 	if before != nil && !observablyChanged(before, snapshot) {
 		// 语义调用返回成功却什么都没发生——实测这不是罕见情况，Nautilus 文件

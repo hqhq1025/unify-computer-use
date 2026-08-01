@@ -2355,3 +2355,59 @@ func TestScrollNoteDoesNotClaimTargetingItDidNotDo(t *testing.T) {
 		t.Fatal("留空时要如实说落点是窗口中心")
 	}
 }
+
+// TestWithoutRepaintNoise 钉住 [text-attrs] 不再替**没发生的事**作证。
+//
+// 出处是第 44 题的真实轨迹：agent 在第 16 步只按了个 ctrl+l，回答开头却是
+// `[text-attrs] Formatting changed … heading "Friday, August 2nd" —
+//
+//	family-name: Ubuntu -> All-Pro Sans; size: 18pt -> 22.5pt …
+//	This is direct evidence the action took effect`。
+//
+// 真相是 nfl.com 的网页字体异步加载完了，把回退字体 Ubuntu 换成了 All-Pro Sans，
+// 与那次按键毫无关系。工具替一件没发生的事作了证——这比不给证据更坏。
+func TestWithoutRepaintNoise(t *testing.T) {
+	t.Run("网页字体加载不算证据", func(t *testing.T) {
+		// 真实取自轨迹：字体换掉的同时 size/weight 也跟着变，那是新字体的度量。
+		got := withoutRepaintNoise([]string{
+			"family-name: Ubuntu -> All-Pro Sans",
+			"size: 18pt -> 22.5pt",
+			"weight: unset -> 700",
+		})
+		if len(got) != 0 {
+			t.Fatalf("字体替换应当被整条滤掉，却留下了 %v", got)
+		}
+	})
+
+	t.Run("肉眼看不出的颜色变化不算证据", func(t *testing.T) {
+		got := withoutRepaintNoise([]string{"bg-color: 244,248,248 -> 246,249,249"})
+		if len(got) != 0 {
+			t.Fatalf("2/255 的色差应当被滤掉，却留下了 %v", got)
+		}
+	})
+
+	t.Run("真的加粗照样报得出来", func(t *testing.T) {
+		// 这条 note 的价值全在这里：LibreOffice 里加粗只改格式、不改结构，
+		// 树看上去纹丝不动。滤噪声不能把它一起滤掉。
+		got := withoutRepaintNoise([]string{"weight: 400 -> 700"})
+		if len(got) != 1 {
+			t.Fatalf("真实的加粗应当保留，却得到 %v", got)
+		}
+	})
+
+	t.Run("明显的颜色变化保留", func(t *testing.T) {
+		got := withoutRepaintNoise([]string{"fg-color: 0,0,0 -> 255,0,0"})
+		if len(got) != 1 {
+			t.Fatalf("黑变红应当保留，却得到 %v", got)
+		}
+	})
+
+	t.Run("同一节点里字体没换时 size 变化保留", func(t *testing.T) {
+		// fontSwap 是**按节点**判定的：没有字体替换的证据时，
+		// size 变化仍然可能是谁调了字号。
+		got := withoutRepaintNoise([]string{"size: 12pt -> 24pt"})
+		if len(got) != 1 {
+			t.Fatalf("没有字体替换时 size 应当保留，却得到 %v", got)
+		}
+	})
+}
