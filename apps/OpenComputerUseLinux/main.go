@@ -346,6 +346,10 @@ type linuxRequest struct {
 	Boxes        *bool          `json:"boxes,omitempty"`
 	// nil = 按运行时的默认策略。find / verify 显式传 false 省掉视觉 token。
 	IncludeScreenshot *bool `json:"includeScreenshot,omitempty"`
+	// scroll 没给 element_index 时置真：落点是窗口中心，不是某个具体元素。
+	// **必须显式传**，不能让运行时去猜——合成记录的 index 是 0 而不是 null，
+	// 推断会把"滚窗口"说成"滚这个元素"，那就是工具在骗 agent。
+	WindowCentre bool `json:"windowCentre,omitempty"`
 	// 上一份快照的 路径 -> (编号, role, name)。原样带给运行时，让编号跨快照存活。
 	KnownRefs map[string]elementRef `json:"knownRefs,omitempty"`
 }
@@ -723,9 +727,17 @@ func (s *service) scroll(app, direction, elementIndex, declared string, pages fl
 	if app == "" {
 		return textResult("Missing required argument: app", true)
 	}
-	if elementIndex == "" {
-		return textResult("Missing required argument: element_index", true)
-	}
+	// element_index **可以留空**：那表示"滚当前窗口"，落点取窗口中心。
+	//
+	// 轨迹证据：scroll 12 次调用错 4 次（33%），全部是
+	//     scroll: no element matches the selector "document web"
+	// ——agent 想滚的是整页，却被迫先说出"哪个元素是这一页"，
+	// 而网页根节点的角色在不同站点上并不统一（document web / document frame /
+	// section 都出现过），猜错就报错。
+	//
+	// 滚轮本来就作用在**指针下方的可滚动祖先**上（见 runtime.py 的
+	// scroll_element），窗口中心几乎总是主内容区。要滚某个特定面板时再传
+	// element_index，那条路径一个字没变。
 	normalized := strings.ToLower(direction)
 	if normalized != "up" && normalized != "down" && normalized != "left" && normalized != "right" {
 		return textResult("Invalid scroll direction: "+direction, true)
@@ -736,6 +748,25 @@ func (s *service) scroll(app, direction, elementIndex, declared string, pages fl
 	snapshot := s.currentSnapshot(app)
 	if snapshot == nil {
 		return textResult("No app state is available for "+app+". Run get_app_state before action tools.", true)
+	}
+	if elementIndex == "" {
+		// 没给元素：用窗口中心当落点，不去解析任何元素。
+		center := &elementRecord{}
+		if snapshot.WindowBounds != nil {
+			center.Frame = &frame{
+				X: 0, Y: 0,
+				Width: snapshot.WindowBounds.Width, Height: snapshot.WindowBounds.Height,
+			}
+		}
+		if center.Frame == nil {
+			return textResult("scroll without element_index needs the window bounds, "+
+				"which this snapshot does not have. Call get_app_state again, or pass "+
+				"element_index to scroll a specific region.", true)
+		}
+		return s.actionResult(app, linuxRequest{
+			Tool: "scroll", App: app, Element: center, Direction: normalized,
+			Pages: pages, WindowBounds: snapshot.WindowBounds, WindowCentre: true,
+		})
 	}
 	record, err := lookupElementFor(snapshot, elementIndex, declared, "scroll")
 	if err != nil {
@@ -3330,7 +3361,7 @@ func allToolDefinitions() []toolDefinition {
 		},
 		{
 			Name:        "scroll",
-			Description: "CHANNEL: ACCESSIBILITY for vertical scrolling, KEYBOARD for horizontal. Scroll by a number of pages. Vertical scrolling moves the pointer over the element addressed by element_index and sends wheel notches there, so it IS targeted — measured on gedit with a 600-line file, six notches changed 23% of the text area while doing nothing changed 0%. Two things to keep in mind: the wheel acts on the scrollable ancestor under that point, which is not necessarily the element you named; and one page is APPROXIMATED as 5 notches, so pages=1 is not exactly one Page_Down. Horizontal scrolling still synthesizes Left/Right keys to whatever holds focus and does NOT target the element — the wheel's horizontal buttons are untested here, and this project does not ship paths it has not measured. This tool is part of plugin `Computer Use`.",
+			Description: "CHANNEL: ACCESSIBILITY for vertical scrolling, KEYBOARD for horizontal. `element_index` is OPTIONAL — leave it out to scroll the current window, which is what you usually want; pass it only to scroll a specific region. Scroll by a number of pages. Vertical scrolling moves the pointer over the element addressed by element_index and sends wheel notches there, so it IS targeted — measured on gedit with a 600-line file, six notches changed 23% of the text area while doing nothing changed 0%. Two things to keep in mind: the wheel acts on the scrollable ancestor under that point, which is not necessarily the element you named; and one page is APPROXIMATED as 5 notches, so pages=1 is not exactly one Page_Down. Horizontal scrolling still synthesizes Left/Right keys to whatever holds focus and does NOT target the element — the wheel's horizontal buttons are untested here, and this project does not ship paths it has not measured. This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"element":       stringProperty("Human-readable description of the element you intend to act on, e.g. \"the Save button\" or \"Position Y spin button\". Optional but strongly recommended: it is cross-checked against what element_index actually resolves to, which catches the common and otherwise SILENT failure of reusing an index from an earlier snapshot after the indices were renumbered."),
@@ -3338,7 +3369,7 @@ func allToolDefinitions() []toolDefinition {
 				"direction":     stringProperty("Scroll direction: up, down, left, or right"),
 				"element_index": stringProperty("Element identifier"),
 				"pages":         numberProperty("Number of pages to scroll. Fractional values are supported. Defaults to 1"),
-			}, []string{"app", "element_index", "direction"}),
+			}, []string{"app", "direction"}),
 		},
 		{
 			Name:        "set_value",

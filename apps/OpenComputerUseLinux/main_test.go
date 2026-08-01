@@ -1746,7 +1746,9 @@ func TestScrollActuallyUsesTheElementIndex(t *testing.T) {
 	if !strings.Contains(linuxRuntimeScript, `"b4c" if direction == "up" else "b5c"`) {
 		t.Fatal("纵向滚动要用滚轮按位置滚")
 	}
-	if !strings.Contains(linuxRuntimeScript, "this scroll IS targeted") {
+	// 钉不跨行的片段。Python 源码里这句被折成两行，钉整句会因为换行位置
+	// 而假报警——这一轮已经踩过四次了。
+	if !strings.Contains(linuxRuntimeScript, "so this scroll IS ") {
 		t.Fatal("按元素滚动之后，Note 要说清它现在是定位过的")
 	}
 	// 横向仍走按键：滚轮横向按钮没实测过，没测过的路径不上线
@@ -2308,5 +2310,48 @@ func TestIntentGuardSkipsElementsWithVeryShortNames(t *testing.T) {
 	normal := &elementRecord{Name: "Save", ControlType: "push button"}
 	if elementIntentMismatch(normal, "the New button") == "" {
 		t.Fatal("正常名字上守卫必须照常拦截")
+	}
+}
+
+func TestScrollWorksWithoutNamingAnElement(t *testing.T) {
+	// 轨迹证据：scroll 12 次调用错 4 次（**33%**），全部是
+	//     scroll: no element matches the selector "document web"
+	// agent 想滚的是整页，却被迫先说出"哪个元素是这一页"，而网页根节点的角色
+	// 在不同站点上并不统一（document web / document frame / section 都出现过），
+	// 猜错就报错。
+	//
+	// 滚轮本来就作用在指针下方的可滚动祖先上，窗口中心几乎总是主内容区。
+	definition := findToolDefinition(t, "scroll")
+	if raw, present := definition.InputSchema["required"]; present {
+		for _, name := range raw.([]string) {
+			if name == "element_index" {
+				t.Fatal("element_index 不该再是必填——留空表示滚当前窗口")
+			}
+		}
+	}
+	if !strings.Contains(definition.Description, "OPTIONAL") {
+		t.Fatal("描述里要说明留空的含义，否则没人会去用")
+	}
+	// 但传了元素的那条路径必须一个字没变
+	if !strings.Contains(mainGoSource(t), `lookupElementFor(snapshot, elementIndex, declared, "scroll")`) {
+		t.Fatal("按元素滚动的原有路径不能被改掉")
+	}
+}
+
+func TestScrollNoteDoesNotClaimTargetingItDidNotDo(t *testing.T) {
+	// scroll 的 element_index 变成可选之后，原来那句
+	//     "the position came from element_index, so this scroll IS targeted"
+	// 在留空时**是假的**。工具骗 agent 一次，它后面所有推断都建立在假前提上。
+	//
+	// 判据必须是**显式标志**，不能靠推断：Go 侧合成的落点记录 index 是 0
+	// 而不是 null，第一版靠 `index is not None` 判断，结果照样说"定位过"。
+	if !strings.Contains(mainGoSource(t), "WindowCentre bool") {
+		t.Fatal("滚窗口中心要有显式标志，不能让运行时去猜")
+	}
+	if !strings.Contains(linuxRuntimeScript, `operation.get("windowCentre")`) {
+		t.Fatal("Note 的措辞要按这个显式标志分支")
+	}
+	if !strings.Contains(linuxRuntimeScript, "no element_index was given, so this is the centre") {
+		t.Fatal("留空时要如实说落点是窗口中心")
 	}
 }

@@ -3720,8 +3720,7 @@ def perform_operation(operation):
                 A11Y_CHANNEL
                 + SYNTHESIS
                 + "Scrolled with {} wheel notch(es) at ({:.0f}, {:.0f}) in "
-                "window-relative pixels — the position came from element_index, so "
-                "this scroll IS targeted. Two caveats. First, the wheel acts on the "
+                "window-relative pixels — {}. Two caveats. First, the wheel acts on the "
                 "scrollable ancestor under that point, which is not necessarily the "
                 "element you named. Second, one page is APPROXIMATED as {} notches; "
                 "the real distance is whatever the application's scroll settings say, "
@@ -3730,6 +3729,15 @@ def perform_operation(operation):
                     int(math.ceil(float(pages or 1))) * WHEEL_CLICKS_PER_PAGE,
                     wx,
                     wy,
+                    # **这句话必须说实话。** element_index 现在可以留空（那表示
+                    # "滚当前窗口"），而原文一律写着"位置来自 element_index，
+                    # 所以这次滚动是定位过的"——留空时那是假的。
+                    # 工具骗 agent 一次，它后面所有的推断都建立在假前提上。
+                    "no element_index was given, so this is the centre of the window "
+                    "— the wheel lands on whatever scrollable sits there"
+                    if operation.get("windowCentre")
+                    else "the position came from element_index, so this scroll IS "
+                         "targeted",
                     WHEEL_CLICKS_PER_PAGE,
                     UNVERIFIED_SYNTHESIS,
                 )
