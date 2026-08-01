@@ -242,6 +242,57 @@ func (s *appSnapshot) resultWithNotes(notes []string) toolCallResult {
 // textWithNotes 走和整棵树完全相同的出口：诊断在前、正文在后、超阈值落盘。
 // find 的输出必须和 get_app_state 共用这条路径，否则"树太大"这个问题
 // 会在 find 上原样复发一遍——命中 300 个元素时它一样是一份大输出。
+// maxInlineChars 一次工具响应的内联字符上限。
+//
+// **这不是省 token，是防止整块丢失。** 实测 26 条真实 agent 轨迹：60 次观测类
+// 调用里有 **8 次（13%）**的响应达到 114–119KB，被 MCP 客户端整块换成了一句
+//
+//	<persisted-output> Output too large (118.1KB). Full output saved to: …
+//
+// 而 OSWorld 的跑测里 Read 是禁用的（否则 agent 会绕开 GUI 直接改文件），
+// 于是那 8 次调用 agent **什么都没拿到**——它花了一次调用，换回一个读不了的
+// 文件指针，然后只能靠坐标乱试。
+//
+// `--output-mode file` 救不了这一条：那同样是一个读不了的指针。唯一有效的
+// 办法是让内容**本来就装得下**。
+//
+// 45000 字符是量出来的：实测 gedit 659、Thunderbird 7153、VS Code 15342 字符，
+// 都远在阈值内、一个字不会被裁；只有那些 11 万字符的巨树会被截。
+func maxInlineChars() int {
+	if raw := strings.TrimSpace(os.Getenv("OPEN_COMPUTER_USE_MAX_INLINE_CHARS")); raw != "" {
+		if value, err := strconv.Atoi(raw); err == nil && value > 0 {
+			return value
+		}
+	}
+	return 45000
+}
+
+// capInline 把过长的响应按行裁到预算内，并**明说裁掉了多少**。
+// 静默截断会让 agent 以为自己看到了整棵树——那比丢失更糟。
+func capInline(text string) string {
+	limit := maxInlineChars()
+	if len(text) <= limit {
+		return text
+	}
+	lines := strings.Split(text, "\n")
+	kept := make([]string, 0, len(lines))
+	used := 0
+	for _, line := range lines {
+		if used+len(line)+1 > limit {
+			break
+		}
+		kept = append(kept, line)
+		used += len(line) + 1
+	}
+	return strings.Join(kept, "\n") + fmt.Sprintf(
+		"\n\n[TRUNCATED: showing %d of %d lines (%d of %d characters). This is not a "+
+			"token-saving trim — MCP clients replace oversized tool results with an "+
+			"unreadable file pointer, so an untruncated tree would have reached you as "+
+			"nothing at all. Use `find` to query the part you need instead of reading "+
+			"the whole tree, or raise OPEN_COMPUTER_USE_MAX_INLINE_CHARS.]",
+		len(kept), len(lines), used, len(text))
+}
+
 func (s *appSnapshot) textWithNotes(text string, notes []string) toolCallResult {
 	if len(notes) > 0 {
 		lines := make([]string, 0, len(notes)+1)
@@ -254,6 +305,7 @@ func (s *appSnapshot) textWithNotes(text string, notes []string) toolCallResult 
 	if spilled := spillToFile("snapshot", text); spilled != "" {
 		text = spilled
 	}
+	text = capInline(text)
 	result := toolCallResult{
 		Content: []contentItem{{Type: "text", Text: text}},
 	}
@@ -1811,6 +1863,18 @@ func (g verifyGoal) check(record *elementRecord, lookupErr error) (bool, string)
 	return ok, strings.Join(observed, ", ")
 }
 
+// selectorHint 从选择器里抽出可用于模糊比对的那部分文字。
+// `push button "Thomas"` → `Thomas`；`"Calculate"` → `Calculate`；
+// 没有引号时整串都算——`heading Depart` 这种写法也要能给出候选。
+func selectorHint(selector string) string {
+	if start := strings.Index(selector, "\""); start >= 0 {
+		if end := strings.LastIndex(selector, "\""); end > start {
+			return selector[start+1 : end]
+		}
+	}
+	return strings.TrimSpace(selector)
+}
+
 func firstLine(text string) string {
 	if index := strings.IndexByte(text, '\n'); index >= 0 {
 		return text[:index]
@@ -1867,7 +1931,25 @@ func (s *service) verify(app, selector string, goal verifyGoal, timeoutMS int) t
 			for _, line := range attempts {
 				e.log = append(e.log, "  - "+line)
 			}
-			e.next = "this is a real observation of the current tree, not a stale cache — the state genuinely is not what you expected. Either the action did not land, or the app reports this state under a different name; call get_app_state and read the element's actual [states]."
+			// 找不到元素时**把最接近的候选列出来**。
+			//
+			// 轨迹证据：26 条真实轨迹里 verify 被调用 5 次、失败 3 次，
+			// **三次全是 exists:true 超时**——agent 拿它当"等这个元素出现"用，
+			// 而它猜的选择器（`push button "Thomas"`、`"Calculate"`、
+			// `heading "Depart"`）名字对不上。
+			//
+			// 此前的失败提示是"去 call get_app_state 读一读"，而那棵树有
+			// **286 个元素**——等于让它把整棵树重读一遍再猜第二次。
+			// 选择器找不到时列候选这件事，click 那边早就在做了，verify 没接上。
+			if hint := closestElements(snapshot, selectorHint(selector), 5); len(hint) > 0 {
+				e.log = append(e.log, "  closest elements currently in the tree:")
+				for _, line := range hint {
+					e.log = append(e.log, "  "+line)
+				}
+				e.next = "the element never appeared. The closest things actually in the tree are listed above — if one of them is what you meant, retry with its selector. Otherwise the action genuinely did not land, or the app names this state differently."
+			} else {
+				e.next = "this is a real observation of the current tree, not a stale cache — the state genuinely is not what you expected. Either the action did not land, or the app reports this state under a different name; call get_app_state and read the element's actual [states]."
+			}
 			return textResult(e.Error(), true)
 		}
 		time.Sleep(400 * time.Millisecond)

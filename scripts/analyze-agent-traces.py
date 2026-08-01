@@ -21,6 +21,7 @@
 
 import collections
 import glob
+import gzip
 import json
 import os
 import sys
@@ -31,7 +32,10 @@ def load(path):
     steps = []
     pending = {}
     final = ""
-    with open(path, encoding="utf-8") as handle:
+    # 存档里的轨迹是 gzip 的：原始 26 条含 base64 截图有 172MB，剥掉图 16.7MB，
+    # 压缩后 2.1MB。分析只需要结构，不需要像素。
+    opener = gzip.open if path.endswith(".gz") else open
+    with opener(path, "rt", encoding="utf-8") as handle:
         for line in handle:
             line = line.strip()
             if not line:
@@ -81,7 +85,11 @@ def signature(step):
 
 
 def main():
-    paths = sys.argv[1:] or sorted(glob.glob("/tmp/osworld-agent-*.jsonl"))
+    paths = sys.argv[1:] or (
+        sorted(glob.glob("/tmp/osworld-agent-*.jsonl"))
+        or sorted(glob.glob(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "docs", "osworld", "traces", "osworld-agent-*.jsonl.gz"))))
     if not paths:
         print("没有找到轨迹文件")
         return 1

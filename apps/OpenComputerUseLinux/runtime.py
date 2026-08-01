@@ -28,6 +28,20 @@ from gi.repository import Atspi
 
 
 MAX_ELEMENTS = 1200
+
+# 渲染出来的树最多占多少字符。
+#
+# **预算的单位此前是错的。** MAX_ELEMENTS 按节点数发预算，而 MCP 客户端限制的
+# 是字节：实测 chrome://flags 正好吃满 1200 个节点，平均每行 112 字符，
+# 合计 135327 字符 ≈ 132KB——客户端把超过约 100KB 的工具结果整块换成一个
+# 文件指针，在禁用 Read 的跑测里等于 agent **什么都没拿到**
+# （26 条真实轨迹里 13% 的观测调用如此）。
+#
+# 节点数管不住字节：1200 个短节点是 40KB，1200 个长节点是 135KB。
+# 所以再加一条**以字符计**的预算，并且在渲染时就停手——
+# 不能等渲染完再截，那样 800 个节点的 record_for 开销白付了
+# （GIMP 实测 8.45ms/节点，白付 800 个就是 6.7 秒）。
+MAX_RENDERED_CHARS = 40000
 MAX_DEPTH = 64
 DEFAULT_TEXT_LIMIT = 500
 # 抬窗时最多尝试几个 FOCUSABLE 控件。抓焦点会真的改变应用内的焦点位置，
@@ -265,6 +279,23 @@ CLICK_COVERED_ACTIONS = {
 # 实际点的是祖先节点——而且从返回值和树里都看不出来。
 # VS Code 实测有 14 个节点的动作表是 ('clickAncestor', 'showContextMenu')。
 NON_SELF_ACTIONS = {"clickancestor"}
+
+# **每个节点都有、因而不携带任何信息**的动作。
+#
+# 实测 chrome://flags：1200 个渲染节点里 `showContextMenu` 出现 **1200 次**——
+# 每一个节点都有。Chrome/Blink 给整棵 DOM 都挂了它，因为任何元素都能右键。
+#
+# 不排掉它有两个后果，都很硬：
+#
+#  1. **剪枝完全失效。** is_structural_filler 的判据之一是"没有动作"，
+#     而这个动作人人都有，于是没有任何节点会被判成填充物。实测那棵树
+#     1200 行 / 135327 字符，其中 530 个是纯文本 static —— 而 MCP 客户端会把
+#     超过约 100KB 的工具结果整块换成一个文件指针，在禁用 Read 的跑测里
+#     等于 agent **什么都没拿到**（实测 26 条轨迹中 13% 的观测调用如此）。
+#  2. 渲染出来的 `[actions=…]` 里 1200 行全带这一项，纯噪声。
+#
+# 它也确实不是一条可用的操作路径：右键菜单打开的是菜单，不是激活这个元素。
+UNIVERSAL_ACTIONS = {"showcontextmenu"}
 
 
 def normalized_action(label):
@@ -774,6 +805,9 @@ def node_actions(node):
         if not label or label in names:
             continue
         if lower in CLICK_COVERED_ACTIONS:
+            continue
+        # 人人都有的动作不进列表，也就不会让 is_structural_filler 失效。
+        if normalized_action(lower) in UNIVERSAL_ACTIONS:
             continue
         names.append(label)
     return names, has_click_entry
@@ -1484,11 +1518,13 @@ def render_visible_cells(
 
 def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
                 boxes=True, indexer=None,
-                max_tree_nodes=MAX_ELEMENTS, max_tree_depth=MAX_DEPTH, prune=True):
+                max_tree_nodes=MAX_ELEMENTS, max_tree_depth=MAX_DEPTH, prune=True,
+                max_rendered_chars=MAX_RENDERED_CHARS):
     records = []
     lines = []
 
-    dropped = {"count": 0}
+    dropped = {"count": 0, "chars": 0}
+    budget = {"chars": 0}
     pressure_at = max(1, int(max_tree_nodes * BUDGET_PRESSURE_RATIO))
 
     def is_structural_filler(record):
@@ -1500,7 +1536,10 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
             or record["value"]
         )
 
-    def visit(node, depth, path, render_depth=0):
+    # 纯文本角色。它们没有可操作性，唯一的价值是"说出一段字"。
+    TEXT_ONLY_ROLES = {"static", "label", "paragraph", "heading", "caption"}
+
+    def visit(node, depth, path, render_depth=0, parent_text=""):
         """depth 用于遍历预算，render_depth 用于缩进。
 
         两者必须分开：被裁掉的节点仍会递归子节点，若沿用 depth 做缩进，
@@ -1511,6 +1550,11 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
         if len(records) >= max_tree_nodes or depth > max_tree_depth or node is None:
             if node is not None and len(records) >= max_tree_nodes:
                 dropped["count"] += 1
+            return
+        # 字符预算与节点预算是两件事，见 MAX_RENDERED_CHARS。
+        if budget["chars"] >= max_rendered_chars:
+            dropped["count"] += 1
+            dropped["chars"] += 1
             return
 
         # 裁剪：只保留"可操作角色 + 屏幕上可见"的节点。与 OSWorld 官方判据同源，
@@ -1534,17 +1578,34 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
             # 父节点 `panel Line Spacing` 指认它。纯按角色白名单裁掉这个 panel，
             # 目标元素虽然还在树里，却**没法被指认**——整条对话框链路当场断掉。
             # 保留率指标只看"目标在不在"，看不到这一层，是它的盲区。
+            probe_name = limit_text(node_name(node), text_limit=text_limit)
             keeps = probe_frame is not None and (
                 is_interactive_role(probe_role)
-                or bool(limit_text(node_name(node), text_limit=text_limit))
+                or bool(probe_name)
                 or bool(node_description(node, text_limit=text_limit))
             )
+            # **文字与父节点完全重复的纯文本叶子不保留。**
+            #
+            # "有名字的可见节点一律保留"那条规则是为桌面对话框定的（见上面
+            # Line Spacing 的例子），但在网页上"有名字"等于"所有文字"。
+            # 实测 chrome://flags：521 个纯文本节点里 **212 个（41%）的文字与
+            # 父节点逐字相同**——父节点已经把这句话说过一遍了，
+            #     paragraph […]: "You will start with the entrypoint file…"
+            #         static "You will start with the entrypoint file…"
+            # 第二行没有增加任何信息，却要付同样的字节。
+            #
+            # 只裁**没有子节点**的纯文本角色：有子节点的容器仍然可能是指认
+            # 无名控件的唯一途径，那正是 Line Spacing 那条教训。
+            if (keeps and probe_role in TEXT_ONLY_ROLES and probe_name
+                    and parent_text and probe_name == parent_text
+                    and child_count(node) == 0):
+                keeps = False
             if not keeps:
                 dropped["count"] += 1
                 for child_index in range(min(child_count(node), MAX_CHILD_FANOUT)):
                     # 本节点没渲染，render_depth 不推进，子节点顶替它的位置
                     visit(child_at(node, child_index), depth + 1,
-                          path + [child_index], render_depth)
+                          path + [child_index], render_depth, parent_text)
                 return
 
         record = record_for(node, None, path, window_bounds, text_limit=text_limit)
@@ -1571,7 +1632,9 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
                            if indexer is not None else len(records))
         records.append(record)
 
-        lines.append(render_element_line(record, render_depth, boxes=boxes))
+        rendered = render_element_line(record, render_depth, boxes=boxes)
+        lines.append(rendered)
+        budget["chars"] += len(rendered) + 1
         role = record["localizedControlType"] or record["controlType"] or "element"
 
         # 未展开的菜单：保留节点自身（它是 invoke_element_action 的入口），
@@ -1615,18 +1678,29 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
                 break
             child = child_at(node, child_index)
             # 本节点渲染出来了，子节点缩进推进一级
-            visit(child, depth + 1, path + [child_index], render_depth + 1)
+            # 把本节点渲染出来的文字传下去，供子节点判断"我是否只是重复了父亲"。
+            visit(child, depth + 1, path + [child_index], render_depth + 1,
+                  str(record.get("name") or record.get("value") or ""))
 
     visit(root, 0, root_path)
     if dropped["count"]:
-        lines.append(
-            "({} node(s) omitted: {} — raise max_tree_nodes to see them)".format(
-                dropped["count"],
-                "not interactable or not on screen"
-                if len(records) < max_tree_nodes
-                else "node budget exhausted, remaining subtree not traversed",
-            )
-        )
+        # 三种省略原因要**分开说**：一句笼统的"省略了 N 个"会让调用方以为
+        # 提高 max_tree_nodes 就能看全，而字符预算耗尽时那样做只会让整份响应
+        # 被客户端丢掉——那是本仓库实测过的最坏结果（agent 什么都没拿到）。
+        if dropped["chars"]:
+            reason = ("character budget exhausted ({} chars). This budget exists "
+                      "because MCP clients replace oversized tool results with an "
+                      "unreadable file pointer — a bigger tree would have reached "
+                      "you as nothing at all. Use `find` to query the part you "
+                      "need, or raise max_rendered_chars if your client can take "
+                      "it").format(max_rendered_chars)
+        elif len(records) < max_tree_nodes:
+            reason = ("not interactable or not on screen — raise max_tree_nodes "
+                      "to see them")
+        else:
+            reason = ("node budget exhausted, remaining subtree not traversed — "
+                      "raise max_tree_nodes to see them")
+        lines.append("({} node(s) omitted: {})".format(dropped["count"], reason))
     return records, lines
 
 

@@ -272,10 +272,16 @@ def cmd_agent(args):
         #
         # 这里只补 OSWorld 那句框定，**不加任何关于本 MCP 工具的提示**——
         # 那会变成给自己的实现开小灶，测出来的数就不能和别人比了。
+        # **逐字照抄 OSWorld 官方系统提示的第一句**，一个字都不多加。
+        # 见 OSWorld mm_agents/prompts.py:2。
+        #
+        # 我一度在后面补了一句"Actually operate the computer…; do not merely
+        # explain how it could be done."——那超出了官方措辞，等于给自己的实现
+        # 额外加了一句提示。**已收回。** 测出来的数要能和别人比，
+        # 唯一的办法是框定与别人逐字相同。
         "--append-system-prompt",
-        "You are an agent which follows my instruction and performs desktop "
-        "computer tasks as instructed. Actually operate the computer to carry the "
-        "task out; do not merely explain how it could be done.",
+        "You are an agent which follow my instruction and perform desktop "
+        "computer tasks as instructed.",
         "--permission-mode", "bypassPermissions",
         "--output-format", "stream-json", "--verbose",
         "--max-budget-usd", str(args.budget),

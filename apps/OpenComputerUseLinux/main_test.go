@@ -2132,3 +2132,79 @@ func TestSnapshotCacheLookupIsAsLooseAsAppResolution(t *testing.T) {
 		t.Fatal("宽松匹配不能把无关的应用名也匹上")
 	}
 }
+
+func TestOversizedResponsesAreCappedInlineNotSpilled(t *testing.T) {
+	// 轨迹证据（26 条真实轨迹，60 次观测类调用）：**8 次（13%）**的响应达到
+	// 114–119KB，被 MCP 客户端整块换成
+	//     <persisted-output> Output too large (118.1KB). Full output saved to: …
+	// 而 OSWorld 跑测里 Read 是禁用的，于是那 8 次 agent **什么都没拿到**。
+	//
+	// --output-mode file 救不了这一条：那同样是一个读不了的指针。
+	// 唯一有效的办法是让内容本来就装得下。
+	t.Setenv("OPEN_COMPUTER_USE_MAX_INLINE_CHARS", "")
+	small := strings.Repeat("line\n", 100)
+	if capInline(small) != small {
+		t.Fatal("小输出不该被动")
+	}
+	big := strings.Repeat("a fairly long tree line that costs bytes\n", 4000)
+	capped := capInline(big)
+	if len(capped) >= len(big) {
+		t.Fatal("超限的输出必须被裁")
+	}
+	if len(capped) > maxInlineChars()+400 {
+		t.Fatalf("裁完还是太长：%d", len(capped))
+	}
+	// **必须说清裁掉了多少**。静默截断会让 agent 以为自己看到了整棵树，
+	// 那比丢失更糟。
+	for _, fragment := range []string{"TRUNCATED", "of", "lines", "`find`"} {
+		if !strings.Contains(capped, fragment) {
+			t.Fatalf("截断说明里缺少 %q", fragment)
+		}
+	}
+	// 阈值要可调，因为不同客户端的上限不同
+	t.Setenv("OPEN_COMPUTER_USE_MAX_INLINE_CHARS", "500")
+	if maxInlineChars() != 500 {
+		t.Fatal("上限要可以由环境变量覆盖")
+	}
+}
+
+func TestTreeBudgetIsMeasuredInCharactersNotOnlyNodes(t *testing.T) {
+	// 根因链（全部实测）：
+	//   1. MAX_ELEMENTS=1200 是**节点数**预算，而 MCP 客户端限制的是**字节**；
+	//   2. chrome://flags 正好吃满 1200 节点、平均每行 112 字符 = 135327 字符；
+	//   3. 客户端把超过约 100KB 的结果整块换成一个文件指针，而跑测里 Read 是
+	//      禁用的——26 条真实轨迹里 **13%** 的观测调用因此 agent 什么都没拿到。
+	// 节点数管不住字节：1200 个短节点 40KB，1200 个长节点 135KB。
+	if !strings.Contains(linuxRuntimeScript, "MAX_RENDERED_CHARS") {
+		t.Fatal("树预算要有以字符计的那一条")
+	}
+	// 必须**在渲染时**就停手，不能渲染完再截——那样开销白付
+	// （GIMP 实测 8.45ms/节点，白付 800 个就是 6.7 秒）。
+	if !strings.Contains(linuxRuntimeScript, `if budget["chars"] >= max_rendered_chars:`) {
+		t.Fatal("字符预算要在遍历里生效，不能事后截断")
+	}
+	// 省略原因要分开说：笼统一句会让调用方以为提高 max_tree_nodes 就能看全，
+	// 而字符预算耗尽时那样做只会让整份响应被客户端丢掉。
+	if !strings.Contains(linuxRuntimeScript, "character budget exhausted") {
+		t.Fatal("字符预算耗尽要单独说明，不能和节点预算混为一谈")
+	}
+	// 但**节点**预算那两档仍然该建议提高 max_tree_nodes——那里它是对的建议。
+	// 一并删掉会让"省略了 N 个"变成一条无法行动的话。
+	// 钉不跨行的片段：Python 源码里这句话是分两行写的，
+	// 钉整句会因为换行位置而假报警（这一轮已经踩过三次）。
+	if strings.Count(linuxRuntimeScript, "raise max_tree_nodes ") < 2 {
+		t.Fatal("节点预算耗尽时仍要给出可行动的建议")
+	}
+}
+
+func TestUniversalContextMenuActionIsNotAnAffordance(t *testing.T) {
+	// 实测 chrome://flags：`showContextMenu` 出现在**全部 1200 个节点**上——
+	// Chrome 给整棵 DOM 都挂了它，因为任何元素都能右键。
+	// 不排掉它，is_structural_filler 的"没有动作"判据永远不成立，剪枝完全失效。
+	if !strings.Contains(linuxRuntimeScript, "UNIVERSAL_ACTIONS") {
+		t.Fatal("人人都有的动作要单独归类并排除")
+	}
+	if !strings.Contains(linuxRuntimeScript, `UNIVERSAL_ACTIONS = {"showcontextmenu"}`) {
+		t.Fatal("showContextMenu 必须在这一类里")
+	}
+}
