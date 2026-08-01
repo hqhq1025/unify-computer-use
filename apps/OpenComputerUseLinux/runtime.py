@@ -592,6 +592,20 @@ def wait_for_ui_to_settle(
         sleep(poll_seconds)
 
 
+def loose(text):
+    """把应用名压成"只剩字母数字"的形式，用来做**分隔符不敏感**的比对。
+
+    这条是从真实 agent 的轨迹里读出来的：13 条轨迹里有一次直接报了
+    `appNotFound("google-chrome")`——而这台机器上那个应用叫 `Google Chrome`。
+    agent 猜的名字**完全合理**，只是连字符和空格对不上。
+
+    更贵的是它的连带影响：13 条轨迹里 **12 条**的开局都是
+    `list_apps → get_app_state`。agent 不敢直接猜名字，于是每道题都先花一步
+    去列应用。分隔符归一化之后，猜中的概率大幅提高，那一步就不必付了。
+    """
+    return "".join(ch for ch in str(text or "").lower() if ch.isalnum())
+
+
 def matches_query(app, query):
     normalized = query.strip().lower()
     if not normalized:
@@ -601,9 +615,19 @@ def matches_query(app, query):
     app_name = node_name(app).lower()
     if app_name == normalized or normalized in app_name:
         return True
+    # 分隔符不敏感：google-chrome / google_chrome / googlechrome 都能对上
+    # "Google Chrome"。只在两边都非空时才比，避免空串匹配一切。
+    tight_query, tight_name = loose(normalized), loose(app_name)
+    if tight_query and tight_name and (
+            tight_query == tight_name or tight_query in tight_name
+            or tight_name in tight_query):
+        return True
     for _, window in app_windows(app):
         title = node_name(window).lower()
         if title == normalized or normalized in title:
+            return True
+        tight_title = loose(title)
+        if tight_query and tight_title and tight_query in tight_title:
             return True
     return False
 
@@ -640,6 +664,27 @@ def resolve_app(query):
                 query, RESOLVE_APP_ATTEMPTS, last_error
             )
         )
+    # 失败时**把在跑的应用列出来**。
+    #
+    # 轨迹证据：13 条里 12 条的开局是 `list_apps → get_app_state`——agent 不
+    # 敢直接猜应用名，于是每道题都先花一步去列。把候选写进错误里，猜错的代价
+    # 就从"再来一轮"降为"这一轮就知道该叫什么"，那一步开销可以省掉。
+    #
+    # 一条死路错误和一条带候选的错误，对 agent 是两件完全不同的事。
+    running = []
+    try:
+        for app in iter_apps():
+            name = str(node_name(app) or "").strip()
+            if name:
+                running.append(name)
+    except Exception:
+        pass
+    if running:
+        raise RuntimeError(
+            'appNotFound("{}"). Applications currently visible to the '
+            'accessibility bus: {}. Names are matched case- and '
+            'separator-insensitively, so "google-chrome" finds "Google Chrome"; '
+            'a window title works too.'.format(query, ", ".join(sorted(set(running))[:20])))
     raise RuntimeError('appNotFound("{}")'.format(query))
 
 

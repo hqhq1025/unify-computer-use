@@ -2019,3 +2019,61 @@ func TestX11ArbitratesWhichWindowIsInFrontWhenAtspiCannotTell(t *testing.T) {
 		t.Fatal("命中不唯一时必须放弃裁决")
 	}
 }
+
+func TestAppNameMatchingIsSeparatorInsensitiveAndFailsWithCandidates(t *testing.T) {
+	// 这两条都是从**真实 agent 的轨迹**里读出来的，不是我想出来的：
+	//
+	//   13 条轨迹里有一次直接报了 appNotFound("google-chrome")——而这台机器上
+	//   那个应用叫 "Google Chrome"。agent 猜的名字完全合理，只是连字符对不上。
+	//
+	//   更贵的是连带影响：13 条轨迹里 **12 条**的开局都是
+	//   `list_apps → get_app_state`。agent 不敢直接猜名字，于是每道题都先花
+	//   一步去列应用。
+	if !strings.Contains(linuxRuntimeScript, "def loose(") {
+		t.Fatal("应用名比对要对分隔符不敏感：google-chrome 应当找到 Google Chrome")
+	}
+	// 失败时要给候选。一条死路错误和一条带候选的错误，对 agent 是两件事：
+	// 前者要再来一轮，后者这一轮就知道该叫什么。
+	if !strings.Contains(linuxRuntimeScript,
+		"Applications currently visible to the ") {
+		t.Fatal("appNotFound 要列出当前在跑的应用")
+	}
+	// 空串不能匹配一切——归一化之后 "" 会 in 任何字符串。
+	if !strings.Contains(linuxRuntimeScript, "if tight_query and tight_name and (") {
+		t.Fatal("归一化后的空串必须先被挡掉，否则空查询会匹配所有应用")
+	}
+}
+
+func TestAppArgumentHelpTeachesTheThreeNamingConventions(t *testing.T) {
+	// 13 条真实轨迹里 **12 条**的开局是 `list_apps → get_app_state`——agent 不敢
+	// 直接猜应用名。根因是这台机器上的 a11y 应用名同时存在三种风格，
+	// 且**没有任何规则能推出来**（实测）：
+	//     显示名   "Google Chrome"       进程叫 chrome
+	//     二进制名 "vlc" "gedit" "code"  与进程同名
+	//     app-id   "org.gnome.Nautilus"  进程叫 nautilus
+	// 规则推不出来，就直接告诉调用方。
+	for _, fragment := range []string{
+		"Google Chrome", "org.gnome.Nautilus", "separator-insensitive",
+		"the error lists every ",
+	} {
+		if !strings.Contains(appArgumentHelp, fragment) {
+			t.Fatalf("app 参数说明里缺少 %q", fragment)
+		}
+	}
+	// 每一个接受 app 的工具都要用这份说明，不能只改一处
+	used := 0
+	for _, definition := range toolDefinitions() {
+		schema, _ := definition.InputSchema["properties"].(map[string]any)
+		if schema == nil {
+			continue
+		}
+		if property, ok := schema["app"].(map[string]any); ok {
+			if property["description"] == appArgumentHelp {
+				used++
+			}
+		}
+	}
+	if used < 10 {
+		t.Fatalf("只有 %d 个工具用了统一的 app 说明，其余还在用旧文案", used)
+	}
+}

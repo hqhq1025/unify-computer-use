@@ -2962,6 +2962,34 @@ func enabledChannels() map[string]bool {
 }
 
 // 每个工具属于哪条通道。list_apps 不属于任何通道（它只枚举应用），永远可用。
+// appArgumentHelp 是**所有**接受 app 参数的工具共用的说明。
+//
+// 为什么值得写这么长：13 条真实 agent 轨迹里，**12 条**的开局都是
+// `list_apps → get_app_state`——agent 不敢直接猜应用名，于是每道题都先花一步
+// 去列一遍。还有一次直接报了 appNotFound("google-chrome")，而那个应用叫
+// "Google Chrome"。
+//
+// 根因是**这台机器上的 a11y 应用名同时存在三种风格，没有任何规则能推出来**
+// （实测）：
+//
+//	显示名     "Google Chrome"        进程却叫 chrome
+//	二进制名   "vlc" "gedit" "code"   与进程同名
+//	app-id     "org.gnome.Nautilus"   进程却叫 nautilus
+//	           "org.gnome.Software"   进程却叫 snap-store
+//
+// 既然规则推不出来，就直接把规则告诉调用方，并说明匹配有多宽松——
+// 让它敢于第一次就猜，猜错也能从错误里拿到候选名单。
+const appArgumentHelp = "Which application to act on. Matching is deliberately " +
+	"forgiving: case-insensitive, separator-insensitive, and substring-based, and " +
+	"it also matches window titles and a numeric PID. So \"google-chrome\", " +
+	"\"Google Chrome\" and \"chrome\" all find the same app. " +
+	"Names on Linux follow three different conventions with no rule to tell them " +
+	"apart, so just guess the obvious one: a display name (\"Google Chrome\", " +
+	"\"Thunderbird\"), a binary name (\"vlc\", \"gedit\", \"code\"), or a " +
+	"reverse-DNS app id (\"org.gnome.Nautilus\" — the Files manager, whose " +
+	"process is just `nautilus`). A wrong guess is cheap: the error lists every " +
+	"application currently visible, so you rarely need list_apps first."
+
 var toolChannel = map[string]string{
 	"get_app_state":         "a11y",
 	"find":                  "a11y",
@@ -3014,7 +3042,7 @@ func allToolDefinitions() []toolDefinition {
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"element":       stringProperty("Human-readable description of the element you intend to act on, e.g. \"the Save button\" or \"Position Y spin button\". Optional but strongly recommended: it is cross-checked against what element_index actually resolves to, which catches the common and otherwise SILENT failure of reusing an index from an earlier snapshot after the indices were renumbered."),
-				"app":           stringProperty("App name or bundle identifier"),
+				"app":           stringProperty(appArgumentHelp),
 				"element_index": stringProperty("Either an index from the most recent get_app_state, or a SELECTOR written exactly as the snapshot renders it, e.g. `push button \"Save\"` (or just `\"Save\"` to match by name alone). When several elements share a role and name, append one of the predicates the snapshot prints for them: `toggle button \"Menu\" [desc=\"View options\"]`, `check menu item \"Ruler\" [checked]`. Selectors survive the renumbering that happens whenever the UI changes; indices do not."),
 				"click_count":   integerProperty("Number of clicks. Defaults to 1"),
 				"mouse_button":  enumStringProperty("Mouse button to click. Defaults to left.", []string{"left", "right", "middle"}),
@@ -3026,7 +3054,7 @@ func allToolDefinitions() []toolDefinition {
 			Description: "CHANNEL: ACCESSIBILITY. Locate elements WITHOUT dumping the whole tree. Filters are ANDed and matched as case-insensitive substrings; the matching lines come back verbatim from the tree, so element_index is directly usable by click / set_value / invoke_element_action. Use this instead of get_app_state whenever you already know what you are looking for — a VS Code tree is over 15000 characters and reading all of it to press one button is waste. Honest caveat: this does NOT make the machine faster. The runtime still walks the entire accessibility tree, because the desktop has no query that can be pushed down into the app the way a CSS selector is pushed into a browser. What it saves is YOUR context, which is the actual bottleneck. Returns no screenshot — it is a query, not an observation; call get_screenshot if you need pixels. This tool is part of plugin `Computer Use`.",
 			Annotations: readOnlyAnnotations(),
 			InputSchema: objectSchema(map[string]any{
-				"app":   stringProperty("App name or bundle identifier"),
+				"app":   stringProperty(appArgumentHelp),
 				"role":  stringProperty("Match the element role, e.g. \"button\" matches both `push button` and `toggle button`. Substring, case-insensitive."),
 				"name":  stringProperty("Match the element's accessible name, e.g. \"save\" finds `push button \"Save As…\"`. Substring, case-insensitive."),
 				"text":  stringProperty("Match name OR desc OR value OR placeholder — use this when you do not know which field carries the string. Which field it lands in is genuinely unstable across toolkits: the same search box reports it as placeholder under GTK and as name under Electron."),
@@ -3039,7 +3067,7 @@ func allToolDefinitions() []toolDefinition {
 			Description: "CHANNEL: ACCESSIBILITY. Assert something about an element and RETRY until it becomes true or the timeout expires. This is the difference between asking once and waiting for a result: a single get_app_state read a beat too early gives you the wrong answer with full confidence. Use it after an action to confirm the effect actually landed, rather than assuming a successful tool call means a successful action. Costs one full tree walk per poll (400ms apart, 5s default), so keep the timeout tight. On failure it returns the observation from every attempt — what the states ACTUALLY were, not just that the assertion failed. It never touches the UI. This tool is part of plugin `Computer Use`.",
 			Annotations: readOnlyAnnotations(),
 			InputSchema: objectSchema(map[string]any{
-				"app":            stringProperty("App name or bundle identifier"),
+				"app":            stringProperty(appArgumentHelp),
 				"element_index":  stringProperty("Index from the last get_app_state, or a selector written exactly as the snapshot renders it, e.g. `push button \"Save\"`. Prefer the selector here: verify re-reads the tree on every poll, and a selector survives the renumbering that a changing UI causes."),
 				"state":          stringProperty("Expected state, e.g. \"checked\", \"focused\", \"showing\". Prefix with ! to assert its absence, e.g. \"!checked\"."),
 				"value_contains": stringProperty("Expected substring of the element's value."),
@@ -3053,7 +3081,7 @@ func allToolDefinitions() []toolDefinition {
 			Description: "CHANNEL: GUI. Click at a pixel coordinate. This addresses NO element \u2014 whatever happens to be under that point receives the click \u2014 so reach for it only when the target has no element_index in the tree, or when an accessibility action reported success without doing anything. Coordinates are window-relative and are the SAME space as the attached screenshot and as the Frame values in the tree, so a point read off the image can be passed straight in. Always returns a screenshot, and reports which element the hit test found under that point (a hint, not proof). This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
-				"app":          stringProperty("App name or bundle identifier"),
+				"app":          stringProperty(appArgumentHelp),
 				"x":            numberProperty("X coordinate in window-relative pixels, same space as the screenshot"),
 				"y":            numberProperty("Y coordinate in window-relative pixels, same space as the screenshot"),
 				"click_count":  integerProperty("Number of clicks. Defaults to 1"),
@@ -3065,7 +3093,7 @@ func allToolDefinitions() []toolDefinition {
 			Description: "CHANNEL: GUI. Drag from one pixel coordinate to another. There is NO element-addressed form of drag, and that is deliberate rather than an omission: the DESTINATION of a drag is usually not an element at all (\"move this 15cm down the slide\"). Coordinates are window-relative, the same space as the screenshot. Always returns a screenshot, because the accessibility tree does not reflect drag results \u2014 measured on LibreOffice Impress, moving a title from 0.76cm to 15.00cm left that element's Frame in the tree completely unchanged. Judge the result from the image. This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
-				"app":    stringProperty("App name or bundle identifier"),
+				"app":    stringProperty(appArgumentHelp),
 				"from_x": numberProperty("Start X in window-relative pixels"),
 				"from_y": numberProperty("Start Y in window-relative pixels"),
 				"to_x":   numberProperty("End X in window-relative pixels"),
@@ -3077,7 +3105,7 @@ func allToolDefinitions() []toolDefinition {
 			Description: "CHANNEL: ACCESSIBILITY (with a screenshot attached). Get the state of an already running app's key window and return its accessibility tree. This does NOT return a screenshot — use get_screenshot for that, and only when the tree is insufficient. This must be called once per assistant turn before interacting with the app. This tool is part of plugin `Computer Use`.",
 			Annotations: readOnlyAnnotations(),
 			InputSchema: objectSchema(map[string]any{
-				"app":            stringProperty("App name or bundle identifier"),
+				"app":            stringProperty(appArgumentHelp),
 				"text_limit":     textLimitProperty("Maximum text characters to return. Use \"max\" for full text. Defaults to 500."),
 				"max_tree_nodes": positiveIntegerProperty("Maximum accessibility tree nodes to render. Defaults to 1200."),
 				"max_tree_depth": positiveIntegerProperty("Maximum accessibility tree depth to render. Defaults to 64."),
@@ -3090,12 +3118,12 @@ func allToolDefinitions() []toolDefinition {
 			Description: "CHANNEL: GUI. Take a screenshot of an app's key window WITHOUT the accessibility tree. get_app_state already returns a screenshot next to the tree, so reach for this one only when you want the image alone — re-checking a pixel-level detail, watching a canvas change, or confirming an effect that never reaches the tree — and do not want to pay for the tree again. Costs are not ordered the way you might assume: a window screenshot runs about a thousand tokens, more than a small app's tree (gedit ~350) but LESS than a content-rich one (a file manager tree ~2100). This tool is part of plugin `Computer Use`.",
 			Annotations: readOnlyAnnotations(),
 			InputSchema: objectSchema(map[string]any{
-				"app": stringProperty("App name or bundle identifier"),
+				"app": stringProperty(appArgumentHelp),
 			}, []string{"app"}),
 		},
 		{
 			Name:        "list_apps",
-			Description: "CHANNEL: none — this only enumerates apps. List the apps on this computer. Returns the set of apps that are currently running, as well as any that have been used in the last 14 days, including details on usage frequency. This tool is part of plugin `Computer Use`.",
+			Description: "CHANNEL: none — this only enumerates apps. List the apps on this computer. Returns the set of apps that are currently running, as well as any that have been used in the last 14 days, including details on usage frequency. This tool is part of plugin `Computer Use`. You usually do NOT need this before get_app_state: app names are matched case- and separator-insensitively by substring, and a failed lookup already lists every visible application. Reach for list_apps when you want PIDs and window titles, or when a guess failed twice.",
 			Annotations: readOnlyAnnotations(),
 			InputSchema: objectSchema(map[string]any{}, nil),
 		},
@@ -3105,7 +3133,7 @@ func allToolDefinitions() []toolDefinition {
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"element":       stringProperty("Human-readable description of the element you intend to act on, e.g. \"the Save button\" or \"Position Y spin button\". Optional but strongly recommended: it is cross-checked against what element_index actually resolves to, which catches the common and otherwise SILENT failure of reusing an index from an earlier snapshot after the indices were renumbered."),
-				"app":           stringProperty("App name or bundle identifier"),
+				"app":           stringProperty(appArgumentHelp),
 				"element_index": stringProperty("Element identifier"),
 				"action":        stringProperty("Secondary accessibility action name"),
 			}, []string{"app", "element_index", "action"}),
@@ -3115,7 +3143,7 @@ func allToolDefinitions() []toolDefinition {
 			Description: "CHANNEL: KEYBOARD — the key goes to whatever widget currently holds focus inside the window, NOT to any element you name. Press a key or key-combination on the keyboard, including modifier and navigation keys.\n  - This supports xdotool's `key` syntax.\n  - Examples: \"a\", \"Return\", \"Tab\", \"super+c\", \"Up\", \"KP_0\" (for the numpad 0). This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
-				"app": stringProperty("App name or bundle identifier"),
+				"app": stringProperty(appArgumentHelp),
 				"key": stringProperty("Key or key-combination to press"),
 			}, []string{"app", "key"}),
 		},
@@ -3125,7 +3153,7 @@ func allToolDefinitions() []toolDefinition {
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"element":       stringProperty("Human-readable description of the element you intend to act on, e.g. \"the Save button\" or \"Position Y spin button\". Optional but strongly recommended: it is cross-checked against what element_index actually resolves to, which catches the common and otherwise SILENT failure of reusing an index from an earlier snapshot after the indices were renumbered."),
-				"app":           stringProperty("App name or bundle identifier"),
+				"app":           stringProperty(appArgumentHelp),
 				"direction":     stringProperty("Scroll direction: up, down, left, or right"),
 				"element_index": stringProperty("Element identifier"),
 				"pages":         numberProperty("Number of pages to scroll. Fractional values are supported. Defaults to 1"),
@@ -3137,7 +3165,7 @@ func allToolDefinitions() []toolDefinition {
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
 				"element":       stringProperty("Human-readable description of the element you intend to act on, e.g. \"the Save button\" or \"Position Y spin button\". Optional but strongly recommended: it is cross-checked against what element_index actually resolves to, which catches the common and otherwise SILENT failure of reusing an index from an earlier snapshot after the indices were renumbered."),
-				"app":           stringProperty("App name or bundle identifier"),
+				"app":           stringProperty(appArgumentHelp),
 				"element_index": stringProperty("Element identifier"),
 				"value":         stringProperty("Value to assign"),
 			}, []string{"app", "element_index", "value"}),
@@ -3147,7 +3175,7 @@ func allToolDefinitions() []toolDefinition {
 			Description: "CHANNEL: KEYBOARD (falls back from ACCESSIBILITY) — this first tries the AT-SPI editable-text API on the focused editable control, and only synthesizes keystrokes if that write does not land. Type literal text using keyboard input. This tool is part of plugin `Computer Use`.",
 			Annotations: defaultAnnotations(),
 			InputSchema: objectSchema(map[string]any{
-				"app":  stringProperty("App name or bundle identifier"),
+				"app":  stringProperty(appArgumentHelp),
 				"text": stringProperty("Literal text to type"),
 			}, []string{"app", "text"}),
 		},
