@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **34** / 369 |
-| 我手工通过 | 26 / 34 |
-| cc 通过 | **28 / 34** |
-| cc 平均步数 | 15.7 |
-| cc 平均观测 token | 64282 |
-| cc 平均用时 | 209s |
-| 执行轴 a11y 占比 | 46% （231/502）|
+| 已跑题数 | **39** / 369 |
+| 我手工通过 | 30 / 39 |
+| cc 通过 | **32 / 39** |
+| cc 平均步数 | 15.5 |
+| cc 平均观测 token | 65340 |
+| cc 平均用时 | 196s |
+| 执行轴 a11y 占比 | 45% （241/539）|
 
 ## cc 未通过的题，成因分类
 
@@ -41,6 +41,7 @@
 | 30 | 题目：评估器选择器过时 | Find a Hotel in New York City with lowest pric |
 | 31 | 环境：站点地理路由 | Browse the list of women's Nike jerseys over $ |
 | 34 | 未归类（可能是模型或链路） | Show me all men's large-size short-sleeve shir |
+| 39 | 未归类（可能是模型或链路） | What are the similar names to the name carl |
 
 ## 逐题
 
@@ -80,6 +81,11 @@
 | 32 | chrome | On Google Shopping, search for drip coffee makers an | ✅ | ✅ | 16 | 56385 | 189.4s |
 | 33 | chrome | Find electric cars with a maximum price of $50,000 w | ✅ | ✅ | 10 | 21334 | 122.4s |
 | 34 | chrome | Show me all men's large-size short-sleeve shirts wit | ✗ 0.0 | ✗ 0.0 | 25 | 174441 | 388.5s |
+| 35 | chrome | Find the Next Available dates for Diamond. | ✅ | ✅ | 12 | 84122 | 156.9s |
+| 36 | chrome | Compare iPhone 15 Pro Max with iPhone 14 Pro Max and | ✅ | ✅ | 17 | 87081 | 235.5s |
+| 37 | chrome | Find Dota 2 game and add all DLC to cart. | ✅ | ✅ | 14 | 92607 | 193.3s |
+| 38 | chrome | Find the Monthly forecast for Manchester, GB for thi | ✅ | ✅ | 9 | 47268 | 110.7s |
+| 39 | chrome | What are the similar names to the name carl | ✗ 0.0 | ✗ 0.0 | 0 | 0 | 12.5s |
 
 ## 每题的过程记录
 
@@ -320,4 +326,37 @@
 - **cc**（第 2 次，得分 0.0）：cc 第二次（意图守卫修复后）
 - **cc**（第 3 次，得分 0.0）：cc 第三次（预算加到 8）
 - **我手工**（第 2 次，得分 0.0）：三次未过。第二、三次的意图守卫误拒**已消失**（修复生效），失败转为预算/页面复杂度问题：Macys 的筛选要精确命中 URL 里的 Men_regular_size_t=L 与 Price_discount_range=50_PERCENT_ off & more，agent 三次都摸到了正确的筛选面板但没凑齐完整 URL 结构。
+### 第 35 题 · b4f95342
+
+> Find the Next Available dates for Diamond.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：链路验证通过，cc 12 步一次完成。
+### 第 36 题 · f5d96daf
+
+> Compare iPhone 15 Pro Max with iPhone 14 Pro Max and iPhone 13 Pro Max
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：链路验证通过，cc 17 步一次完成。
+### 第 37 题 · 121ba48f
+
+> Find Dota 2 game and add all DLC to cart.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：链路验证通过，cc 14 步一次完成（Steam 加购 DLC）。
+### 第 38 题 · 368d9ba4
+
+> Find the Monthly forecast for Manchester, GB for this month
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：链路验证通过，cc 9 步一次完成（两个判据全中）。
+### 第 39 题 · 59155008
+
+> What are the similar names to the name carl
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 0 步就答完了：指令是纯疑问句（"What are the similar names to the name carl"），它用自己的知识列了一张名字对照表，没开浏览器；而判据看的是活动标签页 URL。这与第 17 题同类。我们给的框定已经逐字照抄 OSWorld 官方那句（"…perform desktop computer tasks as instructed"），不能再多加——多加就成了给自己实现开小灶。属于指令本身的歧义，不是链路问题。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 2 次，得分 0.0）：三次都是 0 步、直接作答。量了一下题库：369 道里 105 道（28%）是疑问句形式，但绝大多数是**礼貌请求**（"Could you help me push the changes…"），明确隐含动作；真正有歧义的是**纯信息型提问**这一小类，本题即是。不能因此去加提示——框定已逐字照抄官方，再加就是给自己开小灶。
 
