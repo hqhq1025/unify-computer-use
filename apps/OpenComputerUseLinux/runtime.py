@@ -824,7 +824,24 @@ def resolve_app(query):
             # 就知道该怎么对应，而不是再猜一轮。
             others = sorted(n for n in process_names(node_pid(app))
                             if loose(n) and loose(n) != loose(name))
-            running.append("{} ({})".format(name, others[0]) if others else name)
+            label = "{} ({})".format(name, others[0]) if others else name
+            # 窗口标题也要列出来。
+            #
+            # 轨迹证据：GIMP 那一段里 agent 三次拿**对话框的名字**当应用名去调，
+            # `appNotFound("script-fu")` 两次、`appNotFound("file-jpeg")` 一次。
+            # 它并没有猜错——屏幕上确实摆着一个 "Script-Fu Console"、一个
+            # "Export Image as JPEG"。错的是它无从知道这两个窗口都归 gimp 管：
+            # 候选表里只有一行光秃秃的 "gimp"，看不出它名下有这些窗口。
+            titles = []
+            for _, window in app_windows(app):
+                title = str(node_name(window) or "").strip()
+                if title and loose(title) != loose(name):
+                    titles.append(limit_text(title, text_limit=44))
+                if len(titles) >= 2:
+                    break
+            if titles:
+                label += " — windows: " + ", ".join(quoted(t) for t in titles)
+            running.append(label)
     except Exception:
         pass
     if running:

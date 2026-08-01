@@ -13,6 +13,7 @@
 import os
 import sys
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -2653,3 +2654,35 @@ class HiddenMenuItemsTests(AtspiPatchedTestCase):
 
         self.assertIn("Export As...", text)
         self.assertNotIn("not listed", text)
+
+
+class AppNotFoundListsWindowsTests(AtspiPatchedTestCase):
+    """appNotFound 的候选表要连**窗口标题**一起给。
+
+    轨迹证据：GIMP 那一段里 agent 三次拿对话框的名字当应用名去调——
+    appNotFound("script-fu") 两次、appNotFound("file-jpeg") 一次。
+    它并没有猜错：屏幕上确实摆着一个 "Script-Fu Console"、一个
+    "Export Image as JPEG"。错的是它无从知道这两个窗口都归 gimp 管，
+    因为候选表里只有一行光秃秃的 "gimp"。
+    """
+
+    def test_listing_names_the_windows_each_app_owns(self):
+        window = _NamedNode(name="Export Image as JPEG", role="frame")
+        app = _NamedNode(name="gimp", role="application", children=[window])
+        # node_pid 直接取 get_process_id，假节点没有这个方法就会抛
+        # AttributeError，而候选表的构造整个包在 try 里——异常会把它清空，
+        # 测试于是看到一条光秃秃的 appNotFound，查半天才发现是假节点的锅。
+        app.get_process_id = lambda: 0
+
+        with mock.patch.object(runtime, "iter_apps", return_value=[app]), \
+             mock.patch.object(runtime, "app_windows",
+                               return_value=[(0, window)]), \
+             mock.patch.object(runtime, "matches_query", return_value=False):
+            with self.assertRaises(RuntimeError) as caught:
+                runtime.resolve_app("file-jpeg")
+
+        message = str(caught.exception)
+        self.assertIn('appNotFound("file-jpeg")', message)
+        # 光有 "gimp" 不够——要能看出那个对话框归它管。
+        self.assertIn("gimp", message)
+        self.assertIn("Export Image as JPEG", message)
