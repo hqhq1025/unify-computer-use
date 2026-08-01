@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **46** / 369 |
-| 我手工通过 | 37 / 46 |
-| cc 通过 | **39 / 46** |
-| cc 平均步数 | 14.9 |
-| cc 平均观测 token | 63619 |
+| 已跑题数 | **51** / 369 |
+| 我手工通过 | 40 / 51 |
+| cc 通过 | **42 / 51** |
+| cc 平均步数 | 14.5 |
+| cc 平均观测 token | 56638 |
 | cc 平均用时 | 189s |
-| 执行轴 a11y 占比 | 44% （258/592）|
+| 执行轴 a11y 占比 | 48% （329/690）|
 
 ## cc 未通过的题，成因分类
 
@@ -42,6 +42,8 @@
 | 31 | 环境：站点地理路由 | Browse the list of women's Nike jerseys over $ |
 | 34 | 未归类（可能是模型或链路） | Show me all men's large-size short-sleeve shir |
 | 39 | 未归类（可能是模型或链路） | What are the similar names to the name carl |
+| 47 | 未归类（可能是模型或链路） | Could you tone down the brightness of my photo |
+| 48 | 未归类（可能是模型或链路） | Could you assist me in enhancing the color vib |
 
 ## 逐题
 
@@ -93,6 +95,11 @@
 | 44 | chrome | Please help me find the score record for the Super B | ✅ | ✅ | 22 | 98806 | 286.2s |
 | 45 | chrome | Browse spider-man toys for kids and sort by lowest p | ✅ | ✅ | 11 | 60160 | 139.8s |
 | 46 | chrome | I am looking for an website address I accessed a mon | ✅ | ✅ | 13 | 67065 | 179.4s |
+| 47 | gimp | Could you tone down the brightness of my photo? | ✗ 0.0 | ✗ 0.0 | 7 | 10721 | 90.7s |
+| 48 | gimp | Could you assist me in enhancing the color vibrancy  | ✗ 0.0 | ✗ 0.0 | 6 | 9990 | 69.5s |
+| 49 | gimp | Could you assist me in placing my photo on the deskt | ✅ | ✅ | 10 | 13849 | 113.6s |
+| 50 | gimp | Help me choose the yellow triangle and positioning i | ✅ | ✅ | 38 | 45736 | 697.3s |
+| 51 | gimp | Could you help me remove the dock on the left side o | ✅ | ✅ | 6 | 8122 | 129.0s |
 
 ## 每题的过程记录
 
@@ -408,4 +415,44 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 13 步一次通过（在历史记录里找一个月前的地址并删掉 YouTube 记录）。
+### 第 47 题 · 7a4deb26
+
+> Could you tone down the brightness of my photo?
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 做对了操作（Colors → Brightness-Contrast，亮度 -30）但**没有导出**，判据比的是磁盘上的文件——它自己都说"标题栏显示 * 未保存"。同时暴露一个真环境问题：GIMP 一起来就是 "Image Recovery" 模态框（上一题 pkill 留下的），点 Recover 捞回来的图是坏的（只剩顶上一条），还作为第三个标签页留着。已加 clean_gimp_session 清掉 backups/，否则后面 25 道 gimp 题全埋雷。
+- **cc**（第 2 次，得分 0.0）：cc 第二次（GIMP 已清崩溃恢复状态）
+- **我手工**（第 2 次，得分 0.0）：GIMP 崩溃恢复框已消失，清理生效。这次失败是**纯粹的模型判断**：cc 做对了亮度调整，然后明说"不覆盖原文件，因为不易撤销，你要的话告诉我"。工具没有误导它——它是有意不做那一步。这是一类值得单独记的失败：OSWorld 很多题要求覆盖用户的原始文件，而谨慎的 agent 会拒绝这种不可逆动作。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：第三次与第二次一模一样（5 步、9559 token、同样的自述）：调好亮度、拒绝覆盖原文件。三次不过，转下一题。
+### 第 48 题 · 554785e9
+
+> Could you assist me in enhancing the color vibrancy of my photo?
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 做对了饱和度（Colors → Saturation，1.0 → 1.4）但同样没导出。查根因时发现一个真缺陷：GIMP 的 File 菜单在树里是光秃秃一行，和空菜单没区别——AT-SPI 里它其实有 39 个子节点，只是不 SHOWING 被裁光了。agent 因此无从知道有 Export。已修：菜单子项被裁光时在菜单自己身上报出条数。
+- **cc**（第 2 次，得分 0.0）：cc 第二次（菜单隐藏项已可见）
+- **我手工**（第 2 次，得分 0.0）：菜单修复后仍未导出——它压根没往"要保存"这个方向想，不是找不到入口。另外轨迹第 2 步它先关掉了一个 "Low Disk Space" 通知：查了下磁盘 98% 满、只剩 709M。已归档 22 条轨迹并清掉 /tmp 里的旧探针目录，腾出 2.1G，否则后面 320 道题会被磁盘拖垮。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：第三次与第一次相同：调好饱和度、不保存。三次不过，转下一题。gimp 段两道题（47、48）同一个失败模式：做对操作、不把结果写回磁盘。
+### 第 49 题 · 77b8ab4d
+
+> Could you assist me in placing my photo on the desktop and renaming it to export.jpg?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 10 步一次通过，而这道题的判据是 check_file_exists_and_structure_sim——**要求写出文件**。这把 47/48 的结论收紧了：cc 不是不会导出，是题面没明说要保存时它不肯自作主张覆盖用户原图。
+### 第 50 题 · f4aec372
+
+> Help me choose the yellow triangle and positioning it at the center of my picture.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 通过，但 38 步 / 697s——迄今最费的一道，值得看轨迹。
+### 第 51 题 · d52d6308
+
+> Could you help me remove the dock on the left side of the screen in the GIMP?
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 31 步、零报错，但路子选错了：判据要的是 sessionrc 里 hide-docks: yes（对应 Windows → Hide Docks，快捷键 Tab），它却把四个停靠对话框一个个关掉，最后卡在删不掉的工具箱条上。链路没有误导它——Windows 菜单现在会报出"21 items not listed，点开就看得见"，Hide Docks 就在里面。
+- **cc**（第 2 次，得分 1.0）：cc 第二次
+- **我手工**（第 2 次，得分 1.0）：第二次 6 步通过，走的正是 Windows → Hide Docks。同一道题从 31 步失败变成 6 步通过——菜单隐藏项那条修复的直接效果。
 
