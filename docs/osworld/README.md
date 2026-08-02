@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **113** / 369 |
-| 我手工通过 | 97 / 113 |
-| cc 通过 | **98 / 112** |
-| cc 平均步数 | 17.1 |
-| cc 平均观测 token | 33751 |
-| cc 平均用时 | 238s |
-| 执行轴 a11y 占比 | 50% （526/1043）|
+| 已跑题数 | **115** / 369 |
+| 我手工通过 | 98 / 115 |
+| cc 通过 | **99 / 114** |
+| cc 平均步数 | 17.4 |
+| cc 平均观测 token | 33642 |
+| cc 平均用时 | 244s |
+| 执行轴 a11y 占比 | 51% （535/1058）|
 
 ### 两种口径要分开看
 
@@ -38,7 +38,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 44 | 42 | 20.5 |
+| Bash 打开 | 46 | 43 | 21.1 |
 
 ## cc 未通过的题，成因分类
 
@@ -60,6 +60,7 @@
 | 66 | 未归类（可能是模型或链路） | Could you help me download the logo of the Uni |
 | 70 | 未归类（可能是模型或链路） | Please batch process all images on the desktop |
 | 108 | 未归类（可能是模型或链路） | Please calculate the ages of the employees acc |
+| 115 | 未归类（可能是模型或链路） | Please create a new sheet. Keep its sheet name |
 
 ## 逐题
 
@@ -178,6 +179,8 @@
 | 111 | libreoffice_calc | I want to copy the movie titles in 'Garbage Movie Ti | ✅ | ✅ | 33 | 36141 | 437.4s |
 | 112 | libreoffice_calc | Help me format column "spent" by keeping two decimal | ✅ | ✅ | 26 | 19039 | 322.8s |
 | 113 | libreoffice_calc | Reorder the columns to be "Date", "First Name", "Las | ✅ | ✅ | 24 | 81421 | 361.0s |
+| 114 | libreoffice_calc | I have compute the acceleration in row 2 and I want  | ✅ | ✅ | 15 | 6698 | 167.3s |
+| 115 | libreoffice_calc | Please create a new sheet. Keep its sheet name as "S | ✗ 0.0 | ✗ 0.0 | 32 | 49529 | 535.0s |
 
 ## 每题的过程记录
 
@@ -916,4 +919,20 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 24 步一次通过。
+### 第 114 题 · 4de54231
+
+> I have compute the acceleration in row 2 and I want you to fill out other rows for column B and D. Next concatenate the values from columns A to D, including their headers (the pattern is "Header: cell value, ..., Header: cell value"), into a new column named "Combined Data" for all rows. In the new column, only keep 2 decimal digits.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 15 步一次通过。
+### 第 115 题 · 30e3e107
+
+> Please create a new sheet. Keep its sheet name as "Sheet2". Merge cells A1:C1 in the new sheet and write "Demographic Profile" with blue (#0000ff) fill and bold white text. Then I want to create three pivot tables to show the percentage of Sex, Civil Status, and Highest Educational Attainment. They should be stacked one by one in Sheet2, each separated with a blank line.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：复杂格式题（合并单元格 + 蓝底白字加粗 + 三张透视表）。32 步里 19 步 Bash。链路摩擦一处：selector "menu \"File\"" 命中 2 个元素（两个 LibreOffice 窗口各有一个 File 菜单），错误如实报了歧义。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：和标准比对，差的是两处**题面没说清楚**的地方：(1) 标准的表头是 "Count - Sex"（LibreOffice 数据透视表的默认列名），cc 写的是 "Percentage"；(2) 标准每张表末尾有一行 "Total Result"，cc 没有。数值本身（0.425 / 0.575 / 0.275）完全一致。也就是说它算对了，但没复现出"用 LibreOffice 透视表功能做"所留下的那些默认痕迹。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：第三次仍未过。三次都卡在同一处：数值算对了，但没复现 LibreOffice 透视表的默认痕迹（Count - Sex 表头、Total Result 汇总行），而题面里没有任何一句要求这两样。转下一题。
 
