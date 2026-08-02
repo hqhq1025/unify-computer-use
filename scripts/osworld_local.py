@@ -398,6 +398,70 @@ def _chrome_close_tabs(urls):
 CHROME_PROFILE = os.path.expanduser("~/.config/google-chrome/Default")
 
 
+# 每题开始前要关掉的残留 GUI 应用。
+#
+# 官方靠恢复虚拟机快照做到这一点，我们没有那一层。不关的后果是**静默降级**：
+# 跑到第 152 题时桌面上堆着 VLC、gedit、图片查看器、Firefox、两个 Chrome 窗口、
+# GIMP、Impress——3900MB 内存只剩 151MB 可用，机器开始颠簸，
+# `claude -p` 直接挂住不返回，连着两次跑满 timeout 却一行输出都没有。
+#
+# 不报错，只是越跑越慢、越跑越容易超时，而这些超时看上去像"模型做不完"。
+#
+# Chrome / GIMP / LibreOffice 不在这里：它们各有专门的清理函数，
+# 因为直接 pkill 会留下崩溃恢复对话框。
+STALE_APPS = (
+    "vlc", "gedit", "eog", "evince", "firefox", "thunderbird",
+    "file-roller", "nautilus", "totem", "gnome-calculator",
+)
+
+
+# GNOME 桌面图标扩展（ding）内存泄漏的阈值，超过就重启它。
+#
+# 实测：这个扩展从 7-29 一直跑到第 152 题，涨到 **1021MB**——单个进程吃掉了
+# 全机 3900MB 的四分之一。原因是题目素材不停往 ~/Desktop 扔文件（跑到这时
+# 已经 80 个），它一直在渲染缩略图。
+#
+# 杀掉之后可用内存从 151MB 回到 1474MB。GNOME Shell 会自动把它拉起来，
+# 桌面图标短暂消失后恢复。
+DING_RSS_LIMIT_MB = 400
+
+
+def restart_leaking_desktop_icons(log=print):
+    """桌面图标扩展涨太大就重启它。"""
+    try:
+        out = subprocess.run(["ps", "-eo", "pid,rss,args"],
+                             capture_output=True, text=True).stdout
+    except Exception:
+        return
+    for line in out.splitlines():
+        if "ding@rastersoft.com" not in line:
+            continue
+        parts = line.split(None, 2)
+        if len(parts) < 3:
+            continue
+        try:
+            pid, rss_kb = int(parts[0]), int(parts[1])
+        except ValueError:
+            continue
+        if rss_kb / 1024.0 >= DING_RSS_LIMIT_MB:
+            subprocess.run(["kill", "-9", str(pid)], capture_output=True)
+            log("桌面图标扩展涨到 {:.0f}MB，已重启".format(rss_kb / 1024.0))
+            time.sleep(3)
+
+
+def close_stale_apps(log=print):
+    """关掉上一题留下的 GUI 应用，把内存和桌面还原到干净状态。"""
+    closed = []
+    for name in STALE_APPS:
+        result = subprocess.run(["pkill", "-x", name], capture_output=True)
+        if result.returncode == 0:
+            closed.append(name)
+    if closed:
+        time.sleep(1.5)
+        log("关掉残留应用: {}".format(", ".join(closed)))
+    restart_leaking_desktop_icons(log=log)
+
+
 def clean_libreoffice_session(log=print):
     """把 LibreOffice 的崩溃恢复状态清掉。
 

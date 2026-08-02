@@ -159,6 +159,8 @@ def cmd_deploy(args):
     print("=" * 70)
     if not (task.get("config") or []):
         local.ensure_app_running(app)
+    # 先关掉上一题留下的应用。见 close_stale_apps：不关会静默耗尽内存。
+    local.close_stale_apps()
     if local._touches_chrome(task):
         local.snapshot_state(task)
         local.clean_chrome_session()
