@@ -21,12 +21,12 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **117** / 369 |
-| 我手工通过 | 100 / 117 |
-| cc 通过 | **101 / 116** |
-| cc 平均步数 | 17.2 |
-| cc 平均观测 token | 33313 |
-| cc 平均用时 | 242s |
+| 已跑题数 | **119** / 369 |
+| 我手工通过 | 102 / 119 |
+| cc 通过 | **103 / 118** |
+| cc 平均步数 | 17.0 |
+| cc 平均观测 token | 32557 |
+| cc 平均用时 | 238s |
 | 执行轴 a11y 占比 | 51% （542/1069）|
 
 ### 两种口径要分开看
@@ -38,7 +38,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 48 | 45 | 20.6 |
+| Bash 打开 | 50 | 47 | 19.8 |
 
 ## cc 未通过的题，成因分类
 
@@ -183,6 +183,8 @@
 | 115 | libreoffice_calc | Please create a new sheet. Keep its sheet name as "S | ✗ 0.0 | ✗ 0.0 | 32 | 49529 | 535.0s |
 | 116 | libreoffice_calc | I want to work out the maturity date for all the loa | ✅ | ✅ | 24 | 21254 | 317.5s |
 | 117 | libreoffice_calc | The cells are so big that I can not click on the cel | ✅ | ✅ | 4 | 16777 | 44.3s |
+| 118 | libreoffice_calc | Sort the data according to column A in an ascending  | ✅ | ✅ | 16 | 11238 | 177.4s |
+| 119 | libreoffice_calc | Please calculate the period rate for my data in a ne | ✅ | ✅ | 7 | 4509 | 71.6s |
 
 ## 每题的过程记录
 
@@ -951,4 +953,20 @@
 - **我手工**（第 1 次，得分 0.0）：**这次失败是我跑测方式的问题，不是 cc 也不是链路。** cc 做对了（4 步、零 Bash，View → Zoom → 100%），但判据读到的缩放仍是 260。根因：我的标准跑法是 deploy 之后再 agent，而 agent 默认**会把 config 再跑一遍**——deploy 已经复制并打开了文件，agent 又覆盖同一个文件，LibreOffice 于是弹出 "Document Has Been Changed by Others"，挡住了 postconfig 的 Ctrl+S，改动没落盘。已在手册里写清楚 --skip-config 是必须的。另外：这一题是 include_screenshot 第一次被模型用上——三次 click 全传了 false，它自己判断"连点三级菜单不用看图"。
 - **cc**（第 2 次，得分 1.0）：cc 第二次（修正跑法：--skip-config）
 - **我手工**（第 2 次，得分 1.0）：加 --skip-config 后一次通过。**同样 4 步、同样的操作**（View → Zoom → 100%），差别只在于这次没有第二次 config 覆盖文件、没有弹出 "Document Has Been Changed by Others"，Ctrl+S 因此真的存下去了。
+### 第 118 题 · 3a7c8185
+
+> Sort the data according to column A in an ascending order and then create a line chart with the "Date Time" column on the X-axis and quantity on the Y-axis.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 16 步一次通过（--skip-config 跑法）。
+### 第 119 题 · 21ab7b40
+
+> Please calculate the period rate for my data in a new column with header "Period Rate (%)", convert the results as number type, and highlight the highest result with green (#00ff00) font.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：官方判据自己抛了 AttributeError: NoneType has no attribute rgb。查清楚了：**标准文件 C 列 29 行全都有显式字体色，cc 的文件只有 6 行**。因为 cc 用 Bash + openpyxl 写文件，而 openpyxl 不给每个单元格写显式样式，LibreOffice 会。判据逐格比字体色，碰到一边 None 一边是对象就崩。cc 的语义是对的（第 20 行最大值确实设了 FF00FF00 绿字，C 列数值也对），但**用 Bash 造出来的文件结构和 LibreOffice 写的不一样，官方判据打不了分**。这是开 Bash 之后一个新的、值得单独记的失败类别。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样用 Bash + openpyxl，判据同样崩在字体色比对上。
+- **cc**（第 3 次，得分 1.0）：cc 第三次
+- **我手工**（第 3 次，得分 1.0）：第三次 1.0，而且给出了一个非常干净的对照：这次 cc 改用 **UNO 让 LibreOffice 自己写文件**（起 socket 监听 + import uno），文件里 29 行全有显式字体色，与标准一致，判据不再崩；前两次用 openpyxl 直接写，只有 6 行。**同一个正确答案，写文件的方式不同，一个能判分一个判不了。**
 
