@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **147** / 369 |
-| 我手工通过 | 127 / 147 |
-| cc 通过（严格：得分 = 1.0）| **128 / 146** |
-| cc 平均分（OSWorld 口径）| **0.889** |
+| 已跑题数 | **150** / 369 |
+| 我手工通过 | 129 / 150 |
+| cc 通过（严格：得分 = 1.0）| **130 / 149** |
+| cc 平均分（OSWorld 口径）| **0.885** |
 | cc 平均步数 | 15.7 |
-| cc 平均观测 token | 27750 |
-| cc 平均用时 | 215s |
-| 执行轴 a11y 占比 | 51% （593/1155）|
+| cc 平均观测 token | 27174 |
+| cc 平均用时 | 216s |
+| 执行轴 a11y 占比 | 51% （597/1161）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 78 | 72 | 16.1 |
+| Bash 打开 | 81 | 74 | 16.1 |
 
 ## cc 未通过的题，成因分类
 
@@ -65,6 +65,7 @@
 | 121 | 未归类（可能是模型或链路） | I am checking our soccer club's to-do list for |
 | 122 | 未归类（可能是模型或链路） | Could you help me export an Impress file to a  |
 | 146 | 未归类（可能是模型或链路） | Move to slide 1 and give it a green background |
+| 150 | 未归类（可能是模型或链路） | In the "Features" slide, insert a table with 5 |
 
 ## 逐题
 
@@ -217,6 +218,9 @@
 | 145 | libreoffice_impress | Move the image to the right side on Slide 2. | ✅ | ✅ | 7 | 6025 | 75.6s |
 | 146 | libreoffice_impress | Move to slide 1 and give it a green background color | ✗ 0.0 | ✗ 0.0 | 7 | 2909 | 68.1s |
 | 147 | libreoffice_impress | Give the slide 2 the right aligned title, "Note". | ✅ | ✅ | 9 | 4002 | 83.6s |
+| 148 | libreoffice_impress | In the last slide, make the font style "Times New Ro | ✅ | ✅ | 11 | 3824 | 129.6s |
+| 149 | libreoffice_impress | Add an image "none.png" on the Desktop to slide 2 wi | ✅ | ✅ | 9 | 4983 | 76.4s |
+| 150 | libreoffice_impress | In the "Features" slide, insert a table with 5 rows  | ✗ 0.0 | ✗ 0.0 | 41 | 14781 | 667.1s |
 
 ## 每题的过程记录
 
@@ -1185,4 +1189,26 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 9 步一次通过（两个子判据 or 关系）。
+### 第 148 题 · edb61b14
+
+> In the last slide, make the font style "Times New Roman"
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 11 步一次通过。
+### 第 149 题 · c82632a4
+
+> Add an image "none.png" on the Desktop to slide 2 with 1cm*1cm size.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 9 步一次通过。
+### 第 150 题 · 39be0d19
+
+> In the "Features" slide, insert a table with 5 rows and 2 columns.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：41 步未过。轨迹里有一次 `click: Linux runtime timed out after 30s`——借这次把超时消息改了：运行时是先执行动作再建快照，超时多半发生在建快照那段，动作其实已经发出去了。原消息只说"超时"，会诱导 agent 直接重试，导致重复点击/重复输入。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次 10 步仍未过。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过（在 Features 页插入 5x2 表格）。转下一题。
 
