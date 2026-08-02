@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **159** / 369 |
-| 我手工通过 | 136 / 159 |
-| cc 通过（严格：得分 = 1.0）| **137 / 158** |
-| cc 平均分（OSWorld 口径）| **0.879** |
-| cc 平均步数 | 16.8 |
-| cc 平均观测 token | 27554 |
-| cc 平均用时 | 231s |
-| 执行轴 a11y 占比 | 47% （630/1327）|
+| 已跑题数 | **161** / 369 |
+| 我手工通过 | 138 / 161 |
+| cc 通过（严格：得分 = 1.0）| **138 / 159** |
+| cc 平均分（OSWorld 口径）| **0.880** |
+| cc 平均步数 | 16.9 |
+| cc 平均观测 token | 27877 |
+| cc 平均用时 | 233s |
+| 执行轴 a11y 占比 | 47% （630/1351）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 90 | 81 | 18.0 |
+| Bash 打开 | 91 | 82 | 18.2 |
 
 ## cc 未通过的题，成因分类
 
@@ -232,6 +232,8 @@
 | 157 | libreoffice_impress | Set the font color of the title in slides 2 to 3 as  | ✅ | ✅ | 30 | 36733 | 431.1s |
 | 158 | libreoffice_impress | Change picture's height to 20, 30, 25cm on slide 3,  | ✅ | ✅ | 52 | 50252 | 740.2s |
 | 159 | libreoffice_impress | Change the first row of table to "T1","T2","T3","T4" | ✅ | ✅ | 24 | 16040 | 298.1s |
+| 160 | libreoffice_impress | Align the text of the first textbox on slide 3 to th | ✅ | ✅ | 40 | 91558 | 559.1s |
+| 161 | libreoffice_impress | Bold the text on slide 1. Make the title of size 44p | ✅ | — | — | — | — |
 
 ## 每题的过程记录
 
@@ -1284,4 +1286,15 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 24 步一次通过。
+### 第 160 题 · 05dd4c1d
+
+> Align the text of the first textbox on slide 3 to the right, on slide 4 to the center, and on slide 5 to the left. Ensure that the alignment is applied correctly to each respective slide.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 40 步一次通过。
+### 第 161 题 · 5c1a6c3d
+
+> Bold the text on slide 1. Make the title of size 44pt and underline it on slide 1.
+
+- **我手工**（第 1 次，得分 1.0）：**agent 做对了，是判分那一步在跑测进程里撞满了时限。** 事后单独跑 score 只要几秒就得 1.0。卡的是 postconfig（激活窗口 + Ctrl+S），当时机器还在忙。这类"做对了却被记成失败"的情况必须单独识别，否则数据会把仪器问题算到模型头上。
 
