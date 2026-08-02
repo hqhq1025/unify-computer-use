@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **183** / 369 |
-| 我手工通过 | 156 / 183 |
-| cc 通过（严格：得分 = 1.0）| **156 / 181** |
-| cc 平均分（OSWorld 口径）| **0.878** |
+| 已跑题数 | **187** / 369 |
+| 我手工通过 | 160 / 187 |
+| cc 通过（严格：得分 = 1.0）| **160 / 185** |
+| cc 平均分（OSWorld 口径）| **0.880** |
 | cc 平均步数 | 18.6 |
-| cc 平均观测 token | 27799 |
-| cc 平均用时 | 255s |
-| 执行轴 a11y 占比 | 43% （730/1713）|
+| cc 平均观测 token | 27647 |
+| cc 平均用时 | 254s |
+| 执行轴 a11y 占比 | 43% （749/1755）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 113 | 100 | 20.7 |
+| Bash 打开 | 117 | 104 | 20.5 |
 
 ## cc 未通过的题，成因分类
 
@@ -260,6 +260,10 @@
 | 181 | libreoffice_writer | Could you help me convert the text seperated by comm | ✅ | ✅ | 54 | 48869 | 761.9s |
 | 182 | libreoffice_writer | Help me adding "Steinberg, F. M., Bearden, M. M., &  | ✅ | ✅ | 42 | 32064 | 499.3s |
 | 183 | libreoffice_writer | I have been practicing professional writing lately.  | ✅ | ✅ | 17 | 39713 | 218.9s |
+| 184 | libreoffice_writer | I am currently engaged in text processing and requir | ✅ | ✅ | 9 | 16909 | 103.7s |
+| 185 | libreoffice_writer | I found Italic font very hard to discern from the no | ✅ | ✅ | 32 | 30781 | 365.1s |
+| 186 | libreoffice_writer | Please help me make the first letter of each word to | ✅ | ✅ | 10 | 16282 | 104.0s |
+| 187 | libreoffice_writer | Hey, can you throw in a blank page right after this  | ✅ | ✅ | 10 | 11677 | 124.4s |
 
 ## 每题的过程记录
 
@@ -1475,4 +1479,28 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 17 步一次通过。
+### 第 184 题 · d53ff5ee
+
+> I am currently engaged in text processing and require assistance in converting all uppercase text to lowercase within my document. This precision is critical for maintaining a uniform and polished presentation. Could you help me on this?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 9 步一次通过。
+### 第 185 题 · e246f6d8
+
+> I found Italic font very hard to discern from the normal text for me, as it is also dark black with the same size. Current font size is 12 and I want to change the font size of italicized words to 14 to make it more discernible. Can you help me on this?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 32 步一次通过。
+### 第 186 题 · e528b65e
+
+> Please help me make the first letter of each word to uppercase.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 10 步一次通过。
+### 第 187 题 · ecc2413d
+
+> Hey, can you throw in a blank page right after this one?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 10 步一次通过。
 
