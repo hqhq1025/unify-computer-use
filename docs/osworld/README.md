@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **150** / 369 |
-| 我手工通过 | 129 / 150 |
-| cc 通过（严格：得分 = 1.0）| **130 / 149** |
-| cc 平均分（OSWorld 口径）| **0.885** |
-| cc 平均步数 | 15.7 |
-| cc 平均观测 token | 27174 |
-| cc 平均用时 | 216s |
-| 执行轴 a11y 占比 | 51% （597/1161）|
+| 已跑题数 | **152** / 369 |
+| 我手工通过 | 130 / 152 |
+| cc 通过（严格：得分 = 1.0）| **131 / 151** |
+| cc 平均分（OSWorld 口径）| **0.880** |
+| cc 平均步数 | 15.9 |
+| cc 平均观测 token | 27340 |
+| cc 平均用时 | 220s |
+| 执行轴 a11y 占比 | 50% （603/1198）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 81 | 74 | 16.1 |
+| Bash 打开 | 83 | 75 | 16.6 |
 
 ## cc 未通过的题，成因分类
 
@@ -66,6 +66,7 @@
 | 122 | 未归类（可能是模型或链路） | Could you help me export an Impress file to a  |
 | 146 | 未归类（可能是模型或链路） | Move to slide 1 and give it a green background |
 | 150 | 未归类（可能是模型或链路） | In the "Features" slide, insert a table with 5 |
+| 152 | 未归类（可能是模型或链路） | Add a bullet point to the content of this slid |
 
 ## 逐题
 
@@ -221,6 +222,8 @@
 | 148 | libreoffice_impress | In the last slide, make the font style "Times New Ro | ✅ | ✅ | 11 | 3824 | 129.6s |
 | 149 | libreoffice_impress | Add an image "none.png" on the Desktop to slide 2 wi | ✅ | ✅ | 9 | 4983 | 76.4s |
 | 150 | libreoffice_impress | In the "Features" slide, insert a table with 5 rows  | ✗ 0.0 | ✗ 0.0 | 41 | 14781 | 667.1s |
+| 151 | libreoffice_impress | Move the table on Page 3 to the bottom of the slide. | ✅ | ✅ | 10 | 3504 | 123.8s |
+| 152 | libreoffice_impress | Add a bullet point to the content of this slide. | ✗ 0.0 | ✗ 0.0 | 69 | 84578 | 1129.1s |
 
 ## 每题的过程记录
 
@@ -1211,4 +1214,19 @@
 - **我手工**（第 2 次，得分 0.0）：第二次 10 步仍未过。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过（在 Features 页插入 5x2 表格）。转下一题。
+### 第 151 题 · ac1b39ff
+
+> Move the table on Page 3 to the bottom of the slide.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 10 步一次通过。
+### 第 152 题 · f23acfd2
+
+> Add a bullet point to the content of this slide.
+
+- **我手工**（第 1 次，得分 0.0）：跑满 40 分钟 timeout，无结果。（更早还有一次被我中途 kill soffice 打断，不计。）
+- **cc**（第 2 次，得分 0.0）：cc 第二次（内存已释放）
+- **我手工**（第 2 次，得分 0.0）：内存释放后终于跑出结果：69 步 / 1129s，四个子判据全 0。前两次是内存耗尽导致 claude 直接挂住，不是模型的问题。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：第三次 14 步仍未过。转下一题。
 
