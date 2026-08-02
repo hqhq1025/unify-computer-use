@@ -182,7 +182,51 @@ def cmd_score(args):
     return 0
 
 
+def assert_binary_is_fresh(binary):
+    """二进制必须比 MCP 源码新，否则**测的是上一版**。
+
+    这条检查是踩了大坑之后加的。构建脚本默认只出 arm64，而跑测默认用 amd64，
+    于是 dist/linux/amd64/open-computer-use 停在 8-1 20:36 整整没动过，
+    而那之后有 **8 个改 MCP 本体的提交**——进程名解析、text-attrs 不再乱作证、
+    菜单隐藏项、appNotFound 列窗口、include_screenshot、真 diff、Calc 渲染
+    NameError——**一个都没进到 cc 实际跑的程序里**。
+
+    更坏的是它不报错，只是让人得出错误的因果：我据此写下"第 51 题从 31 步失败
+    变成 6 步通过是菜单修复的直接效果"，而那个修复当时根本不在二进制里，
+    真实原因只是两次运行的差异。**一个不报错的陈旧构建，比一个编译失败危险得多。**
+
+    所以这里宁可拦住整轮跑测，也不让它带着旧二进制跑下去。
+    """
+    if not os.path.exists(binary):
+        raise RuntimeError("MCP 二进制不存在：{}。先跑 "
+                           "scripts/build-open-computer-use-linux.sh --arch amd64"
+                           .format(binary))
+    built = os.path.getmtime(binary)
+    source_dir = os.path.join(REPO, "apps", "OpenComputerUseLinux")
+    newest, newest_at = None, 0.0
+    for root, _dirs, files in os.walk(source_dir):
+        for name in files:
+            if not name.endswith((".go", ".py")):
+                continue
+            if name.endswith("_test.go") or name.endswith("_test.py"):
+                continue
+            path = os.path.join(root, name)
+            stamp = os.path.getmtime(path)
+            if stamp > newest_at:
+                newest, newest_at = path, stamp
+    if newest is not None and newest_at > built:
+        raise RuntimeError(
+            "MCP 二进制比源码旧，测的会是上一版。\n"
+            "  二进制 {}  ({})\n"
+            "  最新源码 {}  ({})\n"
+            "先重新构建：scripts/build-open-computer-use-linux.sh --arch amd64".format(
+                binary, time.strftime("%m-%d %H:%M", time.localtime(built)),
+                os.path.relpath(newest, REPO),
+                time.strftime("%m-%d %H:%M", time.localtime(newest_at))))
+
+
 def register_mcp(binary, workdir):
+    assert_binary_is_fresh(binary)
     os.makedirs(workdir, exist_ok=True)
     result = subprocess.run(["claude", "mcp", "add", SERVER_NAME, "--", binary, "mcp"],
                             cwd=workdir, capture_output=True, text=True)
