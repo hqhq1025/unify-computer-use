@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **163** / 369 |
-| 我手工通过 | 140 / 163 |
-| cc 通过（严格：得分 = 1.0）| **140 / 161** |
-| cc 平均分（OSWorld 口径）| **0.881** |
-| cc 平均步数 | 17.3 |
-| cc 平均观测 token | 28019 |
-| cc 平均用时 | 240s |
-| 执行轴 a11y 占比 | 46% （639/1390）|
+| 已跑题数 | **166** / 369 |
+| 我手工通过 | 142 / 166 |
+| cc 通过（严格：得分 = 1.0）| **142 / 164** |
+| cc 平均分（OSWorld 口径）| **0.877** |
+| cc 平均步数 | 17.9 |
+| cc 平均观测 token | 28289 |
+| cc 平均用时 | 248s |
+| 执行轴 a11y 占比 | 45% （666/1469）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 93 | 84 | 18.9 |
+| Bash 打开 | 96 | 86 | 19.9 |
 
 ## cc 未通过的题，成因分类
 
@@ -68,6 +68,7 @@
 | 150 | 未归类（可能是模型或链路） | In the "Features" slide, insert a table with 5 |
 | 152 | 未归类（可能是模型或链路） | Add a bullet point to the content of this slid |
 | 156 | 未归类（可能是模型或链路） | Set the background color to yellow for any sli |
+| 166 | 未归类（可能是模型或链路） | Change the text color in the textboxes to on s |
 
 ## 逐题
 
@@ -236,6 +237,9 @@
 | 161 | libreoffice_impress | Bold the text on slide 1. Make the title of size 44p | ✅ | — | — | — | — |
 | 162 | libreoffice_impress | Set the color of titles in slides 2,3,5 as black and | ✅ | ✅ | 26 | 22550 | 377.1s |
 | 163 | libreoffice_impress | The height of picture should be 20cm on slide 3 whil | ✅ | ✅ | 85 | 62329 | 1352.1s |
+| 164 | libreoffice_impress | Move the picture on page 2 to slide top. Make textbo | ✅ | ✅ | 33 | 55604 | 486.8s |
+| 165 | libreoffice_impress | Make the first textbox font size 60 pt while the sec | ✅ | ✅ | 55 | 60433 | 791.6s |
+| 166 | libreoffice_impress | Change the text color in the textboxes to on slide 1 | ✗ 0.0 | ✗ 0.0 | 23 | 14516 | 328.4s |
 
 ## 每题的过程记录
 
@@ -1313,4 +1317,26 @@
 - **我手工**（第 1 次，得分 0.0）：cc 24 步未过。
 - **cc**（第 2 次，得分 1.0）：cc 第二次
 - **我手工**（第 2 次，得分 1.0）：第二次 85 步 / 1352s 通过。
+### 第 164 题 · ed43c15f
+
+> Move the picture on page 2 to slide top. Make textboxes underlined on slide 1 and 2.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 33 步一次通过。
+### 第 165 题 · 3161d64e
+
+> Make the first textbox font size 60 pt while the second 28 pt on slide 14.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 55 步一次通过。
+### 第 166 题 · 04578141
+
+> Change the text color in the textboxes to on slide 1 yellow, red, and green, respectively, in top-to-bottom order. Use exactly these colors—no variations (e.g., no dark red, light green, etc.).
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 23 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次 55 步仍未过。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
