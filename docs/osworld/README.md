@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **137** / 369 |
-| 我手工通过 | 118 / 137 |
-| cc 通过（严格：得分 = 1.0）| **119 / 136** |
-| cc 平均分（OSWorld 口径）| **0.889** |
-| cc 平均步数 | 16.2 |
-| cc 平均观测 token | 29457 |
-| cc 平均用时 | 223s |
+| 已跑题数 | **142** / 369 |
+| 我手工通过 | 123 / 142 |
+| cc 通过（严格：得分 = 1.0）| **124 / 141** |
+| cc 平均分（OSWorld 口径）| **0.892** |
+| cc 平均步数 | 16.0 |
+| cc 平均观测 token | 28718 |
+| cc 平均用时 | 220s |
 | 执行轴 a11y 占比 | 51% （593/1154）|
 
 ### 两种口径要分开看
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 68 | 63 | 17.2 |
+| Bash 打开 | 73 | 68 | 16.8 |
 
 ## cc 未通过的题，成因分类
 
@@ -206,6 +206,11 @@
 | 135 | libreoffice_impress | Do you have any suggestions on how to modify the fon | ✅ | ✅ | 15 | 3719 | 199.4s |
 | 136 | libreoffice_impress | I want to do something like the following on Page 3  | ✅ | ✅ | 18 | 5771 | 242.3s |
 | 137 | libreoffice_impress | Add "Page 1" into the content textbox on Slide 2. | ✅ | ✅ | 9 | 17497 | 97.5s |
+| 138 | libreoffice_impress | Move the title of page 2 to the bottom of the slide. | ✅ | ✅ | 7 | 2903 | 70.3s |
+| 139 | libreoffice_impress | Underline the body text of the slide only, without u | ✅ | ✅ | 10 | 3633 | 98.3s |
+| 140 | libreoffice_impress | Change the font size of the content to 12, and chang | ✅ | ✅ | 15 | 4393 | 163.2s |
+| 141 | libreoffice_impress | On page 2, add a note same to the title into the sli | ✅ | ✅ | 11 | 4320 | 103.4s |
+| 142 | libreoffice_impress | Add a note "APP" into the slide and give the slide a | ✅ | ✅ | 5 | 4286 | 57.4s |
 
 ## 每题的过程记录
 
@@ -1110,4 +1115,34 @@
 - **我手工**（第 1 次，得分 0.0）：用 UNO 写的文件，判据 compare_pptx_files 判 0——可能又是文件结构差异，也可能是内容位置不对。
 - **cc**（第 2 次，得分 1.0）：cc 第二次
 - **我手工**（第 2 次，得分 1.0）：第二次 9 步通过。
+### 第 138 题 · 15aece23
+
+> Move the title of page 2 to the bottom of the slide.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 7 步一次通过。
+### 第 139 题 · 986fc832
+
+> Underline the body text of the slide only, without underlining the title or table. Then set the font color of all text on the slide, including the title, body text, and table text, to the "Dark Red 2" color from the LibreOffice color palette.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 10 步一次通过。
+### 第 140 题 · a434992a
+
+> Change the font size of the content to 12, and change the font color to orange. Change the slide's background to red.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 15 步一次通过。
+### 第 141 题 · 7dbc52a6
+
+> On page 2, add a note same to the title into the slide. Make the font of title bold.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 11 步一次通过。
+### 第 142 题 · 841b50aa
+
+> Add a note "APP" into the slide and give the slide a purple background color.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 5 步一次通过。
 
