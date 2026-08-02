@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **155** / 369 |
-| 我手工通过 | 133 / 155 |
-| cc 通过（严格：得分 = 1.0）| **134 / 154** |
-| cc 平均分（OSWorld 口径）| **0.882** |
-| cc 平均步数 | 16.2 |
-| cc 平均观测 token | 27415 |
-| cc 平均用时 | 224s |
-| 执行轴 a11y 占比 | 50% （610/1228）|
+| 已跑题数 | **156** / 369 |
+| 我手工通过 | 133 / 156 |
+| cc 通过（严格：得分 = 1.0）| **134 / 155** |
+| cc 平均分（OSWorld 口径）| **0.876** |
+| cc 平均步数 | 16.5 |
+| cc 平均观测 token | 27449 |
+| cc 平均用时 | 228s |
+| 执行轴 a11y 占比 | 49% （618/1273）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 86 | 78 | 17.1 |
+| Bash 打开 | 87 | 78 | 17.6 |
 
 ## cc 未通过的题，成因分类
 
@@ -67,6 +67,7 @@
 | 146 | 未归类（可能是模型或链路） | Move to slide 1 and give it a green background |
 | 150 | 未归类（可能是模型或链路） | In the "Features" slide, insert a table with 5 |
 | 152 | 未归类（可能是模型或链路） | Add a bullet point to the content of this slid |
+| 156 | 未归类（可能是模型或链路） | Set the background color to yellow for any sli |
 
 ## 逐题
 
@@ -227,6 +228,7 @@
 | 153 | libreoffice_impress | Make the background color of slide 2 same as the col | ✅ | ✅ | 16 | 23921 | 215.7s |
 | 154 | libreoffice_impress | In the first slide, insert the title "Happy Family"  | ✅ | ✅ | 17 | 38973 | 212.3s |
 | 155 | libreoffice_impress | Navigate to slide 5 and set the font color of all te | ✅ | ✅ | 77 | 33406 | 1103.3s |
+| 156 | libreoffice_impress | Set the background color to yellow for any slide tha | ✗ 0.0 | ✗ 0.0 | 41 | 39940 | 536.9s |
 
 ## 每题的过程记录
 
@@ -1251,4 +1253,14 @@
 - **我手工**（第 1 次，得分 0.0）：撞满 30 分钟时限，无结果。轨迹显示它跑到 79 步，后半段一直在反复 kill/重启 soffice（wmctrl -c Basic IDE、pkill -9 soffice.bin），陷在"改字体色 → soffice 崩 → 重启"的循环里。
 - **cc**（第 2 次，得分 1.0）：cc 第二次（预算收紧）
 - **我手工**（第 2 次，得分 1.0）：第二次 77 步 / 1103s 通过（两个子判据 or 关系）。第一次是撞满时限没跑完，不是做错。
+### 第 156 题 · 0a211154
+
+> Set the background color to yellow for any slide that contains one or more images of real people, and set the title of slide 2 as "Let's start".
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 41 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次 27 步仍未过。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
