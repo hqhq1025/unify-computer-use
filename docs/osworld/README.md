@@ -21,13 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **119** / 369 |
-| 我手工通过 | 102 / 119 |
-| cc 通过 | **103 / 118** |
-| cc 平均步数 | 17.0 |
-| cc 平均观测 token | 32557 |
-| cc 平均用时 | 238s |
-| 执行轴 a11y 占比 | 51% （542/1069）|
+| 已跑题数 | **122** / 369 |
+| 我手工通过 | 103 / 122 |
+| cc 通过（严格：得分 = 1.0）| **104 / 121** |
+| cc 平均分（OSWorld 口径）| **0.875** |
+| cc 平均步数 | 16.7 |
+| cc 平均观测 token | 31708 |
+| cc 平均用时 | 234s |
+| 执行轴 a11y 占比 | 51% （549/1078）|
 
 ### 两种口径要分开看
 
@@ -38,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 50 | 47 | 19.8 |
+| Bash 打开 | 53 | 48 | 18.9 |
 
 ## cc 未通过的题，成因分类
 
@@ -61,6 +62,8 @@
 | 70 | 未归类（可能是模型或链路） | Please batch process all images on the desktop |
 | 108 | 未归类（可能是模型或链路） | Please calculate the ages of the employees acc |
 | 115 | 未归类（可能是模型或链路） | Please create a new sheet. Keep its sheet name |
+| 121 | 未归类（可能是模型或链路） | I am checking our soccer club's to-do list for |
+| 122 | 未归类（可能是模型或链路） | Could you help me export an Impress file to a  |
 
 ## 逐题
 
@@ -185,6 +188,9 @@
 | 117 | libreoffice_calc | The cells are so big that I can not click on the cel | ✅ | ✅ | 4 | 16777 | 44.3s |
 | 118 | libreoffice_calc | Sort the data according to column A in an ascending  | ✅ | ✅ | 16 | 11238 | 177.4s |
 | 119 | libreoffice_calc | Please calculate the period rate for my data in a ne | ✅ | ✅ | 7 | 4509 | 71.6s |
+| 120 | libreoffice_impress | I want to turn the rectangular image of Columbus on  | ✅ | ✅ | 10 | 4099 | 156.8s |
+| 121 | libreoffice_impress | I am checking our soccer club's to-do list for the l | ✗ 0.0 | ✗ 0.0 | 8 | 3319 | 87.3s |
+| 122 | libreoffice_impress | Could you help me export an Impress file to a .png i | ✗ 0.9 | ✗ 0.9 | 11 | 21224 | 103.2s |
 
 ## 每题的过程记录
 
@@ -969,4 +975,26 @@
 - **我手工**（第 2 次，得分 0.0）：第二次同样用 Bash + openpyxl，判据同样崩在字体色比对上。
 - **cc**（第 3 次，得分 1.0）：cc 第三次
 - **我手工**（第 3 次，得分 1.0）：第三次 1.0，而且给出了一个非常干净的对照：这次 cc 改用 **UNO 让 LibreOffice 自己写文件**（起 socket 监听 + import uno），文件里 29 行全有显式字体色，与标准一致，判据不再崩；前两次用 openpyxl 直接写，只有 6 行。**同一个正确答案，写文件的方式不同，一个能判分一个判不了。**
+### 第 120 题 · 5d901039
+
+> I want to turn the rectangular image of Columbus on the first page into a cover page. Could you help me stretch this image to fill the entire page, keeping its proportion and centering the image?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 10 步一次通过。
+### 第 121 题 · 550ce7e7
+
+> I am checking our soccer club's to-do list for the last semester and adding strike-through sign on the line we have already accomplished. Could you help me add a strike-through on the first and second line?
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：impress 段第一题。cc 用 Bash（python-pptx 一类）改的文件，判据 compare_pptx_files 两项全 0——很可能与第 119 题同一类：绕开 GUI 写出来的文件结构和 LibreOffice 写的不一样。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：**这次是模型做错了，不是判据问题。** 核实文件：cc 给全篇 36 个文本块都加了删除线（横跨 7 张幻灯片），而题目只要求划掉指定的两行。它的自述说"只对前两行加了删除线"，与文件实际内容不符。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：第三次同样未过。转下一题。
+### 第 122 题 · 455d3c66
+
+> Could you help me export an Impress file to a .png image file and save it as res.png on the Desktop? Follow the default export setting is fine.
+
+- **cc**（第 1 次，得分 0.9030292330314595）：cc 第一次
+- **我手工**（第 1 次，得分 0.903）：cc 11 步，compare_images 给 0.903——这是连续值判据，不是 0/1。按严格口径（=1.0）算未过，按 OSWorld 官方口径（报平均分）算 0.903。
 

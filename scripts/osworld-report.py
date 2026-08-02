@@ -71,7 +71,13 @@ def main():
     out.write("| 项 | 值 |\n|---|---|\n")
     out.write("| 已跑题数 | **{}** / 369 |\n".format(len(tasks)))
     out.write("| 我手工通过 | {} / {} |\n".format(passed_me, len(me_best)))
-    out.write("| cc 通过 | **{} / {}** |\n".format(passed_cc, len(cc_best)))
+    out.write("| cc 通过（严格：得分 = 1.0）| **{} / {}** |\n".format(passed_cc, len(cc_best)))
+    # OSWorld 官方报的是**平均分**，不是通过率。有些判据是连续值——
+    # compare_images 会给 0.903 这样的分数，按 =1.0 算就是"未过"，
+    # 而官方口径下它贡献 0.903。两个口径都给出来，才可能和别人的数字对上。
+    if cc_best:
+        out.write("| cc 平均分（OSWorld 口径）| **{:.3f}** |\n".format(
+            sum(cc_best.values()) / len(cc_best)))
     if cc_rows:
         steps = [r["steps"] for r in cc_rows if r.get("steps")]
         toks = [r["observation_tokens"] for r in cc_rows if r.get("observation_tokens")]
