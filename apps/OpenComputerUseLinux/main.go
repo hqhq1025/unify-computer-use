@@ -2672,7 +2672,25 @@ func runPython(request linuxRequest) (*linuxResponse, error) {
 	cmd.Stderr = &stderr
 	output, err := cmd.Output()
 	if ctx.Err() == context.DeadlineExceeded {
-		return nil, fmt.Errorf("Linux runtime timed out after %s", runtimeTimeout)
+		// 超时之后**最要紧的一句话是"我不知道动作有没有生效"**。
+		//
+		// 运行时是先执行动作、再遍历树建快照的，所以超时最可能发生在
+		// 建快照那一段——也就是说动作**很可能已经发出去了**，只是结果没能
+		// 回来。原来的消息只说"超时了"，读到它的人最自然的反应是重试一次，
+		// 于是同一个按钮被点两下、同一段文字被打两遍。
+		//
+		// 实测 2200 次调用里这类超时 4 次（click/click_xy/type_text），
+		// 频率不高，但每一次都可能让 agent 在不知情的情况下做重复操作。
+		return nil, fmt.Errorf(
+			"Linux runtime timed out after %s. IMPORTANT: this does NOT mean the "+
+				"action failed. The runtime performs the action first and builds the "+
+				"snapshot afterwards, so a timeout most often means the action was "+
+				"already delivered and only the result did not come back. Do NOT "+
+				"simply retry — call get_app_state first and check whether it already "+
+				"took effect, or you may click twice or type the text twice. Large "+
+				"accessibility trees are the usual cause; raise "+
+				"OPEN_COMPUTER_USE_RUNTIME_TIMEOUT_SECONDS or narrow the work with "+
+				"`find` instead of a full snapshot.", runtimeTimeout)
 	}
 	if err != nil {
 		text := strings.TrimSpace(stderr.String())

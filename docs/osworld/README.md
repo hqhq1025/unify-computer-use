@@ -21,12 +21,12 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **146** / 369 |
-| 我手工通过 | 126 / 146 |
-| cc 通过（严格：得分 = 1.0）| **127 / 145** |
+| 已跑题数 | **147** / 369 |
+| 我手工通过 | 127 / 147 |
+| cc 通过（严格：得分 = 1.0）| **128 / 146** |
 | cc 平均分（OSWorld 口径）| **0.889** |
 | cc 平均步数 | 15.7 |
-| cc 平均观测 token | 27883 |
+| cc 平均观测 token | 27750 |
 | cc 平均用时 | 215s |
 | 执行轴 a11y 占比 | 51% （593/1155）|
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 77 | 71 | 16.2 |
+| Bash 打开 | 78 | 72 | 16.1 |
 
 ## cc 未通过的题，成因分类
 
@@ -216,6 +216,7 @@
 | 144 | libreoffice_impress | Go to the second slide and name its title as "Online | ✅ | ✅ | 11 | 4344 | 126.6s |
 | 145 | libreoffice_impress | Move the image to the right side on Slide 2. | ✅ | ✅ | 7 | 6025 | 75.6s |
 | 146 | libreoffice_impress | Move to slide 1 and give it a green background color | ✗ 0.0 | ✗ 0.0 | 7 | 2909 | 68.1s |
+| 147 | libreoffice_impress | Give the slide 2 the right aligned title, "Note". | ✅ | ✅ | 9 | 4002 | 83.6s |
 
 ## 每题的过程记录
 
@@ -1178,4 +1179,10 @@
 - **我手工**（第 2 次，得分 0.0）：第二次同样未过。cc 说把 slide1 背景设成了 #00FF00，且 XML 里确有 srgbClr val="00ff00"。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次都用 Bash/UNO 设背景色，判据都判 0。转下一题。
+### 第 147 题 · 08aced46
+
+> Give the slide 2 the right aligned title, "Note".
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 9 步一次通过（两个子判据 or 关系）。
 
