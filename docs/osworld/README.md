@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **122** / 369 |
-| 我手工通过 | 103 / 122 |
-| cc 通过（严格：得分 = 1.0）| **104 / 121** |
-| cc 平均分（OSWorld 口径）| **0.875** |
-| cc 平均步数 | 16.7 |
-| cc 平均观测 token | 31708 |
-| cc 平均用时 | 234s |
-| 执行轴 a11y 占比 | 51% （549/1078）|
+| 已跑题数 | **125** / 369 |
+| 我手工通过 | 106 / 125 |
+| cc 通过（严格：得分 = 1.0）| **107 / 124** |
+| cc 平均分（OSWorld 口径）| **0.878** |
+| cc 平均步数 | 16.6 |
+| cc 平均观测 token | 31258 |
+| cc 平均用时 | 231s |
+| 执行轴 a11y 占比 | 51% （565/1100）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 53 | 48 | 18.9 |
+| Bash 打开 | 56 | 51 | 18.4 |
 
 ## cc 未通过的题，成因分类
 
@@ -191,6 +191,9 @@
 | 120 | libreoffice_impress | I want to turn the rectangular image of Columbus on  | ✅ | ✅ | 10 | 4099 | 156.8s |
 | 121 | libreoffice_impress | I am checking our soccer club's to-do list for the l | ✗ 0.0 | ✗ 0.0 | 8 | 3319 | 87.3s |
 | 122 | libreoffice_impress | Could you help me export an Impress file to a .png i | ✗ 0.9 | ✗ 0.9 | 11 | 21224 | 103.2s |
+| 123 | libreoffice_impress | I am making PPT on LibreOffice Impress for presentat | ✅ | ✅ | 12 | 22046 | 152.1s |
+| 124 | libreoffice_impress | I am making PPT about the history of baseball. I wan | ✅ | ✅ | 22 | 18486 | 270.6s |
+| 125 | libreoffice_impress | I closed the slide panel on the left and idk how to  | ✅ | ✅ | 7 | 9019 | 74.6s |
 
 ## 每题的过程记录
 
@@ -997,4 +1000,24 @@
 
 - **cc**（第 1 次，得分 0.9030292330314595）：cc 第一次
 - **我手工**（第 1 次，得分 0.903）：cc 11 步，compare_images 给 0.903——这是连续值判据，不是 0/1。按严格口径（=1.0）算未过，按 OSWorld 官方口径（报平均分）算 0.903。
+### 第 123 题 · af23762e
+
+> I am making PPT on LibreOffice Impress for presentation tomorrow. I need to summarize contents on one slide use Impress "Summary Slide" feature. Could you make that for me?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 12 步一次通过。
+### 第 124 题 · c59742c0
+
+> I am making PPT about the history of baseball. I want to add an introduction audio named "Baseball.mp3" on the Desktop into my PPT, but I do not know how. Could you help me add audio into my presentation file?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 22 步一次通过（音频比对判据）。
+### 第 125 题 · ef9d12bd
+
+> I closed the slide panel on the left and idk how to get it back please help. Please restore the left slide panel so it becomes visible again.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：**又一个仪器缺陷，影响 19 道题。** 官方 check_left_panel 遍历 document-frame 找 name="Slides View"，而我的 a11y 树垫片节点预算是 8000——实测那时整棵树里 document-frame **一个都没有**（树到 676KB 就被静默截断），提到 40000 才出现。判据于是永远返回 0。截断是静默的：XML 依然合法，只是少了一半，没有任何迹象提示"你要找的节点在被砍掉的那一半里"。预算已改成 60000（代价是抽树 113 秒，但只有 19 道题走这条路径：accessibility_tree 5 + active_url_from_accessTree 14）。
+- **cc**（第 2 次，得分 1.0）：cc 第二次（a11y 树预算已修）
+- **我手工**（第 2 次，得分 1.0）：预算修好后一次通过。
 

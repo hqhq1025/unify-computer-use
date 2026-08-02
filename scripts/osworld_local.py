@@ -158,8 +158,18 @@ class LocalController:
                 return default
 
         # 节点预算是硬的：整个桌面的树在这台机器上能到上万节点，
-        # 而评估器只需要地址栏那一个。不封顶会让判分本身变成一次超时。
-        budget = [int(os.environ.get("OSWORLD_TREE_BUDGET", "8000"))]
+        # 不封顶会让判分本身变成一次超时。
+        #
+        # **但 8000 太小，会把判据要找的东西截掉。** 实测第 125 题
+        # （"把左侧幻灯片面板恢复出来"）：官方 check_left_panel 遍历
+        # `document-frame` 找 name="Slides View"，而预算 8000 时整棵树里
+        # document-frame **一个都没有**（树到 676KB 就被截断），提到 40000
+        # 才出现。判据于是永远返回 0——又一次"仪器缺一块就把成功记成失败"，
+        # 而且这次影响 19 道题（accessibility_tree 5 + active_url_from_accessTree 14）。
+        #
+        # 截断本身是静默的：XML 依然是合法的，只是少了一半，
+        # 没有任何迹象提示"你要找的那个节点在被砍掉的那一半里"。
+        budget = [int(os.environ.get("OSWORLD_TREE_BUDGET", "60000"))]
 
         def build(node, depth):
             if budget[0] <= 0 or depth > 40:
