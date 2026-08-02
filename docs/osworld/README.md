@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **142** / 369 |
-| 我手工通过 | 123 / 142 |
-| cc 通过（严格：得分 = 1.0）| **124 / 141** |
-| cc 平均分（OSWorld 口径）| **0.892** |
-| cc 平均步数 | 16.0 |
-| cc 平均观测 token | 28718 |
-| cc 平均用时 | 220s |
-| 执行轴 a11y 占比 | 51% （593/1154）|
+| 已跑题数 | **146** / 369 |
+| 我手工通过 | 126 / 146 |
+| cc 通过（严格：得分 = 1.0）| **127 / 145** |
+| cc 平均分（OSWorld 口径）| **0.889** |
+| cc 平均步数 | 15.7 |
+| cc 平均观测 token | 27883 |
+| cc 平均用时 | 215s |
+| 执行轴 a11y 占比 | 51% （593/1155）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 73 | 68 | 16.8 |
+| Bash 打开 | 77 | 71 | 16.2 |
 
 ## cc 未通过的题，成因分类
 
@@ -64,6 +64,7 @@
 | 115 | 未归类（可能是模型或链路） | Please create a new sheet. Keep its sheet name |
 | 121 | 未归类（可能是模型或链路） | I am checking our soccer club's to-do list for |
 | 122 | 未归类（可能是模型或链路） | Could you help me export an Impress file to a  |
+| 146 | 未归类（可能是模型或链路） | Move to slide 1 and give it a green background |
 
 ## 逐题
 
@@ -211,6 +212,10 @@
 | 140 | libreoffice_impress | Change the font size of the content to 12, and chang | ✅ | ✅ | 15 | 4393 | 163.2s |
 | 141 | libreoffice_impress | On page 2, add a note same to the title into the sli | ✅ | ✅ | 11 | 4320 | 103.4s |
 | 142 | libreoffice_impress | Add a note "APP" into the slide and give the slide a | ✅ | ✅ | 5 | 4286 | 57.4s |
+| 143 | libreoffice_impress | Give the slide a purple background color. Add the ti | ✅ | ✅ | 7 | 3046 | 78.8s |
+| 144 | libreoffice_impress | Go to the second slide and name its title as "Online | ✅ | ✅ | 11 | 4344 | 126.6s |
+| 145 | libreoffice_impress | Move the image to the right side on Slide 2. | ✅ | ✅ | 7 | 6025 | 75.6s |
+| 146 | libreoffice_impress | Move to slide 1 and give it a green background color | ✗ 0.0 | ✗ 0.0 | 7 | 2909 | 68.1s |
 
 ## 每题的过程记录
 
@@ -1145,4 +1150,32 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 5 步一次通过。
+### 第 143 题 · 8979838c
+
+> Give the slide a purple background color. Add the title to note.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 7 步一次通过。
+### 第 144 题 · b8adbc24
+
+> Go to the second slide and name its title as "Online Shopping" with the same color, position and font size as the previous title.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 11 步一次通过。
+### 第 145 题 · 2b94c692
+
+> Move the image to the right side on Slide 2.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 7 步一次通过。
+### 第 146 题 · 9cf05d24
+
+> Move to slide 1 and give it a green background color.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 7 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样未过。cc 说把 slide1 背景设成了 #00FF00，且 XML 里确有 srgbClr val="00ff00"。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次都用 Bash/UNO 设背景色，判据都判 0。转下一题。
 
