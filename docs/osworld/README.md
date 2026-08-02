@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **134** / 369 |
-| 我手工通过 | 115 / 134 |
-| cc 通过（严格：得分 = 1.0）| **116 / 133** |
-| cc 平均分（OSWorld 口径）| **0.886** |
-| cc 平均步数 | 16.3 |
-| cc 平均观测 token | 29973 |
-| cc 平均用时 | 225s |
-| 执行轴 a11y 占比 | 52% （593/1148）|
+| 已跑题数 | **137** / 369 |
+| 我手工通过 | 118 / 137 |
+| cc 通过（严格：得分 = 1.0）| **119 / 136** |
+| cc 平均分（OSWorld 口径）| **0.889** |
+| cc 平均步数 | 16.2 |
+| cc 平均观测 token | 29457 |
+| cc 平均用时 | 223s |
+| 执行轴 a11y 占比 | 51% （593/1154）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 65 | 60 | 17.5 |
+| Bash 打开 | 68 | 63 | 17.2 |
 
 ## cc 未通过的题，成因分类
 
@@ -203,6 +203,9 @@
 | 132 | libreoffice_impress | Could you help me add slide transition "dissolve" to | ✅ | ✅ | 9 | 13012 | 111.6s |
 | 133 | libreoffice_impress | I am preparing a PPT in Libreoffice impress. The sli | ✅ | ✅ | 12 | 5134 | 124.9s |
 | 134 | libreoffice_impress | Enable auto-save every 3min for me, so that I don't  | ✅ | ✅ | 26 | 25400 | 296.6s |
+| 135 | libreoffice_impress | Do you have any suggestions on how to modify the fon | ✅ | ✅ | 15 | 3719 | 199.4s |
+| 136 | libreoffice_impress | I want to do something like the following on Page 3  | ✅ | ✅ | 18 | 5771 | 242.3s |
+| 137 | libreoffice_impress | Add "Page 1" into the content textbox on Slide 2. | ✅ | ✅ | 9 | 17497 | 97.5s |
 
 ## 每题的过程记录
 
@@ -1087,4 +1090,24 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 26 步一次通过。
+### 第 135 题 · 358aa0a7
+
+> Do you have any suggestions on how to modify the font for all text boxes in an Impress presentation? I want to standardize the font to 'Liberation Sans Narrow', but I don't want to manually select each individual text box.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 15 步一次通过。
+### 第 136 题 · a669ef01
+
+> I want to do something like the following on Page 3 of the current LibreOffice Impress file: make the "continuation of the sub topics" indented the same as "main idea" and "sub topics" without a bullet in front of it. Could you help me with it?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次（Skill/Workflow 等已禁用）
+- **我手工**（第 1 次，得分 1.0）：cc 18 步一次通过。这是收紧工具集（禁掉 Skill/Workflow 等）后的第一题。
+### 第 137 题 · 73c99fb9
+
+> Add "Page 1" into the content textbox on Slide 2.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：用 UNO 写的文件，判据 compare_pptx_files 判 0——可能又是文件结构差异，也可能是内容位置不对。
+- **cc**（第 2 次，得分 1.0）：cc 第二次
+- **我手工**（第 2 次，得分 1.0）：第二次 9 步通过。
 
