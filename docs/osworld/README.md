@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **103** / 369 |
-| 我手工通过 | 88 / 103 |
-| cc 通过 | **89 / 102** |
-| cc 平均步数 | 16.5 |
-| cc 平均观测 token | 35253 |
-| cc 平均用时 | 232s |
-| 执行轴 a11y 占比 | 51% （500/975）|
+| 已跑题数 | **109** / 369 |
+| 我手工通过 | 93 / 109 |
+| cc 通过 | **94 / 108** |
+| cc 平均步数 | 16.8 |
+| cc 平均观测 token | 33845 |
+| cc 平均用时 | 235s |
+| 执行轴 a11y 占比 | 51% （504/997）|
 
 ### 两种口径要分开看
 
@@ -38,7 +38,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 34 | 33 | 19.9 |
+| Bash 打开 | 40 | 38 | 20.2 |
 
 ## cc 未通过的题，成因分类
 
@@ -59,6 +59,7 @@
 | 65 | 未归类（可能是模型或链路） | Blue is my favorite color, so could you help m |
 | 66 | 未归类（可能是模型或链路） | Could you help me download the logo of the Uni |
 | 70 | 未归类（可能是模型或链路） | Please batch process all images on the desktop |
+| 108 | 未归类（可能是模型或链路） | Please calculate the ages of the employees acc |
 
 ## 逐题
 
@@ -167,6 +168,12 @@
 | 101 | libreoffice_calc | Calculate the total sales in an underneath row calle | ✅ | ✅ | 10 | 3243 | 153.3s |
 | 102 | libreoffice_calc | Work out the monthly total sales in a new row called | ✅ | ✅ | 30 | 7669 | 351.4s |
 | 103 | libreoffice_calc | Help me freeze the range A1:B1 on this sheet to keep | ✅ | ✅ | 40 | 5043 | 569.9s |
+| 104 | libreoffice_calc | Here are two tables recording the per-month costs in | ✅ | ✅ | 24 | 3500 | 339.1s |
+| 105 | libreoffice_calc | Apply matrix transposition to the table in B2:F5 and | ✅ | ✅ | 28 | 5644 | 384.7s |
+| 106 | libreoffice_calc | Rename "Sheet 1" to "LARS Resources". Then make a co | ✅ | ✅ | 26 | 5086 | 327.1s |
+| 107 | libreoffice_calc | Create a new sheet named "Sheet2" and merge cells A1 | ✅ | ✅ | 8 | 2468 | 52.8s |
+| 108 | libreoffice_calc | Please calculate the ages of the employees according | ✗ 0.0 | ✗ 0.0 | 22 | 7997 | 238.3s |
+| 109 | libreoffice_calc | Fill all the blank cells in B1:E30 with the value in | ✅ | ✅ | 14 | 10978 | 264.7s |
 
 ## 每题的过程记录
 
@@ -522,6 +529,7 @@
 - **我手工**（第 1 次，得分 0.0）：cc 31 步、零报错，但路子选错了：判据要的是 sessionrc 里 hide-docks: yes（对应 Windows → Hide Docks，快捷键 Tab），它却把四个停靠对话框一个个关掉，最后卡在删不掉的工具箱条上。链路没有误导它——Windows 菜单现在会报出"21 items not listed，点开就看得见"，Hide Docks 就在里面。
 - **cc**（第 2 次，得分 1.0）：cc 第二次
 - **我手工**（第 2 次，得分 1.0）：第二次 6 步通过，走的正是 Windows → Hide Docks。同一道题从 31 步失败变成 6 步通过——菜单隐藏项那条修复的直接效果。
+- **我手工**（第 3 次，得分 1.0）：**更正此前的结论。** 我曾写"第二次 6 步通过是菜单修复的直接效果"——错的。两次跑测都在 23:00–23:05，而菜单修复虽在 22:21 提交，**二进制自 8-1 20:36 起就没重建过**，那个修复根本不在 cc 跑的程序里。31 步失败 → 6 步通过是同一份代码两次运行的差异。已加构建陈旧检查防止再犯。
 ### 第 52 题 · 2a729ded
 
 > Could you make the background of this image transparent for me?
@@ -839,4 +847,43 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 40 步一次通过。
+### 第 104 题 · 347ef137
+
+> Here are two tables recording the per-month costs in 2019 and 2020. I want to create two column bar charts reflecting per-month total costs for each year from these data. Help me, Mr. Assistant!
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 24 步一次通过。
+### 第 105 题 · eb03d19a
+
+> Apply matrix transposition to the table in B2:F5 and paste the transposed table at B8 (i.e., the top-left cell of the transposed table should be at B8)
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 28 步一次通过。
+### 第 106 题 · 0cecd4f3
+
+> Rename "Sheet 1" to "LARS Resources". Then make a copy of it. Place the copy before "Sheet 2" and rename it by appending a suffix "(Backup)", concatenated by a white space. And Also rename "Sheet2" to "LARS Resources (Offline)".
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 26 步一次通过。
+### 第 107 题 · 1d17d234
+
+> Create a new sheet named "Sheet2" and merge cells A1:C1 to write the header "Investment Summary". Beneath that, merge cells A2:B2 to write "High Interest Rate" and merge cells C2:D2 to form "Low Interest Rate".
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 8 步一次通过。
+### 第 108 题 · 4e6fcf72
+
+> Please calculate the ages of the employees according to their birthday. Finish the work and don't touch irrelevant regions, even if they are blank.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：这一题挖出两个真 bug：(1) render_visible_cells 少传 indexer，**LibreOffice Calc 表格的渲染路径一走就崩**（NameError），轨迹里 get_app_state 连着两次报这个错，agent 只好整题改用 Bash；(2) LibreOffice 被 pkill 后再起会弹文档恢复对话框，树里第一屏全是恢复列表。两个都已修，修后同一张表渲染出 60 个单元格。
+- **cc**（第 2 次，得分 0.0）：cc 第二次（Calc 渲染崩溃已修）
+- **cc**（第 3 次，得分 0.0）：cc 第三次（首次真正带着 Calc 渲染修复跑）
+- **我手工**（第 3 次，得分 0.0）：**这道题的标准答案文件过期了，cc 算的是对的。** 同一个人（生于 1969-03-26）：gold 文件写 54 岁，今天算是 57 岁——那份 gold 生成于 2023 年，而题目要求"按生日计算年龄"，答案必然随时间变化。判据 compare_table 逐格比对，于是永远判 0。这是题目数据的问题，不是模型也不是链路。另外这一次 MCP 真的被用上了：增量 diff 触发 10 次，Bash 只剩 5 步（前两次分别是 14 和 19 步 Bash）——因为这是修复后第一次带着新二进制跑。
+### 第 109 题 · 01b269ae
+
+> Fill all the blank cells in B1:E30 with the value in the cell above it. Finish the work and don't touch irrelevant regions, even if they are blank.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 14 步一次通过。这是二进制修好后跑的题。
 
