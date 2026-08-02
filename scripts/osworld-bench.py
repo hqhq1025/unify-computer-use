@@ -61,6 +61,23 @@ SERVER_NAME = "ocu"
 DISALLOWED_BASE = [
     "Read", "Write", "Edit", "NotebookEdit", "Glob", "Grep",
     "WebFetch", "WebSearch", "Task", "TodoWrite", "KillShell", "BashOutput",
+    # 下面这一批是**后来才发现漏掉的**。
+    #
+    # 从轨迹的 init 事件里读出来才知道：agent 手上有 28 个工具，
+    # 除了 13 个 ocu 和 Bash，还有 Skill / Workflow / TaskCreate…/Cron…/
+    # SendMessage / EnterWorktree / ScheduleWakeup / ReportFindings。
+    # 我的禁用列表写的是老一批工具名，这些新的从来没进过列表。
+    #
+    # Workflow 能派生子 agent，Skill 能加载 deep-research / code-review
+    # 这类完整流程——那就不是"一个 agent 用 MCP 操作桌面"了。
+    #
+    # 实测扫过全部 137 条轨迹、2203 次调用，这些**一次都没被用过**，
+    # 所以已有数据没被污染。但"它没用"和"它不能用"是两回事：
+    # 换台机器、换个用户配置，跑出来的可能就是另一回事，而这种差异不报错。
+    "Skill", "Workflow", "SendMessage", "ReportFindings",
+    "TaskCreate", "TaskGet", "TaskList", "TaskUpdate",
+    "CronCreate", "CronDelete", "CronList",
+    "EnterWorktree", "ExitWorktree", "ScheduleWakeup",
 ]
 
 
@@ -350,6 +367,13 @@ def cmd_agent(args):
     register_mcp(args.binary, workdir)
     transcript = "/tmp/osworld-agent-{}.jsonl".format(task_id[:8])
     trace = "/tmp/osworld-trace-{}.jsonl".format(task_id[:8])
+    # 这里**试过**用 CLAUDE_CONFIG_DIR 指向一个空目录来隔离用户级配置，
+    # 实测两头落空，已放弃：
+    #   1. skills 照样被加载（init 事件里那 14 个一个不少），它们不在这个目录下；
+    #   2. MCP 反而没了——`claude mcp add` 写的是默认配置，
+    #      而 agent 读的是空目录，ocu 工具数直接变成 0，那一趟跑测全废。
+    # 真正起作用的是把 Skill / Workflow 等**工具**禁掉：技能仍然列在 init 里，
+    # 但没有任何工具能调用它们。见 DISALLOWED_BASE。
     environ = dict(os.environ, OPEN_COMPUTER_USE_TRACE_FILE=trace)
 
     # Bash 默认开着，--no-bash 可以退回"纯链路"口径。见 DISALLOWED_BASE。
