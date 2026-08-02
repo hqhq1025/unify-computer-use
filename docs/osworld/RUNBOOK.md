@@ -177,11 +177,22 @@ python3 scripts/osworld-bench.py deploy 42
 # 2) 等桌面稳定（Chrome 起来、页面加载完）
 sleep 12
 
-# 3) 让 cc 做
-python3 scripts/osworld-bench.py agent 42 --budget 6 --attempt 1 --note "cc 第一次"
+# 3) 让 cc 做。**--skip-config 是必须的**，因为上面已经 deploy 过了
+python3 scripts/osworld-bench.py agent 42 --skip-config --budget 6 --attempt 1 --note "cc 第一次"
 #    输出：步数 / 观测 token / 用时 / 得分 / 判据明细
 #    结果自动追加进 results.jsonl，轨迹自动归档
 ```
+
+**`--skip-config` 漏了会怎样**（实测，第 117 题）：`agent` 默认会把 config
+再跑一遍。对大多数题这是幂等的，看不出问题；但对 LibreOffice 是致命的——
+deploy 已经把文件复制好并用 soffice 打开了，agent 又**覆盖了同一个文件**，
+于是 LibreOffice 弹出 "Document Has Been Changed by Others"。
+
+这个对话框不会打断 agent（它在另一个窗口里），却会**挡住判分时的 Ctrl+S**，
+于是 agent 做对的改动根本没落盘，判据读到的还是原始文件。第 117 题就是这样：
+cc 正确地把缩放从 260% 改成 100%，而判据读出来的仍是 260。
+
+排查这类问题时先看一眼 `wmctrl -l`：桌面上多出来的对话框往往就是答案。
 
 不过就重来，**同一题最多三次**，三次不过转下一题。
 

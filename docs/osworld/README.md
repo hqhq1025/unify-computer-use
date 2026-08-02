@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **115** / 369 |
-| 我手工通过 | 98 / 115 |
-| cc 通过 | **99 / 114** |
-| cc 平均步数 | 17.4 |
-| cc 平均观测 token | 33642 |
-| cc 平均用时 | 244s |
-| 执行轴 a11y 占比 | 51% （535/1058）|
+| 已跑题数 | **117** / 369 |
+| 我手工通过 | 100 / 117 |
+| cc 通过 | **101 / 116** |
+| cc 平均步数 | 17.2 |
+| cc 平均观测 token | 33313 |
+| cc 平均用时 | 242s |
+| 执行轴 a11y 占比 | 51% （542/1069）|
 
 ### 两种口径要分开看
 
@@ -38,7 +38,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 46 | 43 | 21.1 |
+| Bash 打开 | 48 | 45 | 20.6 |
 
 ## cc 未通过的题，成因分类
 
@@ -181,6 +181,8 @@
 | 113 | libreoffice_calc | Reorder the columns to be "Date", "First Name", "Las | ✅ | ✅ | 24 | 81421 | 361.0s |
 | 114 | libreoffice_calc | I have compute the acceleration in row 2 and I want  | ✅ | ✅ | 15 | 6698 | 167.3s |
 | 115 | libreoffice_calc | Please create a new sheet. Keep its sheet name as "S | ✗ 0.0 | ✗ 0.0 | 32 | 49529 | 535.0s |
+| 116 | libreoffice_calc | I want to work out the maturity date for all the loa | ✅ | ✅ | 24 | 21254 | 317.5s |
+| 117 | libreoffice_calc | The cells are so big that I can not click on the cel | ✅ | ✅ | 4 | 16777 | 44.3s |
 
 ## 每题的过程记录
 
@@ -935,4 +937,18 @@
 - **我手工**（第 2 次，得分 0.0）：和标准比对，差的是两处**题面没说清楚**的地方：(1) 标准的表头是 "Count - Sex"（LibreOffice 数据透视表的默认列名），cc 写的是 "Percentage"；(2) 标准每张表末尾有一行 "Total Result"，cc 没有。数值本身（0.425 / 0.575 / 0.275）完全一致。也就是说它算对了，但没复现出"用 LibreOffice 透视表功能做"所留下的那些默认痕迹。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：第三次仍未过。三次都卡在同一处：数值算对了，但没复现 LibreOffice 透视表的默认痕迹（Count - Sex 表头、Total Result 汇总行），而题面里没有任何一句要求这两样。转下一题。
+### 第 116 题 · 4172ea6e
+
+> I want to work out the maturity date for all the loans. Please do it for me in a new column with header "Maturity Date".
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 24 步一次通过。
+### 第 117 题 · 1334ca3e
+
+> The cells are so big that I can not click on the cell I want, zoom out a little bit.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：**这次失败是我跑测方式的问题，不是 cc 也不是链路。** cc 做对了（4 步、零 Bash，View → Zoom → 100%），但判据读到的缩放仍是 260。根因：我的标准跑法是 deploy 之后再 agent，而 agent 默认**会把 config 再跑一遍**——deploy 已经复制并打开了文件，agent 又覆盖同一个文件，LibreOffice 于是弹出 "Document Has Been Changed by Others"，挡住了 postconfig 的 Ctrl+S，改动没落盘。已在手册里写清楚 --skip-config 是必须的。另外：这一题是 include_screenshot 第一次被模型用上——三次 click 全传了 false，它自己判断"连点三级菜单不用看图"。
+- **cc**（第 2 次，得分 1.0）：cc 第二次（修正跑法：--skip-config）
+- **我手工**（第 2 次，得分 1.0）：加 --skip-config 后一次通过。**同样 4 步、同样的操作**（View → Zoom → 100%），差别只在于这次没有第二次 config 覆盖文件、没有弹出 "Document Has Been Changed by Others"，Ctrl+S 因此真的存下去了。
 
