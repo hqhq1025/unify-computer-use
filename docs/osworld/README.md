@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **173** / 369 |
-| 我手工通过 | 148 / 173 |
-| cc 通过（严格：得分 = 1.0）| **148 / 171** |
-| cc 平均分（OSWorld 口径）| **0.882** |
-| cc 平均步数 | 17.8 |
-| cc 平均观测 token | 27801 |
-| cc 平均用时 | 245s |
-| 执行轴 a11y 占比 | 44% （689/1557）|
+| 已跑题数 | **175** / 369 |
+| 我手工通过 | 149 / 175 |
+| cc 通过（严格：得分 = 1.0）| **149 / 173** |
+| cc 平均分（OSWorld 口径）| **0.878** |
+| cc 平均步数 | 18.0 |
+| cc 平均观测 token | 27777 |
+| cc 平均用时 | 249s |
+| 执行轴 a11y 占比 | 44% （704/1615）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 103 | 92 | 19.5 |
+| Bash 打开 | 105 | 93 | 19.9 |
 
 ## cc 未通过的题，成因分类
 
@@ -70,6 +70,7 @@
 | 156 | 未归类（可能是模型或链路） | Set the background color to yellow for any sli |
 | 166 | 未归类（可能是模型或链路） | Change the text color in the textboxes to on s |
 | 173 | 未归类（可能是模型或链路） | Export the current document into PDF, keep the |
+| 174 | 未归类（可能是模型或链路） | Could you help me insert a 7(columns)*5(rows)  |
 
 ## 逐题
 
@@ -248,6 +249,8 @@
 | 171 | libreoffice_writer | Change the font to "Times New Roman" throughout the  | ✅ | ✅ | 30 | 41330 | 391.0s |
 | 172 | libreoffice_writer | Help me center align the heading in LibreOffice. | ✅ | ✅ | 8 | 11419 | 83.0s |
 | 173 | libreoffice_writer | Export the current document into PDF, keep the file  | ✗ 1.0 | ✗ 1.0 | 5 | 9108 | 44.1s |
+| 174 | libreoffice_writer | Could you help me insert a 7(columns)*5(rows) empty  | ✗ 0.0 | ✗ 0.0 | 17 | 22968 | 164.8s |
+| 175 | libreoffice_writer | I have been editing my document and some words that  | ✅ | ✅ | 70 | 36586 | 1186.3s |
 
 ## 每题的过程记录
 
@@ -1395,4 +1398,20 @@
 - **我手工**（第 2 次，得分 0.998）：第二次同分 0.9977。
 - **cc**（第 3 次，得分 0.9977414640627076）：cc 第三次
 - **我手工**（第 3 次，得分 0.998）：三次同分 0.9977。按严格口径未过，按 OSWorld 官方口径贡献 0.998。转下一题。
+### 第 174 题 · 66399b0d
+
+> Could you help me insert a 7(columns)*5(rows) empty table at the point of cursor?
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 17 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次 18 步仍未过。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过（docx 表格比对）。转下一题。
+### 第 175 题 · 6a33f9b9
+
+> I have been editing my document and some words that needed to be rewritten are highlighted in yellow. As I fixed those words, please help me remove all highlight. I want to make sure that there is no highlight word.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 70 步 / 1186s 一次通过。
 
