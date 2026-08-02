@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **93** / 369 |
-| 我手工通过 | 78 / 93 |
-| cc 通过 | **79 / 92** |
-| cc 平均步数 | 16.3 |
-| cc 平均观测 token | 37975 |
+| 已跑题数 | **99** / 369 |
+| 我手工通过 | 84 / 99 |
+| cc 通过 | **85 / 98** |
+| cc 平均步数 | 16.2 |
+| cc 平均观测 token | 36237 |
 | cc 平均用时 | 228s |
-| 执行轴 a11y 占比 | 51% （495/969）|
+| 执行轴 a11y 占比 | 51% （499/973）|
 
 ### 两种口径要分开看
 
@@ -38,7 +38,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 24 | 23 | 20.4 |
+| Bash 打开 | 30 | 29 | 19.1 |
 
 ## cc 未通过的题，成因分类
 
@@ -157,6 +157,12 @@
 | 91 | libreoffice_calc | According to the scale table shown above, calculate  | ✅ | ✅ | 13 | 2924 | 239.7s |
 | 92 | libreoffice_calc | Help me fill in the Gross profit column by subtracti | ✅ | ✅ | 11 | 3057 | 218.9s |
 | 93 | libreoffice_calc | Fill the Sequence Numbers as "No. #" in the "Seq No. | ✅ | ✅ | 18 | 5921 | 277.7s |
+| 94 | libreoffice_calc | Summarize the total revenue for each promotion type  | ✅ | ✅ | 18 | 4161 | 360.6s |
+| 95 | libreoffice_calc | I'm working on a project and need to resize cells in | ✅ | ✅ | 10 | 4711 | 106.5s |
+| 96 | libreoffice_calc | Could you help me to sort the records accoring to th | ✅ | ✅ | 16 | 4307 | 322.3s |
+| 97 | libreoffice_calc | Add a new column named "Profit" right next to the 'C | ✅ | ✅ | 10 | 2627 | 85.1s |
+| 98 | libreoffice_calc | In the column "Pass/Fail/Held", one from the texts " | ✅ | ✅ | 14 | 4780 | 232.0s |
+| 99 | libreoffice_calc | Given a partial calendar, please highlight all the w | ✅ | ✅ | 16 | 5662 | 268.5s |
 
 ## 每题的过程记录
 
@@ -769,4 +775,40 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 18 步一次通过。
+### 第 94 题 · 1de60575
+
+> Summarize the total revenue for each promotion type in a new sheet (Sheet2) with the promotion names as the column headers using the Pivot Table feature.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 18 步一次通过。
+### 第 95 题 · aa3a8974
+
+> I'm working on a project and need to resize cells in a spreadsheet to fit onto one page and export to PDF for efficient presentation. Could you help me on this? Keep the name of PDF the same as the spreadsheet and place it under my home directory.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 10 步一次通过（两个 PDF 判据全中）。
+### 第 96 题 · 51b11269
+
+> Could you help me to sort the records accoring to the amounts ascendingly?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 16 步一次通过。
+### 第 97 题 · 1e8df695
+
+> Add a new column named "Profit" right next to the 'CGOS' column and calculate the profit for each week by subtracting "COGS" from "Sales" in that column.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 10 步一次通过。
+### 第 98 题 · ecb0df7a
+
+> In the column "Pass/Fail/Held", one from the texts "Pass", "Fail", and "Held" should be filled. For convinience, enable data validation for the cells in this column so that the texts to fill can be directly selected from a drop down list. Finish the work and don't touch irrelevant regions, even if they are blank.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 14 步一次通过。
+### 第 99 题 · 8b1ce5f2
+
+> Given a partial calendar, please highlight all the weekends (Satureday & Sunday) by setting the cell background as red (#ff0000). Finish the work and don't touch irrelevant regions, even if they are blank.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 16 步一次通过。
 
