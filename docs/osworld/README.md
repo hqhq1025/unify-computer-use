@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **180** / 369 |
-| 我手工通过 | 153 / 180 |
-| cc 通过（严格：得分 = 1.0）| **153 / 178** |
-| cc 平均分（OSWorld 口径）| **0.875** |
-| cc 平均步数 | 18.4 |
-| cc 平均观测 token | 27635 |
-| cc 平均用时 | 252s |
-| 执行轴 a11y 占比 | 43% （712/1655）|
+| 已跑题数 | **183** / 369 |
+| 我手工通过 | 156 / 183 |
+| cc 通过（严格：得分 = 1.0）| **156 / 181** |
+| cc 平均分（OSWorld 口径）| **0.878** |
+| cc 平均步数 | 18.6 |
+| cc 平均观测 token | 27799 |
+| cc 平均用时 | 255s |
+| 执行轴 a11y 占比 | 43% （730/1713）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 110 | 97 | 20.3 |
+| Bash 打开 | 113 | 100 | 20.7 |
 
 ## cc 未通过的题，成因分类
 
@@ -257,6 +257,9 @@
 | 178 | libreoffice_writer | I am peer-reviewing my friend's course outline. I th | ✅ | ✅ | 43 | 23018 | 496.3s |
 | 179 | libreoffice_writer | I am writing a word list for a dyslexic kid. To ease | ✅ | ✅ | 16 | 18397 | 192.4s |
 | 180 | libreoffice_writer | I am making a guideline for students of my course an | ✗ 0.0 | ✗ 0.0 | 37 | 29557 | 561.5s |
+| 181 | libreoffice_writer | Could you help me convert the text seperated by comm | ✅ | ✅ | 54 | 48869 | 761.9s |
+| 182 | libreoffice_writer | Help me adding "Steinberg, F. M., Bearden, M. M., &  | ✅ | ✅ | 42 | 32064 | 499.3s |
+| 183 | libreoffice_writer | I have been practicing professional writing lately.  | ✅ | ✅ | 17 | 39713 | 218.9s |
 
 ## 每题的过程记录
 
@@ -1454,4 +1457,22 @@
 - **我手工**（第 2 次，得分 0.0）：第二次 36 步仍未过。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 181 题 · 936321ce
+
+> Could you help me convert the text seperated by commas to a table?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 54 步一次通过。
+### 第 182 题 · adf5e2c3
+
+> Help me adding "Steinberg, F. M., Bearden, M. M., & Keen, C. L. (2003). Cocoa and chocolate flavonoids: Implications for cardiovascular health. Journal of the American Dietetic Association, 103(2), 215-223. doi: 10.1053/jada.2003.50028" to my reference list, and add a cross reference (using reference number) in the fourth paragraph where I marked "<add here>".
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 42 步一次通过。
+### 第 183 题 · b21acd93
+
+> I have been practicing professional writing lately. Now I am writing essay which requires one paragraph each for introduction, body and conclusion with single-space for introduction, double-space for body then one-and-a-half-space for conclusion. The font size of this essay is 12. Could you help me on this?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 17 步一次通过。
 
