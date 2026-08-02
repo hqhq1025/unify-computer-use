@@ -218,11 +218,9 @@ claude -p "<题目原文>"
   --permission-mode bypassPermissions
   --output-format stream-json --verbose
   --max-budget-usd <budget>
-  --disallowedTools Bash Read Write Edit NotebookEdit Glob Grep
+  --disallowedTools Read Write Edit NotebookEdit Glob Grep
                     WebFetch WebSearch Task TodoWrite KillShell BashOutput
 ```
-
-三条设计要点，每条都有代价换来的理由：
 
 **① 系统提示逐字照抄 OSWorld 官方，一个字都不多加。**
 官方 `mm_agents/prompts.py` 第一句就是那句话。我们最初只喂原始指令，
@@ -231,12 +229,53 @@ claude -p "<题目原文>"
 后来我一度又补了一句 "Actually operate the computer…"，**已收回**：
 那超出了官方措辞，等于给自己的实现开小灶，测出来的数就不能和别人比了。
 
-**② 内置工具全部禁用。**
-不禁的话 cc 会直接用 Bash/Write 去改文件、用 WebFetch 去抓网页，
-绕开整个 GUI——那测的就不是这条链路了。
+**② Bash 是开的，其余内置工具禁用。**
+Bash 原来也在禁用列表里，理由是"不禁的话 agent 会绕开 GUI 直接改文件"。
+这个理由站得住，但它测的也不是真实的 Claude Code——真实用户的 Bash 一直开着。
+而且轨迹证明禁不住：Bash 关闭期间有 2 条轨迹，模型自己通过 GUI 打开 GNOME 终端、
+往里 type_text 打 Python 代码，把终端当成一个图形应用来用。
+
+跑纯链路口径时加 `--no-bash`。
 
 **③ 工作目录是空的临时目录。**
 避免它读到仓库里的任何东西。
+
+### 4.1 开不开 Bash，测的是两件不同的事
+
+实测（截至第 134 题）：
+
+| 阶段 | 轨迹 | 总步数 | Bash | MCP |
+|---|---|---|---|---|
+| 第 1–69 题（Bash 关） | 66 | 997 | 0（0%） | 997（**100%**） |
+| 第 70–107 题（Bash 开） | 38 | 764 | 503（**66%**） | 261（34%） |
+| 第 108 题起（Bash 开） | 27 | 416 | 198（48%） | 218（52%） |
+
+Bash 一开，`click` 从 380 次崩到 45 次。典型做法是写脚本绕开桌面——
+第 70 题用 `gimp-2.10 -n -i -d --batch-interpreter=plug-in-script-fu-eval`
+跑 headless 批处理，第 76 题写 LibreOffice Basic 宏 + xdotool 驱动 Basic IDE。
+
+**所以两种口径的通过率不能合成一个数字报。** `osworld-report.py` 会按
+`results.jsonl` 里的 `bash` 字段分开统计。
+
+第三行的 Bash 占比回落到 48%，与"修好陈旧二进制"同时发生——但**题目也换了**
+（70–107 是 os + calc，表格题天生适合 shell；108 之后混进 impress，
+幻灯片格式操作 shell 不好写）。两个变量一起变了，分不开，
+所以这里只陈述数字，不下因果结论。
+
+### 4.2 绕开 GUI 会产生一类新的失败
+
+第 119 题给出的对照最干净：
+
+  前两次 cc 用 Bash + openpyxl 直接写 xlsx → 文件里只有 6 行带显式字体色
+        → 官方 compare_table 逐格比字体色，碰到一边 None 一边是对象，
+          抛 `AttributeError: 'NoneType' object has no attribute 'rgb'`
+  第三次 cc 改用 UNO 让 LibreOffice 自己写 → 29 行全有显式字体色 → 1.0
+
+三次的语义都对。差别只在于**文件是谁写的**：LibreOffice 给每个单元格写显式样式，
+openpyxl 不写，而官方判据假定的是前者。
+
+也就是说开 Bash 之后既有"通过率虚高"（绕开 GUI 做完），
+也有"通过率虚低"（正确答案因文件结构不对而拿 0）。
 
 ---
 
