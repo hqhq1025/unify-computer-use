@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **175** / 369 |
-| 我手工通过 | 149 / 175 |
-| cc 通过（严格：得分 = 1.0）| **149 / 173** |
-| cc 平均分（OSWorld 口径）| **0.878** |
-| cc 平均步数 | 18.0 |
-| cc 平均观测 token | 27777 |
+| 已跑题数 | **179** / 369 |
+| 我手工通过 | 153 / 179 |
+| cc 通过（严格：得分 = 1.0）| **153 / 177** |
+| cc 平均分（OSWorld 口径）| **0.880** |
+| cc 平均步数 | 18.1 |
+| cc 平均观测 token | 27648 |
 | cc 平均用时 | 249s |
-| 执行轴 a11y 占比 | 44% （704/1615）|
+| 执行轴 a11y 占比 | 43% （709/1636）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 105 | 93 | 19.9 |
+| Bash 打开 | 109 | 97 | 20.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -251,6 +251,10 @@
 | 173 | libreoffice_writer | Export the current document into PDF, keep the file  | ✗ 1.0 | ✗ 1.0 | 5 | 9108 | 44.1s |
 | 174 | libreoffice_writer | Could you help me insert a 7(columns)*5(rows) empty  | ✗ 0.0 | ✗ 0.0 | 17 | 22968 | 164.8s |
 | 175 | libreoffice_writer | I have been editing my document and some words that  | ✅ | ✅ | 70 | 36586 | 1186.3s |
+| 176 | libreoffice_writer | Copy the screenshot 1.png from the desktop to where  | ✅ | ✅ | 9 | 15190 | 96.4s |
+| 177 | libreoffice_writer | A certain railway company in Hong Kong uses a signal | ✅ | ✅ | 29 | 25523 | 311.5s |
+| 178 | libreoffice_writer | I am peer-reviewing my friend's course outline. I th | ✅ | ✅ | 43 | 23018 | 496.3s |
+| 179 | libreoffice_writer | I am writing a word list for a dyslexic kid. To ease | ✅ | ✅ | 16 | 18397 | 192.4s |
 
 ## 每题的过程记录
 
@@ -1414,4 +1418,28 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 70 步 / 1186s 一次通过。
+### 第 176 题 · 6ada715d
+
+> Copy the screenshot 1.png from the desktop to where my cursor is located
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 9 步一次通过。
+### 第 177 题 · 6f81754e
+
+> A certain railway company in Hong Kong uses a signaling system to keep track of trains in its railway system. Each line in the docx file represents a train calling at a station from 0600 to 1200 on 2022-09-22, and has the following format: time_HH:MM:SS, train_id, station_id, platform_no.. I want to remove duplicated train ids in order to know how many different trains are running from 0600 to 1200. Could you help me on this? I am doing it manually and it is very inefficient.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 29 步一次通过。
+### 第 178 题 · 72b810ef
+
+> I am peer-reviewing my friend's course outline. I think the last paragraph is redundant so I want to add strike-through on words in the last paragraph. Can you do this for me?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 43 步一次通过。
+### 第 179 题 · 8472fece
+
+> I am writing a word list for a dyslexic kid. To ease things for him, I want to use red for words start with vowels and blue for those start with non-vowels. Can you do this for me? I'm doing it manually, and it is a pain.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 16 步一次通过。
 
