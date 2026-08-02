@@ -20,6 +20,7 @@ server 通信取文件、跑命令。我们没有那一层——MCP 直接驱动
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -385,6 +386,56 @@ def _chrome_close_tabs(urls):
 
 
 CHROME_PROFILE = os.path.expanduser("~/.config/google-chrome/Default")
+
+
+def clean_libreoffice_session(log=print):
+    """把 LibreOffice 的崩溃恢复状态清掉。
+
+    和 clean_gimp_session 同一条纪律，触发它的证据同样是实测：pkill 掉 soffice
+    之后再起，LibreOffice 会弹"文档恢复"对话框，树里第一屏全是
+    `table cell "Not recovered yet"` 之类的恢复列表——而题目要的那张表根本
+    还没打开。agent 面对的是一个和题面对不上的桌面。
+
+    libreoffice 三段加起来 117 道题（calc 47 / impress 47 / writer 23），
+    不清就是给它们全埋雷。
+
+    恢复列表存在 registrymodifications.xcu 里的 RecoveryList 节点。
+    直接删整个 user 目录太粗暴（会连带把题目 config 设的偏好一起清掉），
+    所以只摘掉恢复相关的条目。
+    """
+    for name in ("soffice.bin", "soffice", "oosplash"):
+        subprocess.run(["pkill", "-x", name], capture_output=True)
+    time.sleep(2)
+    path = os.path.expanduser(
+        "~/.config/libreoffice/4/user/registrymodifications.xcu")
+    if not os.path.exists(path):
+        log("LibreOffice 没有配置文件，无需清理")
+        return
+    try:
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError as error:
+        log("LibreOffice 配置读不出来，跳过清理：{}".format(error))
+        return
+    # RecoveryList 是一个 <item oor:path="/org.openoffice.Office.Recovery..."> 段。
+    cleaned = re.sub(
+        r'<item oor:path="/org\.openoffice\.Office\.Recovery[^"]*">.*?</item>',
+        "", text, flags=re.S)
+    if cleaned == text:
+        log("LibreOffice 没有待恢复的文档")
+        return
+    try:
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(cleaned)
+        log("LibreOffice 恢复列表已清空")
+    except OSError as error:
+        log("LibreOffice 配置写不回去，跳过：{}".format(error))
+
+
+def _touches_libreoffice(task):
+    blob = json.dumps(task.get("config") or [], ensure_ascii=False).lower()
+    return ("soffice" in blob or "libreoffice" in blob
+            or any(a.startswith("libreoffice") for a in (task.get("related_apps") or [])))
 
 
 def clean_gimp_session(log=print):

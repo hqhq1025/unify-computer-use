@@ -150,6 +150,10 @@ def cmd_deploy(args):
     # 见第 47 题轨迹。
     if local._touches_gimp(task):
         local.clean_gimp_session()
+    # LibreOffice 同理：pkill 之后再起会弹"文档恢复"对话框，树里第一屏全是
+    # 恢复列表，而题目要的那张表还没打开。libreoffice 三段共 117 道题。
+    if local._touches_libreoffice(task):
+        local.clean_libreoffice_session()
     ready, skipped = local.apply_config(task)
     if skipped:
         print("\n⚠️ 以下 config 步骤没有执行: {}".format(", ".join(skipped)))

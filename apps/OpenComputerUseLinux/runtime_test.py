@@ -2686,3 +2686,34 @@ class AppNotFoundListsWindowsTests(AtspiPatchedTestCase):
         # 光有 "gimp" 不够——要能看出那个对话框归它管。
         self.assertIn("gimp", message)
         self.assertIn("Export Image as JPEG", message)
+
+
+class VisibleCellsIndexerTests(AtspiPatchedTestCase):
+    """render_visible_cells 必须拿到 indexer——漏传时它整条路径都会崩。
+
+    出处是第 108 题（LibreOffice Calc 算年龄）的真实轨迹：get_app_state
+    连着两次返回 `name 'indexer' is not defined`，agent 只好整题改用 Bash。
+
+    根因是作用域：render_visible_cells 是**模块级函数**，看不到 render_tree
+    的局部变量 indexer，而它函数体里直接用了这个名字。Python 直到真正执行到
+    那一行才报 NameError，所以静态上毫无征兆——而那一行正是 LibreOffice Calc
+    表格的渲染路径（自管理容器拒绝枚举后的替代路径）。
+    """
+
+    def test_signature_accepts_indexer(self):
+        import inspect
+        params = inspect.signature(runtime.render_visible_cells).parameters
+        self.assertIn("indexer", params,
+                      "render_visible_cells 必须显式接收 indexer，"
+                      "否则函数体里那个自由名字会在运行时炸")
+
+    def test_call_site_passes_indexer(self):
+        # 光有参数不够：调用点漏传的话，默认值 None 会让单元格退回遍历序号，
+        # 下标就不再跨快照稳定了——那是另一种更隐蔽的错。
+        import inspect
+        source = inspect.getsource(runtime.render_tree)
+        self.assertIn("render_visible_cells(", source)
+        call = source[source.index("render_visible_cells("):]
+        call = call[:call.index(")\n")]
+        self.assertIn("indexer=indexer", call,
+                      "render_tree 调用 render_visible_cells 时必须把 indexer 传下去")

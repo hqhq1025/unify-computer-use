@@ -1513,7 +1513,7 @@ def visible_cell_range(node):
 
 def render_visible_cells(
     node, depth, path, window_bounds, records, lines,
-    text_limit=DEFAULT_TEXT_LIMIT, max_tree_nodes=MAX_ELEMENTS,
+    text_limit=DEFAULT_TEXT_LIMIT, max_tree_nodes=MAX_ELEMENTS, indexer=None,
 ):
     """把自管理表格容器当前视口内的单元格渲染进树，返回渲染数量。
 
@@ -1762,6 +1762,14 @@ def render_tree(root, window_bounds, root_path, text_limit=DEFAULT_TEXT_LIMIT,
             rendered = render_visible_cells(
                 node, render_depth, path, window_bounds, records, lines,
                 text_limit=text_limit, max_tree_nodes=max_tree_nodes,
+                # **必须显式传进去。** 这个函数是模块级的，看不到 render_tree
+                # 的局部变量 indexer——漏传时它在函数体里是个自由名字，
+                # Python 直到真正执行到那一行才报 NameError。
+                # 于是这条路径一走就崩，而它正是 LibreOffice Calc 表格的渲染路径
+                # （自管理容器拒绝枚举后的替代路径）。
+                # 实测第 108 题：get_app_state 连着两次返回
+                # `name 'indexer' is not defined`，agent 只好整题改用 Bash。
+                indexer=indexer,
             )
             if rendered == 0:
                 # 寻址也失败时显式说明，避免模型以为这里本来就是空的。
