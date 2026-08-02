@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **156** / 369 |
-| 我手工通过 | 133 / 156 |
-| cc 通过（严格：得分 = 1.0）| **134 / 155** |
-| cc 平均分（OSWorld 口径）| **0.876** |
-| cc 平均步数 | 16.5 |
-| cc 平均观测 token | 27449 |
-| cc 平均用时 | 228s |
-| 执行轴 a11y 占比 | 49% （618/1273）|
+| 已跑题数 | **159** / 369 |
+| 我手工通过 | 136 / 159 |
+| cc 通过（严格：得分 = 1.0）| **137 / 158** |
+| cc 平均分（OSWorld 口径）| **0.879** |
+| cc 平均步数 | 16.8 |
+| cc 平均观测 token | 27554 |
+| cc 平均用时 | 231s |
+| 执行轴 a11y 占比 | 47% （630/1327）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 87 | 78 | 17.6 |
+| Bash 打开 | 90 | 81 | 18.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -229,6 +229,9 @@
 | 154 | libreoffice_impress | In the first slide, insert the title "Happy Family"  | ✅ | ✅ | 17 | 38973 | 212.3s |
 | 155 | libreoffice_impress | Navigate to slide 5 and set the font color of all te | ✅ | ✅ | 77 | 33406 | 1103.3s |
 | 156 | libreoffice_impress | Set the background color to yellow for any slide tha | ✗ 0.0 | ✗ 0.0 | 41 | 39940 | 536.9s |
+| 157 | libreoffice_impress | Set the font color of the title in slides 2 to 3 as  | ✅ | ✅ | 30 | 36733 | 431.1s |
+| 158 | libreoffice_impress | Change picture's height to 20, 30, 25cm on slide 3,  | ✅ | ✅ | 52 | 50252 | 740.2s |
+| 159 | libreoffice_impress | Change the first row of table to "T1","T2","T3","T4" | ✅ | ✅ | 24 | 16040 | 298.1s |
 
 ## 每题的过程记录
 
@@ -1263,4 +1266,22 @@
 - **我手工**（第 2 次，得分 0.0）：第二次 27 步仍未过。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 157 题 · a53f80cd
+
+> Set the font color of the title in slides 2 to 3 as black and bold the title. Also, delete the personal information (including the icons)in slide 4.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 30 步一次通过。
+### 第 158 题 · 7ae48c60
+
+> Change picture's height to 20, 30, 25cm on slide 3, 4, 6 respectively.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 52 步一次通过。
+### 第 159 题 · 5cfb9197
+
+> Change the first row of table to "T1","T2","T3","T4" on slide 4.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 24 步一次通过。
 
