@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **168** / 369 |
-| 我手工通过 | 144 / 168 |
-| cc 通过（严格：得分 = 1.0）| **144 / 166** |
-| cc 平均分（OSWorld 口径）| **0.879** |
-| cc 平均步数 | 18.0 |
-| cc 平均观测 token | 28292 |
-| cc 平均用时 | 249s |
-| 执行轴 a11y 占比 | 45% （673/1502）|
+| 已跑题数 | **173** / 369 |
+| 我手工通过 | 148 / 173 |
+| cc 通过（严格：得分 = 1.0）| **148 / 171** |
+| cc 平均分（OSWorld 口径）| **0.882** |
+| cc 平均步数 | 17.8 |
+| cc 平均观测 token | 27801 |
+| cc 平均用时 | 245s |
+| 执行轴 a11y 占比 | 44% （689/1557）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 98 | 88 | 20.0 |
+| Bash 打开 | 103 | 92 | 19.5 |
 
 ## cc 未通过的题，成因分类
 
@@ -69,6 +69,7 @@
 | 152 | 未归类（可能是模型或链路） | Add a bullet point to the content of this slid |
 | 156 | 未归类（可能是模型或链路） | Set the background color to yellow for any sli |
 | 166 | 未归类（可能是模型或链路） | Change the text color in the textboxes to on s |
+| 173 | 未归类（可能是模型或链路） | Export the current document into PDF, keep the |
 
 ## 逐题
 
@@ -242,6 +243,11 @@
 | 166 | libreoffice_impress | Change the text color in the textboxes to on slide 1 | ✗ 0.0 | ✗ 0.0 | 23 | 14516 | 328.4s |
 | 167 | libreoffice_writer | Make the line spacing of first two paragraph into do | ✅ | ✅ | 25 | 29462 | 257.9s |
 | 168 | libreoffice_writer | I would like to make the first three words of the se | ✅ | ✅ | 30 | 27877 | 392.2s |
+| 169 | libreoffice_writer | Help me change the 2 in "H2O" to a subscript. | ✅ | ✅ | 12 | 16127 | 145.5s |
+| 170 | libreoffice_writer | Add page number for every page at the bottom left | ✅ | ✅ | 25 | 15209 | 271.0s |
+| 171 | libreoffice_writer | Change the font to "Times New Roman" throughout the  | ✅ | ✅ | 30 | 41330 | 391.0s |
+| 172 | libreoffice_writer | Help me center align the heading in LibreOffice. | ✅ | ✅ | 8 | 11419 | 83.0s |
+| 173 | libreoffice_writer | Export the current document into PDF, keep the file  | ✗ 1.0 | ✗ 1.0 | 5 | 9108 | 44.1s |
 
 ## 每题的过程记录
 
@@ -1353,4 +1359,40 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 30 步一次通过。impress 段（47 题）跑完。
+### 第 169 题 · 0b17a146
+
+> Help me change the 2 in "H2O" to a subscript.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 12 步一次通过（writer 段第一题）。
+### 第 170 题 · 0e47de2a
+
+> Add page number for every page at the bottom left
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 25 步一次通过。
+### 第 171 题 · 0e763496
+
+> Change the font to "Times New Roman" throughout the text.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 30 步一次通过。
+### 第 172 题 · 3ef2b351
+
+> Help me center align the heading in LibreOffice.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 8 步一次通过。
+### 第 173 题 · 4bcb1253
+
+> Export the current document into PDF, keep the file name
+
+- **cc**（第 1 次，得分 0.9977414640627076）：cc 第一次
+- **我手工**（第 1 次，得分 0.998）：第一个子判据 compare_pdfs 给 0.9977（连续值），另外三个 0。
+- **cc**（第 2 次，得分 0.9977414640627076）：cc 第二次
+- **我手工**（第 1 次，得分 0.998）：cc 5 步，compare_pdfs 给 0.9977（连续值判据，四个子判据里第一个几乎满分、其余 0）。
+- **cc**（第 2 次，得分 0.9977414640627076）：cc 第二次
+- **我手工**（第 2 次，得分 0.998）：第二次同分 0.9977。
+- **cc**（第 3 次，得分 0.9977414640627076）：cc 第三次
+- **我手工**（第 3 次，得分 0.998）：三次同分 0.9977。按严格口径未过，按 OSWorld 官方口径贡献 0.998。转下一题。
 
