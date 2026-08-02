@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **179** / 369 |
-| 我手工通过 | 153 / 179 |
-| cc 通过（严格：得分 = 1.0）| **153 / 177** |
-| cc 平均分（OSWorld 口径）| **0.880** |
-| cc 平均步数 | 18.1 |
-| cc 平均观测 token | 27648 |
-| cc 平均用时 | 249s |
-| 执行轴 a11y 占比 | 43% （709/1636）|
+| 已跑题数 | **180** / 369 |
+| 我手工通过 | 153 / 180 |
+| cc 通过（严格：得分 = 1.0）| **153 / 178** |
+| cc 平均分（OSWorld 口径）| **0.875** |
+| cc 平均步数 | 18.4 |
+| cc 平均观测 token | 27635 |
+| cc 平均用时 | 252s |
+| 执行轴 a11y 占比 | 43% （712/1655）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 109 | 97 | 20.0 |
+| Bash 打开 | 110 | 97 | 20.3 |
 
 ## cc 未通过的题，成因分类
 
@@ -71,6 +71,7 @@
 | 166 | 未归类（可能是模型或链路） | Change the text color in the textboxes to on s |
 | 173 | 未归类（可能是模型或链路） | Export the current document into PDF, keep the |
 | 174 | 未归类（可能是模型或链路） | Could you help me insert a 7(columns)*5(rows)  |
+| 180 | 未归类（可能是模型或链路） | I am making a guideline for students of my cou |
 
 ## 逐题
 
@@ -255,6 +256,7 @@
 | 177 | libreoffice_writer | A certain railway company in Hong Kong uses a signal | ✅ | ✅ | 29 | 25523 | 311.5s |
 | 178 | libreoffice_writer | I am peer-reviewing my friend's course outline. I th | ✅ | ✅ | 43 | 23018 | 496.3s |
 | 179 | libreoffice_writer | I am writing a word list for a dyslexic kid. To ease | ✅ | ✅ | 16 | 18397 | 192.4s |
+| 180 | libreoffice_writer | I am making a guideline for students of my course an | ✗ 0.0 | ✗ 0.0 | 37 | 29557 | 561.5s |
 
 ## 每题的过程记录
 
@@ -1442,4 +1444,14 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 16 步一次通过。
+### 第 180 题 · 88fe4b2d
+
+> I am making a guideline for students of my course and would like to separate each sentence in the the first paragraph to improve readability. Please separate each sentence by creating one empty line space after each of them, as I am having hard time separating them one by one.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 37 步未过（四个子判据全 0）。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次 36 步仍未过。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
