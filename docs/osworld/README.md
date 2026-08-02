@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **125** / 369 |
-| 我手工通过 | 106 / 125 |
-| cc 通过（严格：得分 = 1.0）| **107 / 124** |
-| cc 平均分（OSWorld 口径）| **0.878** |
-| cc 平均步数 | 16.6 |
-| cc 平均观测 token | 31258 |
-| cc 平均用时 | 231s |
-| 执行轴 a11y 占比 | 51% （565/1100）|
+| 已跑题数 | **130** / 369 |
+| 我手工通过 | 111 / 130 |
+| cc 通过（严格：得分 = 1.0）| **112 / 129** |
+| cc 平均分（OSWorld 口径）| **0.882** |
+| cc 平均步数 | 16.3 |
+| cc 平均观测 token | 30414 |
+| cc 平均用时 | 226s |
+| 执行轴 a11y 占比 | 52% （582/1129）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 56 | 51 | 18.4 |
+| Bash 打开 | 61 | 56 | 17.6 |
 
 ## cc 未通过的题，成因分类
 
@@ -194,6 +194,11 @@
 | 123 | libreoffice_impress | I am making PPT on LibreOffice Impress for presentat | ✅ | ✅ | 12 | 22046 | 152.1s |
 | 124 | libreoffice_impress | I am making PPT about the history of baseball. I wan | ✅ | ✅ | 22 | 18486 | 270.6s |
 | 125 | libreoffice_impress | I closed the slide panel on the left and idk how to  | ✅ | ✅ | 7 | 9019 | 74.6s |
+| 126 | libreoffice_impress | Please duplicate the last two slides and insert the  | ✅ | ✅ | 10 | 16366 | 154.8s |
+| 127 | libreoffice_impress | On it Whenever I launch a LibreOffice Impress, it us | ✅ | ✅ | 11 | 23773 | 133.9s |
+| 128 | libreoffice_impress | Please set my slides upright instead of sideways. | ✅ | ✅ | 6 | 11521 | 72.8s |
+| 129 | libreoffice_impress | Please make the background blue on all my slides. I  | ✅ | ✅ | 10 | 3531 | 96.5s |
+| 130 | libreoffice_impress | Could you help me save my slides as pre.pptx on the  | ✅ | ✅ | 7 | 4347 | 62.3s |
 
 ## 每题的过程记录
 
@@ -1020,4 +1025,38 @@
 - **我手工**（第 1 次，得分 0.0）：**又一个仪器缺陷，影响 19 道题。** 官方 check_left_panel 遍历 document-frame 找 name="Slides View"，而我的 a11y 树垫片节点预算是 8000——实测那时整棵树里 document-frame **一个都没有**（树到 676KB 就被静默截断），提到 40000 才出现。判据于是永远返回 0。截断是静默的：XML 依然合法，只是少了一半，没有任何迹象提示"你要找的节点在被砍掉的那一半里"。预算已改成 60000（代价是抽树 113 秒，但只有 19 道题走这条路径：accessibility_tree 5 + active_url_from_accessTree 14）。
 - **cc**（第 2 次，得分 1.0）：cc 第二次（a11y 树预算已修）
 - **我手工**（第 2 次，得分 1.0）：预算修好后一次通过。
+### 第 126 题 · 9ec204e4
+
+> Please duplicate the last two slides and insert the copies in alternating order, so the sequence becomes: original slide A, original slide B, then duplicated slide A, duplicated slide B.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 10 步一次通过（两个子判据 or 关系，第一个命中）。
+### 第 127 题 · 0f84bef9
+
+> On it Whenever I launch a LibreOffice Impress, it uses both screens, one for current slide and next slide and another for actual presentation. What I want is to use only one monitor which shows presentation. I dont want the screen with Current slide and Next slide so that it can be used for other purposes. How should I achieve this?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 11 步一次通过。
+### 第 128 题 · ce88f674
+
+> Please set my slides upright instead of sideways.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 6 步一次通过。
+### 第 129 题 · 3b27600c
+
+> Please make the background blue on all my slides. I was stuck by finding the entrance to do that for a while...
+
+- **cc**（第 1 次，得分 0.6689118287183461）：cc 第一次
+- **我手工**（第 1 次，得分 0.669）：连续值判据（颜色距离），第一次 0.669。
+- **cc**（第 2 次，得分 0.6689118287183461）：cc 第二次
+- **我手工**（第 2 次，得分 0.669）：第二次同分。题面只说"把背景改成蓝色"、没指定色号，而判据按与特定蓝的 RGB 距离连续打分，选了别的蓝就拿不满。
+- **cc**（第 3 次，得分 1.0）：cc 第三次
+- **我手工**（第 3 次，得分 1.0）：第三次 1.0——这次选了判据认的那个纯蓝。
+### 第 130 题 · a097acff
+
+> Could you help me save my slides as pre.pptx on the Desktop?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 7 步一次通过。
 
