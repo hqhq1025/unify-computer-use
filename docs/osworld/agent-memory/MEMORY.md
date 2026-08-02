@@ -1,0 +1,40 @@
+- [LibreOffice UNO fallback](libreoffice-uno-fallback.md) — when OCU click/key tools error, script the running LibreOffice over a UNO socket from Bash.
+- [LibreOffice has no sparklines](libreoffice-no-sparkline-support.md) — 7.3 can't make or even read them; inject x14 extLst XML into the xlsx.
+- [UNO formula separator](libreoffice-uno-formula-separator.md) — setFormula needs `;` not `,`, or cells silently become Err:508/#VALUE!.
+- [UNO store() hangs on dialogs](libreoffice-uno-store-blocks-on-dialog.md) — set WarnAlienFormat=False to prevent the Keep-format prompt; else dismiss via OCU click and retry.
+- [Pivot tables over UNO](libreoffice-uno-pivot-table.md) — DataPilot recipe; the column field always eats row 1 for its caption.
+- [Pivot xlsx export gaps](libreoffice-pivot-xlsx-export-gaps.md) — % -of-total and grand-total-off are dropped on save; patch pivotTable XML.
+- [UNO range sort is a no-op](libreoffice-uno-range-sort-noop.md) — createSortDescriptor()+sort() silently does nothing; reorder the DataArray in Python.
+- [UNO list validation](libreoffice-uno-list-validation.md) — drop-down lists: reassign the Validation struct; ShowList=0 means no arrow.
+- [UNO number format locale](libreoffice-uno-number-format-locale.md) — comma decimal separator: addNew("0,0", ru_RU); the code uses the target locale's own separators.
+- [UNO chart data orientation](libreoffice-uno-chart-datarowsource.md) — charting a single ROW needs Diagram.DataRowSource = ROWS, else every month becomes its own series.
+- [soffice crash recovery](libreoffice-uno-soffice-crash-recovery.md) — UNO close/reload can kill soffice; re-check pgrep and relaunch with --accept.
+- [Changed-by-others save dialog](libreoffice-uno-changed-by-others-dialog.md) — usually the setup re-copying the fixture, not a real conflict; cancel, reload, re-apply, save.
+- [Transpose a range over UNO](libreoffice-uno-transpose-range.md) — no PasteTransposed in 7.3; copyRange() one cell at a time keeps formatting.
+- [OCU tools down](ocu-tools-down-use-pyatspi.md) — "name 'indexer' is not defined" on every call; drive AT-SPI from Bash with pyatspi + wmctrl instead.
+- [Calc range selection by keyboard](calc-select-range-keyboard.md) — Name Box and drag_xy do not select; use ctrl+shift+arrow, then ctrl+d.
+- [xdotool --window is ignored](xdotool-window-flag-ignored.md) — LibreOffice drops XSendEvent; use global XTEST and batch keys in one Bash call.
+- [Basic IDE macro entry](libreoffice-basic-ide-macro-entry.md) — no UNO socket: type macros line-by-line via xdotool, avoid the variable name `iF`.
+- [Crash recovery dialog](libreoffice-crash-recovery-dialog.md) — blocks UNO (getCurrentComponent None); discard via xdotool, confirm Yes.
+- [Move a Calc column](calc-move-column-recipe.md) — Ctrl+Plus "insert cut cells" is a no-op; insert blank, cut, paste, delete.
+- [OCU type_text mangles + and newlines](ocu-type-text-mangles-plus-and-newlines.md) — "+" becomes "=", newlines vanish; type formulas with xdotool instead.
+- [Patch xlsx zip directly](xlsx-patch-zip-directly.md) — no UNO socket + crashy soffice: edit the OOXML XML with python3, then reopen to verify.
+- [Enable UNO socket on a running soffice](libreoffice-enable-uno-socket-on-running-instance.md) — re-invoke `soffice --accept=...`; no need to fall back to xdotool or zip-patching.
+- [UNO line chart recipe](libreoffice-uno-line-chart-recipe.md) — non-adjacent ranges in addNewByName; move it via DrawPage, not the chart object.
+- [Impress strikethrough over UNO](libreoffice-uno-strikethrough-impress.md) — set CharStrikeout on the paragraph *and* each text portion.
+- [Impress Summary Slide](impress-summary-slide-menu-location.md) — it lives in the Slide menu, not Insert; appends a titles-list slide at the end.
+- [Insert audio into Impress](impress-insert-audio-embed.md) — untick Link to embed; survives pptx export as ppt/media/*.mp3.
+- [Position/Size fields ignore a11y writes](impress-position-size-spinbuttons-ignore-a11y.md) — sidebar and F4 both silently discard set_value; move shapes over UNO.
+- [Impress background on all slides](impress-background-all-slides.md) — Slide Properties only hits the current slide; loop DrawPages over UNO.
+- [Blank Impress slides + one image each](impress-uno-blank-slide-with-image.md) — Layout=20 alone isn't enough; also remove every shape, and storeAsURL over storeToURL.
+- [Impress slide transitions](impress-slide-transition-sidebar.md) — sidebar deck only, no menu; verify p:transition in the saved pptx.
+- [Impress slide numbers](impress-slide-number-placeholder-per-slide.md) — SlideNumberShape sits on every slide, not just the master; srgbClr is lowercase in the saved pptx.
+- [LibreOffice auto-save](libreoffice-autosave-setup.md) — the Options dialog only does AutoRecovery; real auto-save is UserAutoSaveEnabled over UNO.
+- [Options spin buttons revert](options-dialog-spinbutton-setvalue-reverts.md) — set_value reads back fine but OK discards it; click, type, Tab.
+- [Impress bulk font change](impress-bulk-font-change.md) — set shape+paragraph+portion *and* StyleFamilies; leave buFont bullets alone.
+- [Remove a pptx bullet without shifting text](pptx-remove-bullet-keep-indent.md) — also set indent="0", not just buNone.
+- [Impress speaker notes over UNO](impress-uno-speaker-notes.md) — NotesPage shape index 1; pptx file is numbered by slide, not by note.
+- [Impress: read char props from the portion](impress-read-char-props-from-portion.md) — shape/paragraph CharHeight+CharColor report placeholder defaults, not the visible text.
+- [Empty placeholder font on pptx export](impress-empty-placeholder-font-export.md) — exports the layout default (Arial) despite the UNO write; patch the XML.
+- [Impress table insertion](impress-uno-insert-table.md) — the Insert Table dialog crashes soffice; build the TableShape over UNO and set every row/column size by hand.
+- [Verify rendering via PDF export](verify-render-via-pdf-export.md) — a11y bridge timing out on soffice; storeToURL to PDF + pdftotext still works.

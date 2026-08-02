@@ -363,6 +363,35 @@ def cmd_agent(args):
     # **这个目录**的项目级配置，两个 worker 共用一个目录就会互相覆盖，
     # 而且 rmtree 会把对方正在用的配置删掉。
     workdir = os.environ.get("OSWORLD_WORKDIR", "/tmp/ocu-agent-run")
+    # **每题都要把 agent 的自动记忆清掉。**
+    #
+    # 工作目录每题都一样，所以记忆路径也一样
+    # （~/.claude/projects/-tmp-ocu-agent-run/memory/）。实测跑到第 152 题时
+    # 那里已经攒了 41 个文件，全是 agent 自己总结的操作经验——
+    # 也就是说后面的题带着前面题学到的东西在做，题与题不再独立。
+    #
+    # 比"作弊"更糟的是它**掩盖了缺陷**：那些笔记里写着
+    #   「type_text 把 + 变成 =、吞掉换行」
+    #   「Position/Size 的 set_value 报成功但没到文档」
+    #   「每个 OCU 工具都报 indexer 未定义时改用 pyatspi」
+    # ——这些正是我该修的链路问题，而 agent 记住绕路方法之后，
+    # 它们再也不会出现在轨迹的报错里。工具的缺陷被 agent 的记忆吸收掉了。
+    #
+    # 笔记本身很有价值，所以先归档进 docs/osworld/agent-memory/ 再删。
+    memory_dir = os.path.join(
+        os.path.expanduser("~/.claude/projects"),
+        "-" + workdir.strip("/").replace("/", "-"), "memory")
+    if os.path.isdir(memory_dir):
+        archive = os.path.join(REPO, "docs", "osworld", "agent-memory")
+        os.makedirs(archive, exist_ok=True)
+        for name in os.listdir(memory_dir):
+            if not name.endswith(".md"):
+                continue
+            src = os.path.join(memory_dir, name)
+            dst = os.path.join(archive, name)
+            if not os.path.exists(dst):
+                shutil.copy(src, dst)
+        shutil.rmtree(memory_dir, ignore_errors=True)
     shutil.rmtree(workdir, ignore_errors=True)
     register_mcp(args.binary, workdir)
     transcript = "/tmp/osworld-agent-{}.jsonl".format(task_id[:8])
