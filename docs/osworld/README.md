@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **152** / 369 |
-| 我手工通过 | 130 / 152 |
-| cc 通过（严格：得分 = 1.0）| **131 / 151** |
-| cc 平均分（OSWorld 口径）| **0.880** |
-| cc 平均步数 | 15.9 |
-| cc 平均观测 token | 27340 |
-| cc 平均用时 | 220s |
-| 执行轴 a11y 占比 | 50% （603/1198）|
+| 已跑题数 | **155** / 369 |
+| 我手工通过 | 133 / 155 |
+| cc 通过（严格：得分 = 1.0）| **134 / 154** |
+| cc 平均分（OSWorld 口径）| **0.882** |
+| cc 平均步数 | 16.2 |
+| cc 平均观测 token | 27415 |
+| cc 平均用时 | 224s |
+| 执行轴 a11y 占比 | 50% （610/1228）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 83 | 75 | 16.6 |
+| Bash 打开 | 86 | 78 | 17.1 |
 
 ## cc 未通过的题，成因分类
 
@@ -224,6 +224,9 @@
 | 150 | libreoffice_impress | In the "Features" slide, insert a table with 5 rows  | ✗ 0.0 | ✗ 0.0 | 41 | 14781 | 667.1s |
 | 151 | libreoffice_impress | Move the table on Page 3 to the bottom of the slide. | ✅ | ✅ | 10 | 3504 | 123.8s |
 | 152 | libreoffice_impress | Add a bullet point to the content of this slide. | ✗ 0.0 | ✗ 0.0 | 69 | 84578 | 1129.1s |
+| 153 | libreoffice_impress | Make the background color of slide 2 same as the col | ✅ | ✅ | 16 | 23921 | 215.7s |
+| 154 | libreoffice_impress | In the first slide, insert the title "Happy Family"  | ✅ | ✅ | 17 | 38973 | 212.3s |
+| 155 | libreoffice_impress | Navigate to slide 5 and set the font color of all te | ✅ | ✅ | 77 | 33406 | 1103.3s |
 
 ## 每题的过程记录
 
@@ -1229,4 +1232,23 @@
 - **我手工**（第 2 次，得分 0.0）：内存释放后终于跑出结果：69 步 / 1129s，四个子判据全 0。前两次是内存耗尽导致 claude 直接挂住，不是模型的问题。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：第三次 14 步仍未过。转下一题。
+### 第 153 题 · 70bca0cc
+
+> Make the background color of slide 2 same as the color of its title.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 16 步一次通过。
+### 第 154 题 · af2d657a
+
+> In the first slide, insert the title "Happy Family" and make the font style "Microsoft JhengHei".
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 17 步一次通过。
+### 第 155 题 · 57667013
+
+> Navigate to slide 5 and set the font color of all textboxes to yellow. Use exactly 'yellow'—no variations such as light yellow, dark yellow, or any other color.
+
+- **我手工**（第 1 次，得分 0.0）：撞满 30 分钟时限，无结果。轨迹显示它跑到 79 步，后半段一直在反复 kill/重启 soffice（wmctrl -c Basic IDE、pkill -9 soffice.bin），陷在"改字体色 → soffice 崩 → 重启"的循环里。
+- **cc**（第 2 次，得分 1.0）：cc 第二次（预算收紧）
+- **我手工**（第 2 次，得分 1.0）：第二次 77 步 / 1103s 通过（两个子判据 or 关系）。第一次是撞满时限没跑完，不是做错。
 
