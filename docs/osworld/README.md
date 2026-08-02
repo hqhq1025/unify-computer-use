@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **130** / 369 |
-| 我手工通过 | 111 / 130 |
-| cc 通过（严格：得分 = 1.0）| **112 / 129** |
-| cc 平均分（OSWorld 口径）| **0.882** |
+| 已跑题数 | **134** / 369 |
+| 我手工通过 | 115 / 134 |
+| cc 通过（严格：得分 = 1.0）| **116 / 133** |
+| cc 平均分（OSWorld 口径）| **0.886** |
 | cc 平均步数 | 16.3 |
-| cc 平均观测 token | 30414 |
-| cc 平均用时 | 226s |
-| 执行轴 a11y 占比 | 52% （582/1129）|
+| cc 平均观测 token | 29973 |
+| cc 平均用时 | 225s |
+| 执行轴 a11y 占比 | 52% （593/1148）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 61 | 56 | 17.6 |
+| Bash 打开 | 65 | 60 | 17.5 |
 
 ## cc 未通过的题，成因分类
 
@@ -199,6 +199,10 @@
 | 128 | libreoffice_impress | Please set my slides upright instead of sideways. | ✅ | ✅ | 6 | 11521 | 72.8s |
 | 129 | libreoffice_impress | Please make the background blue on all my slides. I  | ✅ | ✅ | 10 | 3531 | 96.5s |
 | 130 | libreoffice_impress | Could you help me save my slides as pre.pptx on the  | ✅ | ✅ | 7 | 4347 | 62.3s |
+| 131 | libreoffice_impress | I have a series of .png images named pic1.png to pic | ✅ | ✅ | 12 | 5741 | 146.8s |
+| 132 | libreoffice_impress | Could you help me add slide transition "dissolve" to | ✅ | ✅ | 9 | 13012 | 111.6s |
+| 133 | libreoffice_impress | I am preparing a PPT in Libreoffice impress. The sli | ✅ | ✅ | 12 | 5134 | 124.9s |
+| 134 | libreoffice_impress | Enable auto-save every 3min for me, so that I don't  | ✅ | ✅ | 26 | 25400 | 296.6s |
 
 ## 每题的过程记录
 
@@ -1059,4 +1063,28 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 7 步一次通过。
+### 第 131 题 · bf4e9888
+
+> I have a series of .png images named pic1.png to pic6.png saved on the Desktop. I want to work on the currently open presentation template and create six blank slides(which means no textbox or any other stuff on the page), and insert one image per slide in order—pic1.png on the first slide, pic2.png on the second, and so on—following the numerical order. The goal is to prepare a presentation suitable for continuous playback in a kiosk or multimedia show. Save the new presentation as /home/user/Desktop/4.3-Template_4.29.2016.pptx. Could you help me with that?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 12 步一次通过。
+### 第 132 题 · 21760ecb
+
+> Could you help me add slide transition "dissolve" to my first page?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 9 步一次通过。
+### 第 133 题 · ac9bb6cb
+
+> I am preparing a PPT in Libreoffice impress. The slide number is barely visible to me. Please help me change the color of the slide number to red?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 12 步一次通过。
+### 第 134 题 · 2cd43775
+
+> Enable auto-save every 3min for me, so that I don't need to hit "ctrl-s" that much
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 26 步一次通过。
 
