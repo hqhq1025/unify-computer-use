@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **109** / 369 |
-| 我手工通过 | 93 / 109 |
-| cc 通过 | **94 / 108** |
-| cc 平均步数 | 16.8 |
-| cc 平均观测 token | 33845 |
-| cc 平均用时 | 235s |
-| 执行轴 a11y 占比 | 51% （504/997）|
+| 已跑题数 | **113** / 369 |
+| 我手工通过 | 97 / 113 |
+| cc 通过 | **98 / 112** |
+| cc 平均步数 | 17.1 |
+| cc 平均观测 token | 33751 |
+| cc 平均用时 | 238s |
+| 执行轴 a11y 占比 | 50% （526/1043）|
 
 ### 两种口径要分开看
 
@@ -38,7 +38,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 40 | 38 | 20.2 |
+| Bash 打开 | 44 | 42 | 20.5 |
 
 ## cc 未通过的题，成因分类
 
@@ -174,6 +174,10 @@
 | 107 | libreoffice_calc | Create a new sheet named "Sheet2" and merge cells A1 | ✅ | ✅ | 8 | 2468 | 52.8s |
 | 108 | libreoffice_calc | Please calculate the ages of the employees according | ✗ 0.0 | ✗ 0.0 | 22 | 7997 | 238.3s |
 | 109 | libreoffice_calc | Fill all the blank cells in B1:E30 with the value in | ✅ | ✅ | 14 | 10978 | 264.7s |
+| 110 | libreoffice_calc | Change the representation of column "Parameter" to s | ✅ | ✅ | 21 | 10109 | 234.5s |
+| 111 | libreoffice_calc | I want to copy the movie titles in 'Garbage Movie Ti | ✅ | ✅ | 33 | 36141 | 437.4s |
+| 112 | libreoffice_calc | Help me format column "spent" by keeping two decimal | ✅ | ✅ | 26 | 19039 | 322.8s |
+| 113 | libreoffice_calc | Reorder the columns to be "Date", "First Name", "Las | ✅ | ✅ | 24 | 81421 | 361.0s |
 
 ## 每题的过程记录
 
@@ -886,4 +890,30 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 14 步一次通过。这是二进制修好后跑的题。
+### 第 110 题 · 21df9241
+
+> Change the representation of column "Parameter" to show in Millions (M) in Column B and Billions (B) in Column C. The numbers should be rounded to one decimal place, and half should be rounded up. Then remember to place a white space between the digits and the unit.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 21 步一次通过。
+### 第 111 题 · a9f325aa
+
+> I want to copy the movie titles in 'Garbage Movie Titles' column to the 'Clean Movie Titles' column. But please remove the adundant whitespaces and canonicalize the letter cases by capitalizing the first letter of each words and leave other letters as lower case. Finish the work and don't touch irrelevant regions, even if they are blank.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：只差**一个单元格**（28 行里 27 行完全正确）：第 27 行连字符词，标准是 "Edge Of Puip-Fre Fiction"（连字符后也大写，相当于 Python 的 str.title()），cc 给的是 "Puip-fre"（按空格切词）。题面写 "capitalizing the first letter of each words"，连字符算不算断词本身含糊。
+- **cc**（第 2 次，得分 1.0）：cc 第二次
+- **我手工**（第 2 次，得分 1.0）：第二次 33 步通过，连字符词按 title() 规则处理对了。
+### 第 112 题 · 6e99a1ad
+
+> Help me format column "spent" by keeping two decimal points. 
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 26 步一次通过。
+### 第 113 题 · 7a4e4bc8
+
+> Reorder the columns to be "Date", "First Name", "Last Name", "Order ID", "Sales". Finish the work and don't touch irrelevant regions, even if they are blank.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 24 步一次通过。
 
