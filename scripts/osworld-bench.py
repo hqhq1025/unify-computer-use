@@ -396,7 +396,15 @@ def cmd_agent(args):
         shutil.rmtree(memory_dir, ignore_errors=True)
     shutil.rmtree(workdir, ignore_errors=True)
     register_mcp(args.binary, workdir)
-    transcript = "/tmp/osworld-agent-{}.jsonl".format(task_id[:8])
+    # 文件名里**必须带 attempt**。
+    #
+    # 原来只带任务 id，于是第二次重试会把第一次的轨迹覆盖掉——而失败的那次
+    # 恰恰是最该留的：要查"它为什么没做成"，只能看那一次的轨迹。
+    # 发现时已经有 31 道题跑过多次，它们早先几次的轨迹都丢了。
+    #
+    # 每次重试本身是**全新会话**（没有 --resume/--continue，init 事件里
+    # session_id 每次都不同），所以这几份轨迹是相互独立的记录，不是续写。
+    transcript = "/tmp/osworld-agent-{}-a{}.jsonl".format(task_id[:8], args.attempt)
     trace = "/tmp/osworld-trace-{}.jsonl".format(task_id[:8])
     # 这里**试过**用 CLAUDE_CONFIG_DIR 指向一个空目录来隔离用户级配置，
     # 实测两头落空，已放弃：
