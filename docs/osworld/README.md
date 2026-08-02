@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **166** / 369 |
-| 我手工通过 | 142 / 166 |
-| cc 通过（严格：得分 = 1.0）| **142 / 164** |
-| cc 平均分（OSWorld 口径）| **0.877** |
-| cc 平均步数 | 17.9 |
-| cc 平均观测 token | 28289 |
-| cc 平均用时 | 248s |
-| 执行轴 a11y 占比 | 45% （666/1469）|
+| 已跑题数 | **168** / 369 |
+| 我手工通过 | 144 / 168 |
+| cc 通过（严格：得分 = 1.0）| **144 / 166** |
+| cc 平均分（OSWorld 口径）| **0.879** |
+| cc 平均步数 | 18.0 |
+| cc 平均观测 token | 28292 |
+| cc 平均用时 | 249s |
+| 执行轴 a11y 占比 | 45% （673/1502）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 96 | 86 | 19.9 |
+| Bash 打开 | 98 | 88 | 20.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -240,6 +240,8 @@
 | 164 | libreoffice_impress | Move the picture on page 2 to slide top. Make textbo | ✅ | ✅ | 33 | 55604 | 486.8s |
 | 165 | libreoffice_impress | Make the first textbox font size 60 pt while the sec | ✅ | ✅ | 55 | 60433 | 791.6s |
 | 166 | libreoffice_impress | Change the text color in the textboxes to on slide 1 | ✗ 0.0 | ✗ 0.0 | 23 | 14516 | 328.4s |
+| 167 | libreoffice_writer | Make the line spacing of first two paragraph into do | ✅ | ✅ | 25 | 29462 | 257.9s |
+| 168 | libreoffice_writer | I would like to make the first three words of the se | ✅ | ✅ | 30 | 27877 | 392.2s |
 
 ## 每题的过程记录
 
@@ -1339,4 +1341,16 @@
 - **我手工**（第 2 次，得分 0.0）：第二次 55 步仍未过。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 167 题 · 0810415c
+
+> Make the line spacing of first two paragraph into double line spacing
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 25 步一次通过。
+### 第 168 题 · 0a0faba3
+
+> I would like to make the first three words of the sentence left-aligned and the rest right-aligned. I basically want to have some empty space in the middle to add some photos. Assume that every sentence will have at least three words. Could you help me on alignment for me using tabstops?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 30 步一次通过。impress 段（47 题）跑完。
 
