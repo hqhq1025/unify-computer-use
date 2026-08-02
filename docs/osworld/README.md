@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **99** / 369 |
-| 我手工通过 | 84 / 99 |
-| cc 通过 | **85 / 98** |
-| cc 平均步数 | 16.2 |
-| cc 平均观测 token | 36237 |
-| cc 平均用时 | 228s |
-| 执行轴 a11y 占比 | 51% （499/973）|
+| 已跑题数 | **103** / 369 |
+| 我手工通过 | 88 / 103 |
+| cc 通过 | **89 / 102** |
+| cc 平均步数 | 16.5 |
+| cc 平均观测 token | 35253 |
+| cc 平均用时 | 232s |
+| 执行轴 a11y 占比 | 51% （500/975）|
 
 ### 两种口径要分开看
 
@@ -38,7 +38,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 30 | 29 | 19.1 |
+| Bash 打开 | 34 | 33 | 19.9 |
 
 ## cc 未通过的题，成因分类
 
@@ -163,6 +163,10 @@
 | 97 | libreoffice_calc | Add a new column named "Profit" right next to the 'C | ✅ | ✅ | 10 | 2627 | 85.1s |
 | 98 | libreoffice_calc | In the column "Pass/Fail/Held", one from the texts " | ✅ | ✅ | 14 | 4780 | 232.0s |
 | 99 | libreoffice_calc | Given a partial calendar, please highlight all the w | ✅ | ✅ | 16 | 5662 | 268.5s |
+| 100 | libreoffice_calc | I need to set the decimal separator as a comma (,) f | ✅ | ✅ | 24 | 10975 | 336.7s |
+| 101 | libreoffice_calc | Calculate the total sales in an underneath row calle | ✅ | ✅ | 10 | 3243 | 153.3s |
+| 102 | libreoffice_calc | Work out the monthly total sales in a new row called | ✅ | ✅ | 30 | 7669 | 351.4s |
+| 103 | libreoffice_calc | Help me freeze the range A1:B1 on this sheet to keep | ✅ | ✅ | 40 | 5043 | 569.9s |
 
 ## 每题的过程记录
 
@@ -811,4 +815,28 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 16 步一次通过。
+### 第 100 题 · a01fbce3
+
+> I need to set the decimal separator as a comma (,) for localized data representation and clarity in visualization. Can you help me to update all the numbers in the sheet? Also please keep the decimal numbers as-is.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 24 步一次通过。第 100 题。
+### 第 101 题 · 0326d92d
+
+> Calculate the total sales in an underneath row called "Total" and display the total of each month as bars. Then calculate the month-on-month growth percentage for Feb to Jun in another row called "Growth" and show them in a line chart (Jan should be omitted in the chart as well). Set the chart titles as the two row headers respectively.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 10 步一次通过。
+### 第 102 题 · 0a2e43bf
+
+> Work out the monthly total sales in a new row called "Total" and then create a line chart to show the results (x-axis be Months).
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 30 步一次通过。
+### 第 103 题 · 4188d3a4
+
+> Help me freeze the range A1:B1 on this sheet to keep the headers always visible
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 40 步一次通过。
 
