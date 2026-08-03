@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **194** / 369 |
-| 我手工通过 | 163 / 194 |
-| cc 通过（严格：得分 = 1.0）| **163 / 192** |
-| cc 平均分（OSWorld 口径）| **0.868** |
-| cc 平均步数 | 18.5 |
-| cc 平均观测 token | 26539 |
+| 已跑题数 | **195** / 369 |
+| 我手工通过 | 164 / 195 |
+| cc 通过（严格：得分 = 1.0）| **163 / 193** |
+| cc 平均分（OSWorld 口径）| **0.864** |
+| cc 平均步数 | 18.4 |
+| cc 平均观测 token | 26445 |
 | cc 平均用时 | 254s |
-| 执行轴 a11y 占比 | 43% （774/1785）|
+| 执行轴 a11y 占比 | 43% （774/1787）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 124 | 107 | 20.2 |
+| Bash 打开 | 125 | 107 | 20.2 |
 
 ## cc 未通过的题，成因分类
 
@@ -76,6 +76,7 @@
 | 192 | 未归类（可能是模型或链路） | Could you help me create an Animated GIF src_c |
 | 193 | 未归类（可能是模型或链路） | I have file1.xlsx and file2.ods on my Desktop, |
 | 194 | 未归类（可能是模型或链路） | Help me export charts, graph or other images f |
+| 196 | 未归类（可能是模型或链路） | Could you start VS Code in folder ~/Desktop/pr |
 
 ## 逐题
 
@@ -275,6 +276,7 @@
 | 192 | multi_apps | Could you help me create an Animated GIF src_clip.gi | ✗ 0.8 | ✗ 0.8 | 24 | 5110 | 596.7s |
 | 193 | multi_apps | I have file1.xlsx and file2.ods on my Desktop, each  | ✗ 0.0 | ✗ 0.0 | 17 | 9021 | 178.4s |
 | 194 | multi_apps | Help me export charts, graph or other images from do | ✗ 0.0 | ✗ 0.0 | 28 | 21593 | 276.6s |
+| 196 | multi_apps | Could you start VS Code in folder ~/Desktop/project  | ✅ | ✗ 0.0 | 9 | 2892 | 80.1s |
 
 ## 每题的过程记录
 
@@ -1574,4 +1576,10 @@
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 - **我手工**（第 4 次，未判分）：**更正前面三条记录的性质。** 这道题需要真实的 Google Drive 凭据，本机不具备——cc 把能做的都做完了（从 Thunderbird 邮件附件提取图片、编号），卡在上传那一步。按纪律这是"环境不支持"，不该记成模型失败。跑测现在会自动识别这一类（判据里有 googledrive getter 或 login 配置），分数记 None 而不是 0.0。这类题共 8 道，全在 multi_apps 段：194 195 199 200 202 203 222 288。
+### 第 196 题 · 510f64c8
+
+> Could you start VS Code in folder ~/Desktop/project from the terminal?
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：**cc 做对了，是我的垫片崩了。** LocalSetupController._activate_window_setup 只收 kwargs，而官方是按位置传一个 params dict，于是判据抛 TypeError 记成 0.0。修好后重新判分直接 1.0。
 

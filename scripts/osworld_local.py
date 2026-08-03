@@ -244,10 +244,56 @@ class LocalController:
 
 
 class LocalSetupController:
-    def _activate_window_setup(self, **kwargs):
-        title = kwargs.get("window_name") or kwargs.get("title") or ""
+    """判据里的 postconfig 会回头调 setup controller 的方法。
+
+    这些方法**官方是按位置传一个 params dict 的**，不是 kwargs。我最初照
+    kwargs 写，于是第 196 题当场炸：
+
+        TypeError: _activate_window_setup() takes 1 positional argument
+                   but 2 were given
+
+    而那道题的第一个子判据已经是 1.0——cc 很可能做对了，却因为判据自己崩了
+    而记成 0.0。所以这里两种调用形式都要吃。
+    """
+
+    @staticmethod
+    def _params(args, kwargs):
+        if args and isinstance(args[0], dict):
+            merged = dict(args[0])
+            merged.update(kwargs)
+            return merged
+        return kwargs
+
+    def _activate_window_setup(self, *args, **kwargs):
+        params = self._params(args, kwargs)
+        title = params.get("window_name") or params.get("title") or ""
         if title:
             subprocess.run(["wmctrl", "-a", title], capture_output=True)
+            time.sleep(0.5)
+
+    def _execute_setup(self, *args, **kwargs):
+        params = self._params(args, kwargs)
+        command = params.get("command")
+        if not command:
+            return
+        subprocess.run(command, shell=isinstance(command, str),
+                       capture_output=True, timeout=180)
+
+    def _sleep_setup(self, *args, **kwargs):
+        params = self._params(args, kwargs)
+        time.sleep(float(params.get("seconds", 1)))
+
+    def __getattr__(self, name):
+        # 官方 setup controller 的方法很多，缺一个就让判据整条崩掉，
+        # 而那通常和被测的东西无关。没实现的一律当作空操作，
+        # 但**不要静默**——打一行出来，免得"少做了一步"被当成正常。
+        if not name.endswith("_setup"):
+            raise AttributeError(name)
+
+        def missing(*args, **kwargs):
+            print("  ⚠️ setup controller 没实现 {}，已跳过".format(name))
+
+        return missing
 
 
 class LocalEnv:
