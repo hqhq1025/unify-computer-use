@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **217** / 369 |
-| 我手工通过 | 174 / 217 |
-| cc 通过（严格：得分 = 1.0）| **173 / 210** |
-| cc 平均分（OSWorld 口径）| **0.841** |
-| cc 平均步数 | 19.2 |
-| cc 平均观测 token | 26520 |
-| cc 平均用时 | 262s |
-| 执行轴 a11y 占比 | 44% （872/1982）|
+| 已跑题数 | **220** / 369 |
+| 我手工通过 | 177 / 220 |
+| cc 通过（严格：得分 = 1.0）| **176 / 213** |
+| cc 平均分（OSWorld 口径）| **0.844** |
+| cc 平均步数 | 19.3 |
+| cc 平均观测 token | 26310 |
+| cc 平均用时 | 264s |
+| 执行轴 a11y 占比 | 44% （872/1984）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 142 | 117 | 21.1 |
+| Bash 打开 | 145 | 120 | 21.1 |
 
 ## cc 未通过的题，成因分类
 
@@ -306,6 +306,9 @@
 | 215 | multi_apps | Please help me to extract the name, e-mail, and affi | ✅ | ✅ | 7 | 8974 | 53.8s |
 | 216 | multi_apps | I need to include the experiment results from "~/Doc | ✅ | ✅ | 59 | 58804 | 737.1s |
 | 217 | multi_apps | Please help me clone the repo "https://github.com/xl | ✅ | ✅ | 2 | 178 | 19.8s |
+| 218 | multi_apps | I'm working on word embedding tasks and require assi | ✅ | ✅ | 41 | 11684 | 1070.3s |
+| 219 | multi_apps | When I ran "conda install datasets" in terminal, I g | ✅ | ✅ | 16 | 3059 | 151.5s |
+| 220 | multi_apps | I've compiled papers and books with links in this sp | ✅ | ✅ | 11 | 5545 | 76.5s |
 
 ## 每题的过程记录
 
@@ -1765,4 +1768,22 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 2 步一次通过。
+### 第 218 题 · 69acbb55
+
+> I'm working on word embedding tasks and require assistance in configuring the environment for the project located at "https://github.com/xlang-ai/instructor-embedding" in the directory /home/user. Please guide me through the process, and refer to this provided Colab script at https://colab.research.google.com/drive/1P7ivNLMosHyG7XOHmoh7CoqpXryKy3Qt?usp=sharing for reference.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 41 步一次通过。
+### 第 219 题 · 48d05431
+
+> When I ran "conda install datasets" in terminal, I got "conda: command not found". Could you help me solve it so that I can use conda command right away?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 16 步一次通过。
+### 第 220 题 · 68a25bd4
+
+> I've compiled papers and books with links in this spreadsheet. Help me download the PDF of the first paper, save it as "paper01.pdf" in the /home/user directory. Additionally, I would like to know which paper in my list cites the initial one. Please determine and document the title saved as "ans.docx" in the same directory.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 11 步一次通过（两个判据全中）。
 
