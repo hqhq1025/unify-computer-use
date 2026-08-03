@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **247** / 369 |
-| 我手工通过 | 190 / 247 |
-| cc 通过（严格：得分 = 1.0）| **189 / 239** |
-| cc 平均分（OSWorld 口径）| **0.810** |
+| 已跑题数 | **250** / 369 |
+| 我手工通过 | 192 / 250 |
+| cc 通过（严格：得分 = 1.0）| **191 / 242** |
+| cc 平均分（OSWorld 口径）| **0.809** |
 | cc 平均步数 | 20.3 |
-| cc 平均观测 token | 24910 |
-| cc 平均用时 | 272s |
-| 执行轴 a11y 占比 | 43% （921/2142）|
+| cc 平均观测 token | 24807 |
+| cc 平均用时 | 271s |
+| 执行轴 a11y 占比 | 43% （923/2146）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 171 | 133 | 22.1 |
+| Bash 打开 | 174 | 135 | 22.1 |
 
 ## cc 未通过的题，成因分类
 
@@ -97,6 +97,7 @@
 | 241 | 未归类（可能是模型或链路） | I'm really enjoying this paper. Could you plea |
 | 244 | 未归类（可能是模型或链路） | My friend is a "plugin guru" and he recommende |
 | 247 | 未归类（可能是模型或链路） | I browsed a lot of interesting blog articles t |
+| 250 | 未归类（可能是模型或链路） | I want to convert an Impress file into a docum |
 
 ## 逐题
 
@@ -349,6 +350,9 @@
 | 245 | multi_apps | I have developed a new Chrome extension myself, so i | ✅ | ✅ | 15 | 12455 | 156.4s |
 | 246 | multi_apps | I now want to count the meeting cities of the three  | ✅ | ✅ | 11 | 2138 | 89.6s |
 | 247 | multi_apps | I browsed a lot of interesting blog articles today.  | ✗ 0.0 | ✗ 0.0 | 33 | 10796 | 347.7s |
+| 248 | multi_apps | Monitor Ubuntu system resource usage using the sar c | ✅ | ✅ | 4 | 10442 | 60.7s |
+| 249 | multi_apps | Can you assist me in transferring the data from Libr | ✅ | ✅ | 48 | 36341 | 561.9s |
+| 250 | multi_apps | I want to convert an Impress file into a document ed | ✗ 0.2 | ✗ 0.2 | 18 | 15088 | 192.7s |
 
 ## 每题的过程记录
 
@@ -2043,4 +2047,26 @@
 - **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 248 题 · 2373b66a
+
+> Monitor Ubuntu system resource usage using the sar command from sysstat toolkit. Collect CPU statistics every second for 30 seconds and save the output to 'System_Resources_Report.txt' on Desktop.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 4 步一次通过（两个判据全中）。
+### 第 249 题 · 81c425f5
+
+> Can you assist me in transferring the data from LibreOffice Calc in the current sheet to a LibreOffice Writer table while preserving the original format as in calc file? Save the document as "price.docx" on the desktop.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 48 步一次通过。
+### 第 250 题 · bb83cab4
+
+> I want to convert an Impress file into a document editable in Writer. Simply place all the text from Impress into "script.docx" on the Desktop, and I'll handle the reformatting. Thank you!
+
+- **cc**（第 1 次，得分 0.21365392872477462）：cc 第一次
+- **我手工**（第 1 次，得分 0.214）：连续值判据 0.214。
+- **cc**（第 2 次，得分 0.21365392872477462）：cc 第二次
+- **我手工**（第 2 次，得分 0.214）：第二次同分。
+- **cc**（第 3 次，得分 0.21367227756784613）：cc 第三次
+- **我手工**（第 3 次，得分 0.214）：三次同分 0.214。转下一题。
 
