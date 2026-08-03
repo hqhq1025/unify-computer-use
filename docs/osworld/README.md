@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **237** / 369 |
-| 我手工通过 | 184 / 237 |
-| cc 通过（严格：得分 = 1.0）| **183 / 229** |
-| cc 平均分（OSWorld 口径）| **0.819** |
+| 已跑题数 | **240** / 369 |
+| 我手工通过 | 186 / 240 |
+| cc 通过（严格：得分 = 1.0）| **185 / 232** |
+| cc 平均分（OSWorld 口径）| **0.817** |
 | cc 平均步数 | 20.3 |
-| cc 平均观测 token | 25142 |
-| cc 平均用时 | 274s |
-| 执行轴 a11y 占比 | 43% （899/2080）|
+| cc 平均观测 token | 24931 |
+| cc 平均用时 | 273s |
+| 执行轴 a11y 占比 | 43% （904/2092）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 161 | 127 | 22.3 |
+| Bash 打开 | 164 | 129 | 22.2 |
 
 ## cc 未通过的题，成因分类
 
@@ -93,6 +93,7 @@
 | 235 | 未归类（可能是模型或链路） | Hi, I recently playing with developing a small |
 | 236 | 未归类（可能是模型或链路） | I want to apply for a faculty position in Hong |
 | 237 | 未归类（可能是模型或链路） | I am an assistant professor of CS at HKU, I wa |
+| 239 | 未归类（可能是模型或链路） | I have a JSON-formatted data file opened now t |
 
 ## 逐题
 
@@ -335,6 +336,9 @@
 | 235 | multi_apps | Hi, I recently playing with developing a small pytho | ✗ 0.0 | ✗ 0.0 | 23 | 9260 | 261.7s |
 | 236 | multi_apps | I want to apply for a faculty position in Hong Kong  | ✗ 0.0 | ✗ 0.0 | 47 | 34413 | 655.8s |
 | 237 | multi_apps | I am an assistant professor of CS at HKU, I want to  | ✗ 0.0 | ✗ 0.0 | 9 | 5361 | 62.3s |
+| 238 | multi_apps | I recently started using the famous personal academi | ✅ | ✅ | 8 | 1473 | 49.8s |
+| 239 | multi_apps | I have a JSON-formatted data file opened now that st | ✗ 0.0 | ✗ 0.0 | 22 | 10340 | 280.4s |
+| 240 | multi_apps | I want to test the quality of the network environmen | ✅ | ✅ | 21 | 31289 | 264.4s |
 
 ## 每题的过程记录
 
@@ -1953,4 +1957,26 @@
 - **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 238 题 · e2392362
+
+> I recently started using the famous personal academic homepage template from academicpages.github.io to build my own personal homepage, and I have cloned it to my local ~/Code/Website folder. According to an online tutorial, I can configure my name and contact information in the _config.yaml file. However, I am not familiar with the YAML file format. Please help me find the sections related to the name and contact information in this file and change them to "Test Account" and "Test@gmail.com".
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 8 步一次通过。
+### 第 239 题 · 5bc63fb9
+
+> I have a JSON-formatted data file opened now that stores the responses of several large language models on a specific dataset. Now, I want to filter out all the responses from Gemini and specifically look at the sentences in the responses that contain "Iliad". Please copy all of Gemini's responses(values) from the JSON file, paste them into a Word document named "gemini_results.docx" under Desktop. Each response should be a new paragraph and sepreated by a new line. Highlight the all the "Iliad" word.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 22 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 240 题 · 26660ad1
+
+> I want to test the quality of the network environment my laptop is currently in. Please measure my network situation through speedtest.net, copy the results in speedtest.net/results, and save them to ~/Test/Speed/results.txt (if the dir does not exist, create it). Each metric occupies one line, with the metric name and its value separated by a single space.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 21 步一次通过。
 
