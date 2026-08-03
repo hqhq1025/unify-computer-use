@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **220** / 369 |
-| 我手工通过 | 177 / 220 |
-| cc 通过（严格：得分 = 1.0）| **176 / 213** |
-| cc 平均分（OSWorld 口径）| **0.844** |
+| 已跑题数 | **222** / 369 |
+| 我手工通过 | 177 / 222 |
+| cc 通过（严格：得分 = 1.0）| **176 / 214** |
+| cc 平均分（OSWorld 口径）| **0.840** |
 | cc 平均步数 | 19.3 |
-| cc 平均观测 token | 26310 |
+| cc 平均观测 token | 26171 |
 | cc 平均用时 | 264s |
-| 执行轴 a11y 占比 | 44% （872/1984）|
+| 执行轴 a11y 占比 | 44% （874/1990）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 145 | 120 | 21.1 |
+| Bash 打开 | 146 | 120 | 21.1 |
 
 ## cc 未通过的题，成因分类
 
@@ -84,6 +84,7 @@
 | 208 | 未归类（可能是模型或链路） | Could you convert all `.doc` files in current  |
 | 209 | 未归类（可能是模型或链路） | Could you help me copy the data in Cell B6 in  |
 | 214 | 未归类（可能是模型或链路） | Help me to set up an initial web extension pro |
+| 221 | 未归类（可能是模型或链路） | Tomorrow, I'm scheduled to deliver a talk, and |
 
 ## 逐题
 
@@ -309,6 +310,8 @@
 | 218 | multi_apps | I'm working on word embedding tasks and require assi | ✅ | ✅ | 41 | 11684 | 1070.3s |
 | 219 | multi_apps | When I ran "conda install datasets" in terminal, I g | ✅ | ✅ | 16 | 3059 | 151.5s |
 | 220 | multi_apps | I've compiled papers and books with links in this sp | ✅ | ✅ | 11 | 5545 | 76.5s |
+| 221 | multi_apps | Tomorrow, I'm scheduled to deliver a talk, and my Po | ✗ 0.0 | ✗ 0.0 | 18 | 7030 | 159.0s |
+| 222 | multi_apps | I'm working on a comprehensive report for our enviro | ✗ 0.0 | — | — | — | — |
 
 ## 每题的过程记录
 
@@ -1786,4 +1789,19 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 11 步一次通过（两个判据全中）。
+### 第 221 题 · eb303e01
+
+> Tomorrow, I'm scheduled to deliver a talk, and my PowerPoint slides and speaking notes are saved on the desktop. Help me insert my planned remarks for each slide into the "note" section of the PowerPoint as a reminder. I've completed this task for some slides; assist me in completing the remaining part.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 18 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次 34 步仍未过。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 222 题 · 0c825995
+
+> I'm working on a comprehensive report for our environmental policy review meeting next week. I need to integrate key insights from an important document, which is a guidebook on the Green Economy, where I'm particularly interested in the 'Introduction' section. Could you extract this section and compile them into a new Google Doc named 'environment_policy_report (draft)' under /environment_policy folder? This will significantly aid in our discussion on aligning our environmental policies with sustainable and green economic practices. Thanks!
+
+- **我手工**（第 1 次，未判分）：需要真实的第三方凭据（Google Drive / 登录态），本机不具备——环境不支持，未被测试，不计为模型失败。
 
