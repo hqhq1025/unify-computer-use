@@ -158,6 +158,24 @@ def cmd_list(args):
 #
 # 判据里出现 googledrive getter 或 login 配置的就是这一类，实测 8 道，
 # 全在 multi_apps 段：194 195 199 200 202 203 222 288。
+# 判据要查 ~/.bash_history 的题——本机跑法下**天然测不了**。
+#
+# 这几道题的意图是"必须用命令行做，不许用 GUI"，判据去 ~/.bash_history 里
+# grep 那条命令。而 cc 是通过 MCP 的 Bash 工具执行的，**非交互式 shell 不写
+# history**，所以它即使完全正确地跑了
+#     soffice --headless --convert-to pdf --outdir ~/Desktop *.doc
+# （第 208 题轨迹里实测有这一行），判据也查不到，history 文件只有 1 字节。
+#
+# 官方那套 agent 用 pyautogui 往真实终端窗口里打字，那才会写进 history。
+# 这是**跑法差异**，不是模型做错，也不是链路缺陷。
+#
+# 不去伪造 history：那等于替被测方作弊，而且会让这条判据永远说不了真话。
+# 实测 4 道：190 196 207 208。
+def checks_bash_history(task):
+    return "bash_history" in json.dumps(task.get("evaluator") or {},
+                                        ensure_ascii=False)
+
+
 def needs_real_credentials(task):
     blob = json.dumps(task, ensure_ascii=False).lower()
     return "googledrive" in blob or '"login"' in blob
@@ -500,6 +518,9 @@ def cmd_agent(args):
     stats = summarize(transcript)
     funcs = task.get("evaluator", {}).get("func")
     funcs = [funcs] if isinstance(funcs, str) else (funcs or [])
+    if checks_bash_history(task) and not args.no_bash:
+        # 分数照记（判据确实跑了），但要在明细里说清楚为什么它注定拿不到分。
+        pass
     if needs_real_credentials(task):
         # 分数记 None 而不是 0：这道题**没有被测过**，不是被测失败了。
         score, detail = None, ("这道题需要真实的第三方凭据（Google Drive / 登录态），"
@@ -513,6 +534,10 @@ def cmd_agent(args):
         score, detail = judge_refusal(stats["final"])
     else:
         score, detail = local.evaluate(task)
+    if checks_bash_history(task) and (score or 0) < 1.0:
+        detail = (str(detail) + "  ⚠️ 这道题的判据要查 ~/.bash_history，"
+                  "而 MCP 的 Bash 工具是非交互式 shell、不写 history——"
+                  "即使命令完全正确也拿不到分。属于跑法差异，不是模型失败。")
     print("\n步数 {}  观测 token≈{}  用时 {:.0f}s".format(
         stats["steps"], stats["observation_tokens"], elapsed))
     print("得分 {}   明细 {}".format(score, detail))

@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **206** / 369 |
-| 我手工通过 | 167 / 206 |
-| cc 通过（严格：得分 = 1.0）| **166 / 199** |
-| cc 平均分（OSWorld 口径）| **0.853** |
-| cc 平均步数 | 18.9 |
-| cc 平均观测 token | 26553 |
-| cc 平均用时 | 258s |
+| 已跑题数 | **208** / 369 |
+| 我手工通过 | 167 / 208 |
+| cc 通过（严格：得分 = 1.0）| **166 / 201** |
+| cc 平均分（OSWorld 口径）| **0.844** |
+| cc 平均步数 | 18.7 |
+| cc 平均观测 token | 26303 |
+| cc 平均用时 | 256s |
 | 执行轴 a11y 占比 | 44% （821/1872）|
 
 ### 两种口径要分开看
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 131 | 110 | 20.7 |
+| Bash 打开 | 133 | 110 | 20.3 |
 
 ## cc 未通过的题，成因分类
 
@@ -80,6 +80,8 @@
 | 198 | 未归类（可能是模型或链路） | Can you assist me by opening the first link in |
 | 204 | 未归类（可能是模型或链路） | Please assist me in exporting my contacts of P |
 | 206 | 未归类（可能是模型或链路） | Please convert a .xlsx file opened in LibreOff |
+| 207 | 未归类（可能是模型或链路） | Could you help me convert the opened ods file  |
+| 208 | 未归类（可能是模型或链路） | Could you convert all `.doc` files in current  |
 
 ## 逐题
 
@@ -291,6 +293,8 @@
 | 204 | multi_apps | Please assist me in exporting my contacts of Persona | ✗ 0.0 | ✗ 0.0 | 36 | 25239 | 418.9s |
 | 205 | multi_apps | Help me extract the latest 5 emails in daily folder  | ✅ | ✅ | 47 | 29181 | 715.1s |
 | 206 | multi_apps | Please convert a .xlsx file opened in LibreOffice Ca | ✗ 0.0 | ✗ 0.0 | 23 | 39417 | 281.6s |
+| 207 | multi_apps | Could you help me convert the opened ods file in the | ✗ 0.0 | ✗ 0.0 | 5 | 9493 | 47.0s |
+| 208 | multi_apps | Could you convert all `.doc` files in current direct | ✗ 0.0 | ✗ 0.0 | 7 | 10554 | 148.4s |
 
 ## 每题的过程记录
 
@@ -1553,6 +1557,7 @@
 - **我手工**（第 2 次，得分 0.0）：第二次 7 步仍未过。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+- **我手工**（第 4 次，未判分）：**更正性质：这道题在本机跑法下天然测不了。** 判据去 ~/.bash_history 里 grep 命令行（题目意图是"必须用命令行做"），而 cc 通过 MCP 的 Bash 工具执行，非交互式 shell 不写 history。第 208 题轨迹里实测它跑了 `soffice --headless --convert-to pdf --outdir ~/Desktop *.doc`，完全正确，而 history 文件只有 1 字节。官方 agent 用 pyautogui 往真实终端窗口打字才会写进 history。这是跑法差异，不是模型失败。共 4 道：190 196 207 208。
 ### 第 191 题 · 2c9fc0de
 
 > Could you help me push the changes from commandline in current project to origin main, with the commit message "daily update"?
@@ -1669,4 +1674,21 @@
 - **我手工**（第 2 次，得分 0.0）：第二次 45 步仍卡在活动标签页。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次都是同一模式：compare_htmls 全部 1.0（内容做对了），但 is_expected_active_tab 全部 0.0——它把事情做完了，却没把浏览器停在判据要的那一页上。转下一题。
+### 第 207 题 · ee9a3c83
+
+> Could you help me convert the opened ods file in the desktop to csv file with the same file name using command line when Libreoffice instance is running?
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 5 步未过（compare_csv 过、check_include_exclude 没过）。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次都是 compare_csv 过、check_include_exclude 不过。转下一题。
+- **我手工**（第 4 次，未判分）：**更正性质：这道题在本机跑法下天然测不了。** 判据去 ~/.bash_history 里 grep 命令行（题目意图是"必须用命令行做"），而 cc 通过 MCP 的 Bash 工具执行，非交互式 shell 不写 history。第 208 题轨迹里实测它跑了 `soffice --headless --convert-to pdf --outdir ~/Desktop *.doc`，完全正确，而 history 文件只有 1 字节。官方 agent 用 pyautogui 往真实终端窗口打字才会写进 history。这是跑法差异，不是模型失败。共 4 道：190 196 207 208。
+### 第 208 题 · f7dfbef3
+
+> Could you convert all `.doc` files in current directory to PDF all at once in the command line?
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 4 次，未判分）：**更正性质：这道题在本机跑法下天然测不了。** 判据去 ~/.bash_history 里 grep 命令行（题目意图是"必须用命令行做"），而 cc 通过 MCP 的 Bash 工具执行，非交互式 shell 不写 history。第 208 题轨迹里实测它跑了 `soffice --headless --convert-to pdf --outdir ~/Desktop *.doc`，完全正确，而 history 文件只有 1 字节。官方 agent 用 pyautogui 往真实终端窗口打字才会写进 history。这是跑法差异，不是模型失败。共 4 道：190 196 207 208。
 
