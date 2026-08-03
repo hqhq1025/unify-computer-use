@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **195** / 369 |
-| 我手工通过 | 164 / 195 |
-| cc 通过（严格：得分 = 1.0）| **163 / 193** |
-| cc 平均分（OSWorld 口径）| **0.864** |
+| 已跑题数 | **200** / 369 |
+| 我手工通过 | 165 / 200 |
+| cc 通过（严格：得分 = 1.0）| **164 / 195** |
+| cc 平均分（OSWorld 口径）| **0.860** |
 | cc 平均步数 | 18.4 |
-| cc 平均观测 token | 26445 |
-| cc 平均用时 | 254s |
-| 执行轴 a11y 占比 | 43% （774/1787）|
+| cc 平均观测 token | 26333 |
+| cc 平均用时 | 253s |
+| 执行轴 a11y 占比 | 43% （781/1800）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 125 | 107 | 20.2 |
+| Bash 打开 | 127 | 108 | 20.1 |
 
 ## cc 未通过的题，成因分类
 
@@ -77,6 +77,7 @@
 | 193 | 未归类（可能是模型或链路） | I have file1.xlsx and file2.ods on my Desktop, |
 | 194 | 未归类（可能是模型或链路） | Help me export charts, graph or other images f |
 | 196 | 未归类（可能是模型或链路） | Could you start VS Code in folder ~/Desktop/pr |
+| 198 | 未归类（可能是模型或链路） | Can you assist me by opening the first link in |
 
 ## 逐题
 
@@ -276,7 +277,12 @@
 | 192 | multi_apps | Could you help me create an Animated GIF src_clip.gi | ✗ 0.8 | ✗ 0.8 | 24 | 5110 | 596.7s |
 | 193 | multi_apps | I have file1.xlsx and file2.ods on my Desktop, each  | ✗ 0.0 | ✗ 0.0 | 17 | 9021 | 178.4s |
 | 194 | multi_apps | Help me export charts, graph or other images from do | ✗ 0.0 | ✗ 0.0 | 28 | 21593 | 276.6s |
+| 195 | multi_apps | Could you help me extract data in the table from a n | ✗ 0.0 | — | — | — | — |
 | 196 | multi_apps | Could you start VS Code in folder ~/Desktop/project  | ✅ | ✗ 0.0 | 9 | 2892 | 80.1s |
+| 197 | multi_apps | I've been working on this presentation in LibreOffic | ✅ | ✅ | 8 | 8474 | 49.6s |
+| 198 | multi_apps | Can you assist me by opening the first link in the A | ✗ 0.0 | ✗ 0.0 | 19 | 25235 | 231.3s |
+| 199 | multi_apps | Could you help me save all attachments of the oldest | ✗ 0.0 | — | — | — | — |
+| 200 | multi_apps | I have a LibreOffice Writer file form.docx on the de | ✗ 0.0 | — | — | — | — |
 
 ## 每题的过程记录
 
@@ -1576,10 +1582,41 @@
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 - **我手工**（第 4 次，未判分）：**更正前面三条记录的性质。** 这道题需要真实的 Google Drive 凭据，本机不具备——cc 把能做的都做完了（从 Thunderbird 邮件附件提取图片、编号），卡在上传那一步。按纪律这是"环境不支持"，不该记成模型失败。跑测现在会自动识别这一类（判据里有 googledrive getter 或 login 配置），分数记 None 而不是 0.0。这类题共 8 道，全在 multi_apps 段：194 195 199 200 202 203 222 288。
+### 第 195 题 · 4e9f0faf
+
+> Could you help me extract data in the table from a new invoice uploaded to my Google Drive, then export it to a Libreoffice calc .xlsx file in the desktop?
+
+- **我手工**（第 1 次，未判分）：需要真实的第三方凭据（Google Drive / 登录态），本机不具备——环境不支持，未被测试，不计为模型失败。
 ### 第 196 题 · 510f64c8
 
 > Could you start VS Code in folder ~/Desktop/project from the terminal?
 
 - **cc**（第 1 次，得分 0.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：**cc 做对了，是我的垫片崩了。** LocalSetupController._activate_window_setup 只收 kwargs，而官方是按位置传一个 params dict，于是判据抛 TypeError 记成 0.0。修好后重新判分直接 1.0。
+### 第 197 题 · 51f5801c
+
+> I've been working on this presentation in LibreOffice Impress and I've added a bunch of speaker notes for my upcoming talk. I'd like to have those notes handy in a separate document when I rehearse. Could you assist me in extracting all the presenter notes from the Impress file and saving them as a Word document? Just keep the text of the notes, do not add any formatting or page number information. I'd like the file to be named 'notes.docx' and placed on my Desktop for easy access.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 8 步一次通过。
+### 第 198 题 · 58565672
+
+> Can you assist me by opening the first link in the Amazon Web Services invoice email in the Bills folder and displaying it in a new Chrome tab? Keep the existing Chrome tabs open.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 19 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次 25 步仍未过。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 199 题 · 78aed49a
+
+> Could you help me save all attachments of the oldest email in Bills local folders to the attachment/ folder in Google Drive and then move this email to a different folder "have_seen" in Local Folders.
+
+- **我手工**（第 1 次，未判分）：需要真实的第三方凭据（Google Drive / 登录态），本机不具备——环境不支持，未被测试，不计为模型失败。
+### 第 200 题 · 897e3b53
+
+> I have a LibreOffice Writer file form.docx on the desktop. Help me convert it to PDF format and store the PDF in the forms/ folder in my Google Drive.
+
+- **我手工**（第 1 次，未判分）：需要真实的第三方凭据（Google Drive / 登录态），本机不具备——环境不支持，未被测试，不计为模型失败。
 
