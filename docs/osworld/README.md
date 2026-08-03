@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **252** / 369 |
-| 我手工通过 | 193 / 252 |
-| cc 通过（严格：得分 = 1.0）| **192 / 244** |
-| cc 平均分（OSWorld 口径）| **0.806** |
-| cc 平均步数 | 20.3 |
-| cc 平均观测 token | 24861 |
-| cc 平均用时 | 271s |
+| 已跑题数 | **255** / 369 |
+| 我手工通过 | 195 / 255 |
+| cc 通过（严格：得分 = 1.0）| **194 / 247** |
+| cc 平均分（OSWorld 口径）| **0.808** |
+| cc 平均步数 | 20.2 |
+| cc 平均观测 token | 24555 |
+| cc 平均用时 | 269s |
 | 执行轴 a11y 占比 | 42% （926/2183）|
 
 ### 两种口径要分开看
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 176 | 136 | 22.0 |
+| Bash 打开 | 179 | 138 | 21.9 |
 
 ## cc 未通过的题，成因分类
 
@@ -99,6 +99,7 @@
 | 247 | 未归类（可能是模型或链路） | I browsed a lot of interesting blog articles t |
 | 250 | 未归类（可能是模型或链路） | I want to convert an Impress file into a docum |
 | 252 | 未归类（可能是模型或链路） | Recently, I've been exploring the use of the V |
+| 255 | 未归类（可能是模型或链路） | I want to obtain a local file version of the c |
 
 ## 逐题
 
@@ -356,6 +357,9 @@
 | 250 | multi_apps | I want to convert an Impress file into a document ed | ✗ 0.2 | ✗ 0.2 | 18 | 15088 | 192.7s |
 | 251 | multi_apps | I've stored my .xcf file on the Desktop. Can you ass | ✅ | ✅ | 18 | 22898 | 205.1s |
 | 252 | multi_apps | Recently, I've been exploring the use of the Vim edi | ✗ 0.0 | ✗ 0.0 | 23 | 27352 | 247.1s |
+| 253 | multi_apps | I am currently working on my algorithm practice usin | ✅ | ✅ | 5 | 1431 | 36.9s |
+| 254 | multi_apps | The guidelines for submitting our essay work are pro | ✅ | ✅ | 15 | 8223 | 122.9s |
+| 255 | multi_apps | I want to obtain a local file version of the content | ✗ 0.7 | ✗ 0.7 | 14 | 2433 | 228.3s |
 
 ## 每题的过程记录
 
@@ -2088,4 +2092,26 @@
 - **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 253 题 · 20236825
+
+> I am currently working on my algorithm practice using the document "bubble_Sort_tutorial.docx." Please assist me in completing the 'bubbleSort' function within the 'bubbleSort.py' file on the Desktop and save the output as 'res.txt' on the Desktop.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 5 步一次通过。
+### 第 254 题 · 8df7e444
+
+> The guidelines for submitting our essay work are provided in the "reminder.docx" on the Desktop. My essay is stored as a docx file in /home/user. Please assist me in organizing the files for submission according to the specified requirements.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 15 步一次通过。
+### 第 255 题 · aad10cd7
+
+> I want to obtain a local file version of the content from the blog at https://developer.apple.com/design/human-interface-guidelines/searching to facilitate my own revision. Please retain the primary content on this page, specifically from 'searching' to just before 'resources.' Assist me in saving this blog as "notes.docx" on the desktop.
+
+- **cc**（第 1 次，得分 0.7143513554908868）：cc 第一次
+- **我手工**（第 1 次，得分 0.714）：连续值判据 0.714。
+- **cc**（第 2 次，得分 0.7228766274023559）：cc 第二次
+- **我手工**（第 2 次，得分 0.723）：第二次 0.723。
+- **cc**（第 3 次，得分 0.7228766274023559）：cc 第三次
+- **我手工**（第 3 次，得分 0.723）：三次 0.714 / 0.723 / 0.723，取最好 0.723。转下一题。
 
