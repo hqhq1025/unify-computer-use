@@ -21,12 +21,12 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **233** / 369 |
-| 我手工通过 | 183 / 233 |
-| cc 通过（严格：得分 = 1.0）| **182 / 225** |
-| cc 平均分（OSWorld 口径）| **0.829** |
-| cc 平均步数 | 20.2 |
-| cc 平均观测 token | 25498 |
+| 已跑题数 | **235** / 369 |
+| 我手工通过 | 184 / 235 |
+| cc 通过（严格：得分 = 1.0）| **183 / 227** |
+| cc 平均分（OSWorld 口径）| **0.826** |
+| cc 平均步数 | 20.3 |
+| cc 平均观测 token | 25315 |
 | cc 平均用时 | 274s |
 | 执行轴 a11y 占比 | 43% （893/2059）|
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 157 | 126 | 22.2 |
+| Bash 打开 | 159 | 127 | 22.2 |
 
 ## cc 未通过的题，成因分类
 
@@ -90,6 +90,7 @@
 | 230 | 未归类（可能是模型或链路） | Can you organize my desktop by identifying aca |
 | 231 | 未归类（可能是模型或链路） | Could you please review the 'case study.docx'  |
 | 232 | 未归类（可能是模型或链路） | Could you please add a two-hour lecture slot t |
+| 235 | 未归类（可能是模型或链路） | Hi, I recently playing with developing a small |
 
 ## 逐题
 
@@ -328,6 +329,8 @@
 | 231 | multi_apps | Could you please review the 'case study.docx' file l | ✗ 0.4 | ✗ 0.4 | 19 | 6258 | 209.8s |
 | 232 | multi_apps | Could you please add a two-hour lecture slot to my w | ✗ 0.0 | ✗ 0.0 | 27 | 22701 | 350.8s |
 | 233 | multi_apps | I've prepared some grammar tests and placed them in  | ✅ | ✅ | 36 | 25749 | 379.0s |
+| 234 | multi_apps | So, I've been dabbling with coding a Snake game in P | ✅ | ✅ | 14 | 7373 | 140.0s |
+| 235 | multi_apps | Hi, I recently playing with developing a small pytho | ✗ 0.0 | ✗ 0.0 | 23 | 9260 | 261.7s |
 
 ## 每题的过程记录
 
@@ -1910,4 +1913,20 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 36 步一次通过。
+### 第 234 题 · 26150609
+
+> So, I've been dabbling with coding a Snake game in Python, and I finally got it up and running. It's pretty cool, but it's not without its quirks. The biggest issue I'm facing right now is that the snake can't seem to eat the food, no matter what. Could you help me tweak the code so the snake can actually eat the food? Thanks a bunch!
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 14 步一次通过（Python 测试套件判据）。
+### 第 235 题 · 9219480b
+
+> Hi, I recently playing with developing a small python-based tetris game. While I have finished most of the part, something is wrong under some cases when I press up to rotate, the whole program will crash, please run the code for me and fix the bugs of code.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 23 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次 25 步仍未过。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
