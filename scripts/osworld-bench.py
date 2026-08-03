@@ -150,6 +150,19 @@ def cmd_list(args):
             index, app, task_id, mark, len(attempts)))
 
 
+# 需要真实第三方凭据的题——本机跑不了，也不该记成模型失败。
+#
+# 实测第 194 题：cc 把能做的都做完了（从 Thunderbird 邮件附件里提取出图片、
+# 编好号），卡在"上传到 Google Drive"这一步，因为那需要真实账号。
+# 三次都是同样的结果。把这种记成 0.0，等于把环境的欠缺算到模型头上。
+#
+# 判据里出现 googledrive getter 或 login 配置的就是这一类，实测 8 道，
+# 全在 multi_apps 段：194 195 199 200 202 203 222 288。
+def needs_real_credentials(task):
+    blob = json.dumps(task, ensure_ascii=False).lower()
+    return "googledrive" in blob or '"login"' in blob
+
+
 def cmd_deploy(args):
     index, (app, task_id) = resolve(args.task)
     task = load_task(app, task_id)
@@ -487,7 +500,11 @@ def cmd_agent(args):
     stats = summarize(transcript)
     funcs = task.get("evaluator", {}).get("func")
     funcs = [funcs] if isinstance(funcs, str) else (funcs or [])
-    if funcs == ["infeasible"]:
+    if needs_real_credentials(task):
+        # 分数记 None 而不是 0：这道题**没有被测过**，不是被测失败了。
+        score, detail = None, ("这道题需要真实的第三方凭据（Google Drive / 登录态），"
+                               "本机不具备——环境不支持，不计为模型失败")
+    elif funcs == ["infeasible"]:
         # 官方的 `infeasible` 判据是空函数——它靠 agent 输出 FAIL 来判分。
         # 我们的 agent 不发 FAIL，它说人话，所以判据落在**它有没有拒绝**上。
         #

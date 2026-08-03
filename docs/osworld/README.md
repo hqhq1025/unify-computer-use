@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **192** / 369 |
-| 我手工通过 | 163 / 192 |
-| cc 通过（严格：得分 = 1.0）| **163 / 190** |
-| cc 平均分（OSWorld 口径）| **0.877** |
-| cc 平均步数 | 18.3 |
-| cc 平均观测 token | 26828 |
+| 已跑题数 | **194** / 369 |
+| 我手工通过 | 163 / 194 |
+| cc 通过（严格：得分 = 1.0）| **163 / 192** |
+| cc 平均分（OSWorld 口径）| **0.868** |
+| cc 平均步数 | 18.5 |
+| cc 平均观测 token | 26539 |
 | cc 平均用时 | 254s |
-| 执行轴 a11y 占比 | 43% （756/1766）|
+| 执行轴 a11y 占比 | 43% （774/1785）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 122 | 107 | 20.0 |
+| Bash 打开 | 124 | 107 | 20.2 |
 
 ## cc 未通过的题，成因分类
 
@@ -74,6 +74,8 @@
 | 180 | 未归类（可能是模型或链路） | I am making a guideline for students of my cou |
 | 190 | 未归类（可能是模型或链路） | Hey, my LibreOffice Writer seems to have froze |
 | 192 | 未归类（可能是模型或链路） | Could you help me create an Animated GIF src_c |
+| 193 | 未归类（可能是模型或链路） | I have file1.xlsx and file2.ods on my Desktop, |
+| 194 | 未归类（可能是模型或链路） | Help me export charts, graph or other images f |
 
 ## 逐题
 
@@ -271,6 +273,8 @@
 | 190 | multi_apps | Hey, my LibreOffice Writer seems to have frozen and  | ✗ 0.0 | ✗ 0.0 | 4 | 2103 | 48.8s |
 | 191 | multi_apps | Could you help me push the changes from commandline  | ✅ | ✅ | 9 | 4128 | 78.7s |
 | 192 | multi_apps | Could you help me create an Animated GIF src_clip.gi | ✗ 0.8 | ✗ 0.8 | 24 | 5110 | 596.7s |
+| 193 | multi_apps | I have file1.xlsx and file2.ods on my Desktop, each  | ✗ 0.0 | ✗ 0.0 | 17 | 9021 | 178.4s |
+| 194 | multi_apps | Help me export charts, graph or other images from do | ✗ 0.0 | ✗ 0.0 | 28 | 21593 | 276.6s |
 
 ## 每题的过程记录
 
@@ -1549,4 +1553,25 @@
 - **我手工**（第 2 次，得分 0.73）：第二次 0.730，比第一次的 0.837 还低——连续值判据下两次的差异反映的是做法不同，不是稳定退步。
 - **cc**（第 3 次，得分 0.8367647456999785）：cc 第三次
 - **我手工**（第 3 次，得分 0.837）：第三次回到 0.837。三次分别 0.837 / 0.730 / 0.837，取最好 0.837。转下一题。
+### 第 193 题 · 3680a5ee
+
+> I have file1.xlsx and file2.ods on my Desktop, each containing a single column. Using only the command line, help me merge these two columns into a single column by concatenating the strings from both rows, save the result as ~/Desktop/output.csv, and open it in LibreOffice Calc from the terminal
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 17 步未过（两个子判据 and 关系，第二个过了第一个没过）。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样卡在第一个子判据。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次都是 check_include_exclude 不过、compare_csv 过——它把数据处理对了，卡在另一个条件上。转下一题。
+### 第 194 题 · 46407397
+
+> Help me export charts, graph or other images from docx files received in email "Lecture Document" in Notes folder and upload these png files to the figures/ folder in Google Drive for later use (use numbers to name them).
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 28 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次 39 步仍未过。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+- **我手工**（第 4 次，未判分）：**更正前面三条记录的性质。** 这道题需要真实的 Google Drive 凭据，本机不具备——cc 把能做的都做完了（从 Thunderbird 邮件附件提取图片、编号），卡在上传那一步。按纪律这是"环境不支持"，不该记成模型失败。跑测现在会自动识别这一类（判据里有 googledrive getter 或 login 配置），分数记 None 而不是 0.0。这类题共 8 道，全在 multi_apps 段：194 195 199 200 202 203 222 288。
 
