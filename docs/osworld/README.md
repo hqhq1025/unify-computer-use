@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **212** / 369 |
-| 我手工通过 | 170 / 212 |
-| cc 通过（严格：得分 = 1.0）| **169 / 205** |
-| cc 平均分（OSWorld 口径）| **0.842** |
-| cc 平均步数 | 18.9 |
-| cc 平均观测 token | 26575 |
-| cc 平均用时 | 257s |
-| 执行轴 a11y 占比 | 44% （833/1914）|
+| 已跑题数 | **214** / 369 |
+| 我手工通过 | 171 / 214 |
+| cc 通过（严格：得分 = 1.0）| **170 / 207** |
+| cc 平均分（OSWorld 口径）| **0.839** |
+| cc 平均步数 | 19.2 |
+| cc 平均观测 token | 26562 |
+| cc 平均用时 | 262s |
+| 执行轴 a11y 占比 | 44% （859/1957）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 137 | 113 | 20.6 |
+| Bash 打开 | 139 | 114 | 21.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -83,6 +83,7 @@
 | 207 | 未归类（可能是模型或链路） | Could you help me convert the opened ods file  |
 | 208 | 未归类（可能是模型或链路） | Could you convert all `.doc` files in current  |
 | 209 | 未归类（可能是模型或链路） | Could you help me copy the data in Cell B6 in  |
+| 214 | 未归类（可能是模型或链路） | Help me to set up an initial web extension pro |
 
 ## 逐题
 
@@ -300,6 +301,8 @@
 | 210 | multi_apps | Convert an OpenOffice/LibreOffice Impress presentati | ✅ | ✅ | 32 | 38939 | 383.5s |
 | 211 | multi_apps | Please complete the code and retrieve the output fro | ✅ | ✅ | 4 | 7659 | 27.2s |
 | 212 | multi_apps | Examine the spreadsheet on the desktop, which contai | ✅ | ✅ | 45 | 21332 | 417.1s |
+| 213 | multi_apps | The requirements of my data analysis assignment are  | ✅ | ✅ | 57 | 24143 | 734.2s |
+| 214 | multi_apps | Help me to set up an initial web extension project w | ✗ 0.0 | ✗ 0.0 | 45 | 35916 | 694.4s |
 
 ## 每题的过程记录
 
@@ -1725,4 +1728,20 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 45 步一次通过。
+### 第 213 题 · bc2b57f3
+
+> The requirements of my data analysis assignment are listed in "reminder.docx" on the desktop. Help me modify my assignment opended accordingly.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 57 步一次通过。
+### 第 214 题 · 74d5859f
+
+> Help me to set up an initial web extension project with help of the web tool, tagging it "happy-extension v0.0.1". Leave description blank for now. Include a background script and browser action, while other features are not required. Remember to unzip the auto-generated folder into "~/Projects".
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 45 步未过（五个子判据全 0）。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次 21 步仍未过。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
