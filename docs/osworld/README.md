@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **214** / 369 |
-| 我手工通过 | 171 / 214 |
-| cc 通过（严格：得分 = 1.0）| **170 / 207** |
-| cc 平均分（OSWorld 口径）| **0.839** |
+| 已跑题数 | **217** / 369 |
+| 我手工通过 | 174 / 217 |
+| cc 通过（严格：得分 = 1.0）| **173 / 210** |
+| cc 平均分（OSWorld 口径）| **0.841** |
 | cc 平均步数 | 19.2 |
-| cc 平均观测 token | 26562 |
+| cc 平均观测 token | 26520 |
 | cc 平均用时 | 262s |
-| 执行轴 a11y 占比 | 44% （859/1957）|
+| 执行轴 a11y 占比 | 44% （872/1982）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 139 | 114 | 21.0 |
+| Bash 打开 | 142 | 117 | 21.1 |
 
 ## cc 未通过的题，成因分类
 
@@ -303,6 +303,9 @@
 | 212 | multi_apps | Examine the spreadsheet on the desktop, which contai | ✅ | ✅ | 45 | 21332 | 417.1s |
 | 213 | multi_apps | The requirements of my data analysis assignment are  | ✅ | ✅ | 57 | 24143 | 734.2s |
 | 214 | multi_apps | Help me to set up an initial web extension project w | ✗ 0.0 | ✗ 0.0 | 45 | 35916 | 694.4s |
+| 215 | multi_apps | Please help me to extract the name, e-mail, and affi | ✅ | ✅ | 7 | 8974 | 53.8s |
+| 216 | multi_apps | I need to include the experiment results from "~/Doc | ✅ | ✅ | 59 | 58804 | 737.1s |
+| 217 | multi_apps | Please help me clone the repo "https://github.com/xl | ✅ | ✅ | 2 | 178 | 19.8s |
 
 ## 每题的过程记录
 
@@ -1744,4 +1747,22 @@
 - **我手工**（第 2 次，得分 0.0）：第二次 21 步仍未过。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 215 题 · b5062e3e
+
+> Please help me to extract the name, e-mail, and affiliation of the first author from each paper in the folder and organize them in an Excel table. Include headers for each field. Sort the authors by their full names alphabetically and save the table as "~/authors.xlsx".
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 7 步一次通过。
+### 第 216 题 · 00fa164e
+
+> I need to include the experiment results from "~/Documents/awesome-desktop/expe-results.xlsx" into the currently writing report. Specifically, extract the results of GPT-4 and insert a table into the "Main Results" section of my report. Remember to paste the table header, too. Copy the cell values exactly as they are displayed in the spreadsheet, including trailing zeros and four decimal places for numeric values.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 59 步一次通过。
+### 第 217 题 · acb0f96b
+
+> Please help me clone the repo "https://github.com/xlang-ai/instructor-embedding" to /home/user.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 2 步一次通过。
 
