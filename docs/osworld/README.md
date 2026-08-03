@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **222** / 369 |
-| 我手工通过 | 177 / 222 |
-| cc 通过（严格：得分 = 1.0）| **176 / 214** |
-| cc 平均分（OSWorld 口径）| **0.840** |
-| cc 平均步数 | 19.3 |
+| 已跑题数 | **225** / 369 |
+| 我手工通过 | 179 / 225 |
+| cc 通过（严格：得分 = 1.0）| **178 / 217** |
+| cc 平均分（OSWorld 口径）| **0.837** |
+| cc 平均步数 | 19.8 |
 | cc 平均观测 token | 26171 |
-| cc 平均用时 | 264s |
-| 执行轴 a11y 占比 | 44% （874/1990）|
+| cc 平均用时 | 271s |
+| 执行轴 a11y 占比 | 44% （880/2008）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 146 | 120 | 21.1 |
+| Bash 打开 | 149 | 122 | 21.7 |
 
 ## cc 未通过的题，成因分类
 
@@ -85,6 +85,7 @@
 | 209 | 未归类（可能是模型或链路） | Could you help me copy the data in Cell B6 in  |
 | 214 | 未归类（可能是模型或链路） | Help me to set up an initial web extension pro |
 | 221 | 未归类（可能是模型或链路） | Tomorrow, I'm scheduled to deliver a talk, and |
+| 225 | 未归类（可能是模型或链路） | Find a paper list of all the new foundation la |
 
 ## 逐题
 
@@ -312,6 +313,9 @@
 | 220 | multi_apps | I've compiled papers and books with links in this sp | ✅ | ✅ | 11 | 5545 | 76.5s |
 | 221 | multi_apps | Tomorrow, I'm scheduled to deliver a talk, and my Po | ✗ 0.0 | ✗ 0.0 | 18 | 7030 | 159.0s |
 | 222 | multi_apps | I'm working on a comprehensive report for our enviro | ✗ 0.0 | — | — | — | — |
+| 223 | multi_apps | I am collecting the contact information of some prof | ✅ | ✅ | 25 | 10804 | 395.8s |
+| 224 | multi_apps | Hello! I'm eagerly planning a culinary adventure to  | ✅ | ✅ | 35 | 31286 | 401.8s |
+| 225 | multi_apps | Find a paper list of all the new foundation language | ✗ 0.0 | ✗ 0.0 | 28 | 15404 | 397.3s |
 
 ## 每题的过程记录
 
@@ -1804,4 +1808,26 @@
 > I'm working on a comprehensive report for our environmental policy review meeting next week. I need to integrate key insights from an important document, which is a guidebook on the Green Economy, where I'm particularly interested in the 'Introduction' section. Could you extract this section and compile them into a new Google Doc named 'environment_policy_report (draft)' under /environment_policy folder? This will significantly aid in our discussion on aligning our environmental policies with sustainable and green economic practices. Thanks!
 
 - **我手工**（第 1 次，未判分）：需要真实的第三方凭据（Google Drive / 登录态），本机不具备——环境不支持，未被测试，不计为模型失败。
+### 第 223 题 · c7c1e4c3
+
+> I am collecting the contact information of some professors and have their homepage links listed here. Assist me in completing the form by adding their respective email addresses.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 25 步一次通过。
+### 第 224 题 · d1acdb87
+
+> Hello! I'm eagerly planning a culinary adventure to Hong Kong and have curated a list of must-visit restaurants that I've been longing to explore. However, I could use some assistance in compiling a few essential details about these establishments. Would you be so kind as to help me out? It would be fantastic if you could search for these restaurants on Google Maps. I'm particularly interested in obtaining their addresses, any available websites, and contact phone numbers. If you could gather this information and input it into my form file, I would be immensely grateful. Many thanks in advance!
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 35 步一次通过。
+### 第 225 题 · deec51c9
+
+> Find a paper list of all the new foundation language models issued on 11st Oct. 2023 via arxivdaily, and organize it into the sheet I opened.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 28 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次 74 步 / 1317s 仍未过。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过（65 步）。转下一题。
 
