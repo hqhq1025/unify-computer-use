@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **200** / 369 |
-| 我手工通过 | 165 / 200 |
-| cc 通过（严格：得分 = 1.0）| **164 / 195** |
-| cc 平均分（OSWorld 口径）| **0.860** |
-| cc 平均步数 | 18.4 |
-| cc 平均观测 token | 26333 |
-| cc 平均用时 | 253s |
-| 执行轴 a11y 占比 | 43% （781/1800）|
+| 已跑题数 | **204** / 369 |
+| 我手工通过 | 166 / 204 |
+| cc 通过（严格：得分 = 1.0）| **165 / 197** |
+| cc 平均分（OSWorld 口径）| **0.856** |
+| cc 平均步数 | 18.6 |
+| cc 平均观测 token | 26307 |
+| cc 平均用时 | 255s |
+| 执行轴 a11y 占比 | 44% （809/1844）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 127 | 108 | 20.1 |
+| Bash 打开 | 129 | 109 | 20.4 |
 
 ## cc 未通过的题，成因分类
 
@@ -78,6 +78,7 @@
 | 194 | 未归类（可能是模型或链路） | Help me export charts, graph or other images f |
 | 196 | 未归类（可能是模型或链路） | Could you start VS Code in folder ~/Desktop/pr |
 | 198 | 未归类（可能是模型或链路） | Can you assist me by opening the first link in |
+| 204 | 未归类（可能是模型或链路） | Please assist me in exporting my contacts of P |
 
 ## 逐题
 
@@ -283,6 +284,10 @@
 | 198 | multi_apps | Can you assist me by opening the first link in the A | ✗ 0.0 | ✗ 0.0 | 19 | 25235 | 231.3s |
 | 199 | multi_apps | Could you help me save all attachments of the oldest | ✗ 0.0 | — | — | — | — |
 | 200 | multi_apps | I have a LibreOffice Writer file form.docx on the de | ✗ 0.0 | — | — | — | — |
+| 201 | multi_apps | I am currently using a ubuntu system. Could you help | ✅ | ✅ | 10 | 12482 | 118.8s |
+| 202 | multi_apps | Please help me backup my emails in "Bills" folder in | ✗ 0.0 | — | — | — | — |
+| 203 | multi_apps | Could you help me merge all PDF files in the "Paper  | ✗ 0.0 | — | — | — | — |
+| 204 | multi_apps | Please assist me in exporting my contacts of Persona | ✗ 0.0 | ✗ 0.0 | 36 | 25239 | 418.9s |
 
 ## 每题的过程记录
 
@@ -1619,4 +1624,30 @@
 > I have a LibreOffice Writer file form.docx on the desktop. Help me convert it to PDF format and store the PDF in the forms/ folder in my Google Drive.
 
 - **我手工**（第 1 次，未判分）：需要真实的第三方凭据（Google Drive / 登录态），本机不具备——环境不支持，未被测试，不计为模型失败。
+### 第 201 题 · 937087b6
+
+> I am currently using a ubuntu system. Could you help me set the default video player as VLC?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 10 步一次通过。
+### 第 202 题 · a0b9dc9c
+
+> Please help me backup my emails in "Bills" folder in Thunderbird and store the .eml files with only subject names to my Google Drive folder called "emails".
+
+- **我手工**（第 1 次，未判分）：需要真实的第三方凭据（Google Drive / 登录态），本机不具备——环境不支持，未被测试，不计为模型失败。
+### 第 203 题 · b52b40a5
+
+> Could you help me merge all PDF files in the "Paper Recommendation" email attachment in Thunderbird into one file and upload it to attachment_full.pdf in Google Drive?
+
+- **我手工**（第 1 次，未判分）：需要真实的第三方凭据（Google Drive / 登录态），本机不具备——环境不支持，未被测试，不计为模型失败。
+### 第 204 题 · c867c42d
+
+> Please assist me in exporting my contacts of Personal Address Book from Thunderbird into contacts.csv file in the desktop and convert it to .xlsx with Libreoffice Calc.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 36 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次 42 步仍未过。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
