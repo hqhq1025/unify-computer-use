@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **204** / 369 |
-| 我手工通过 | 166 / 204 |
-| cc 通过（严格：得分 = 1.0）| **165 / 197** |
-| cc 平均分（OSWorld 口径）| **0.856** |
-| cc 平均步数 | 18.6 |
-| cc 平均观测 token | 26307 |
-| cc 平均用时 | 255s |
-| 执行轴 a11y 占比 | 44% （809/1844）|
+| 已跑题数 | **206** / 369 |
+| 我手工通过 | 167 / 206 |
+| cc 通过（严格：得分 = 1.0）| **166 / 199** |
+| cc 平均分（OSWorld 口径）| **0.853** |
+| cc 平均步数 | 18.9 |
+| cc 平均观测 token | 26553 |
+| cc 平均用时 | 258s |
+| 执行轴 a11y 占比 | 44% （821/1872）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 129 | 109 | 20.4 |
+| Bash 打开 | 131 | 110 | 20.7 |
 
 ## cc 未通过的题，成因分类
 
@@ -79,6 +79,7 @@
 | 196 | 未归类（可能是模型或链路） | Could you start VS Code in folder ~/Desktop/pr |
 | 198 | 未归类（可能是模型或链路） | Can you assist me by opening the first link in |
 | 204 | 未归类（可能是模型或链路） | Please assist me in exporting my contacts of P |
+| 206 | 未归类（可能是模型或链路） | Please convert a .xlsx file opened in LibreOff |
 
 ## 逐题
 
@@ -288,6 +289,8 @@
 | 202 | multi_apps | Please help me backup my emails in "Bills" folder in | ✗ 0.0 | — | — | — | — |
 | 203 | multi_apps | Could you help me merge all PDF files in the "Paper  | ✗ 0.0 | — | — | — | — |
 | 204 | multi_apps | Please assist me in exporting my contacts of Persona | ✗ 0.0 | ✗ 0.0 | 36 | 25239 | 418.9s |
+| 205 | multi_apps | Help me extract the latest 5 emails in daily folder  | ✅ | ✅ | 47 | 29181 | 715.1s |
+| 206 | multi_apps | Please convert a .xlsx file opened in LibreOffice Ca | ✗ 0.0 | ✗ 0.0 | 23 | 39417 | 281.6s |
 
 ## 每题的过程记录
 
@@ -1650,4 +1653,20 @@
 - **我手工**（第 2 次，得分 0.0）：第二次 42 步仍未过。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 205 题 · d9b7c649
+
+> Help me extract the latest 5 emails in daily folder from Thunderbird, from the earliest to the most recent by time, and creates a LibreOffice Calc Report "report.xlsx" in the desktop, storing the sender_name, sender_address, subject, CC, and number_of_attachments.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 47 步一次通过。
+### 第 206 题 · e135df7c
+
+> Please convert a .xlsx file opened in LibreOffice Calc to a .html file and view it in Chrome.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 23 步未过（compare_htmls 过了、活动标签页没对上）。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次 45 步仍卡在活动标签页。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次都是同一模式：compare_htmls 全部 1.0（内容做对了），但 is_expected_active_tab 全部 0.0——它把事情做完了，却没把浏览器停在判据要的那一页上。转下一题。
 
