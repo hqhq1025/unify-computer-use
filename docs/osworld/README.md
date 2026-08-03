@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **250** / 369 |
-| 我手工通过 | 192 / 250 |
-| cc 通过（严格：得分 = 1.0）| **191 / 242** |
-| cc 平均分（OSWorld 口径）| **0.809** |
+| 已跑题数 | **252** / 369 |
+| 我手工通过 | 193 / 252 |
+| cc 通过（严格：得分 = 1.0）| **192 / 244** |
+| cc 平均分（OSWorld 口径）| **0.806** |
 | cc 平均步数 | 20.3 |
-| cc 平均观测 token | 24807 |
+| cc 平均观测 token | 24861 |
 | cc 平均用时 | 271s |
-| 执行轴 a11y 占比 | 43% （923/2146）|
+| 执行轴 a11y 占比 | 42% （926/2183）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 174 | 135 | 22.1 |
+| Bash 打开 | 176 | 136 | 22.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -98,6 +98,7 @@
 | 244 | 未归类（可能是模型或链路） | My friend is a "plugin guru" and he recommende |
 | 247 | 未归类（可能是模型或链路） | I browsed a lot of interesting blog articles t |
 | 250 | 未归类（可能是模型或链路） | I want to convert an Impress file into a docum |
+| 252 | 未归类（可能是模型或链路） | Recently, I've been exploring the use of the V |
 
 ## 逐题
 
@@ -353,6 +354,8 @@
 | 248 | multi_apps | Monitor Ubuntu system resource usage using the sar c | ✅ | ✅ | 4 | 10442 | 60.7s |
 | 249 | multi_apps | Can you assist me in transferring the data from Libr | ✅ | ✅ | 48 | 36341 | 561.9s |
 | 250 | multi_apps | I want to convert an Impress file into a document ed | ✗ 0.2 | ✗ 0.2 | 18 | 15088 | 192.7s |
+| 251 | multi_apps | I've stored my .xcf file on the Desktop. Can you ass | ✅ | ✅ | 18 | 22898 | 205.1s |
+| 252 | multi_apps | Recently, I've been exploring the use of the Vim edi | ✗ 0.0 | ✗ 0.0 | 23 | 27352 | 247.1s |
 
 ## 每题的过程记录
 
@@ -2069,4 +2072,20 @@
 - **我手工**（第 2 次，得分 0.214）：第二次同分。
 - **cc**（第 3 次，得分 0.21367227756784613）：cc 第三次
 - **我手工**（第 3 次，得分 0.214）：三次同分 0.214。转下一题。
+### 第 251 题 · 227d2f97
+
+> I've stored my .xcf file on the Desktop. Can you assist me in copying the image and pasting it into a LibreOffice Writer document? Save the document as 'image.docx' on the Desktop, please.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 18 步一次通过。
+### 第 252 题 · b337d106
+
+> Recently, I've been exploring the use of the Vim editor for code editing. However, the default settings don't display line numbers in Vim editor. Please search the Internet for a tutorial on adding absolute line numbers in Vim and setting it as default for my local Vim.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 23 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
