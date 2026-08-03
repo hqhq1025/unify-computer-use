@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **226** / 369 |
-| 我手工通过 | 180 / 226 |
-| cc 通过（严格：得分 = 1.0）| **179 / 218** |
+| 已跑题数 | **229** / 369 |
+| 我手工通过 | 182 / 229 |
+| cc 通过（严格：得分 = 1.0）| **181 / 221** |
 | cc 平均分（OSWorld 口径）| **0.838** |
 | cc 平均步数 | 20.0 |
-| cc 平均观测 token | 26028 |
-| cc 平均用时 | 273s |
-| 执行轴 a11y 占比 | 44% （883/2014）|
+| cc 平均观测 token | 25740 |
+| cc 平均用时 | 272s |
+| 执行轴 a11y 占比 | 44% （883/2019）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 150 | 123 | 22.0 |
+| Bash 打开 | 153 | 125 | 22.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -86,6 +86,7 @@
 | 214 | 未归类（可能是模型或链路） | Help me to set up an initial web extension pro |
 | 221 | 未归类（可能是模型或链路） | Tomorrow, I'm scheduled to deliver a talk, and |
 | 225 | 未归类（可能是模型或链路） | Find a paper list of all the new foundation la |
+| 229 | 未归类（可能是模型或链路） | Transfer the data from our 'Employee Performan |
 
 ## 逐题
 
@@ -317,6 +318,9 @@
 | 224 | multi_apps | Hello! I'm eagerly planning a culinary adventure to  | ✅ | ✅ | 35 | 31286 | 401.8s |
 | 225 | multi_apps | Find a paper list of all the new foundation language | ✗ 0.0 | ✗ 0.0 | 28 | 15404 | 397.3s |
 | 226 | multi_apps | Please update my bookkeeping sheet with the recent t | ✅ | ✅ | 40 | 16751 | 481.0s |
+| 227 | multi_apps | Cross-check the invoices with the bank statements an | ✅ | ✅ | 8 | 8872 | 71.7s |
+| 228 | multi_apps | Please sift through the event photos in '/home/user/ | ✅ | ✅ | 16 | 2645 | 126.6s |
+| 229 | multi_apps | Transfer the data from our 'Employee Performance Eva | ✗ 0.5 | ✗ 0.5 | 32 | 8326 | 347.3s |
 
 ## 每题的过程记录
 
@@ -1841,4 +1845,26 @@
 - **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 1.0）：cc 第三次
 - **我手工**（第 3 次，得分 1.0）：第三次 40 步通过——印证了前两次的诊断：判据抛的 NoneType 异常确实是"表里还有空格没填"，这次填全了就过了。
+### 第 227 题 · 337d318b
+
+> Cross-check the invoices with the bank statements and identify any discrepancies. Then pull out the invoices that don't match the statements and put them in the "problematic" folder.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 8 步一次通过。
+### 第 228 题 · 82e3c869
+
+> Please sift through the event photos in '/home/user/Desktop/IDS LLM seminar'. Copy the photos featuring the presenter (a.k.a. Tao Yu) into a separate folder at '/home/user/Desktop/presenter'. Then compress that folder into '/home/user/Desktop/presenter.zip' so I can easily share it with others later.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 16 步一次通过。
+### 第 229 题 · 185f29bd
+
+> Transfer the data from our 'Employee Performance Evaluation Summary' Excel sheet into our standardized PDF evaluation forms. Each employee's evaluation data should be accurately filled into the designated fields of the PDF form. It's crucial that the final PDF documents retain a uniform and professional look, ready for distribution to our staff or for filing purposes. Furthermore, please ensure that each PDF file is named according to the employee's name as it appears in the Excel document. This will greatly streamline our evaluation process and enhance our efficiency in managing employee performance records. Oh, use "√" as mark on characters.
+
+- **cc**（第 1 次，得分 0.5147）：cc 第一次
+- **我手工**（第 1 次，得分 0.515）：PDF 表单字段比对，连续值判据 0.515。
+- **cc**（第 2 次，得分 0.5147）：cc 第二次
+- **我手工**（第 2 次，得分 0.515）：第二次同分 0.515。
+- **cc**（第 3 次，得分 0.5147）：cc 第三次
+- **我手工**（第 3 次，得分 0.515）：三次同分 0.515（PDF 表单字段比对）。转下一题。
 
