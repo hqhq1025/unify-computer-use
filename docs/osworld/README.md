@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **225** / 369 |
-| 我手工通过 | 179 / 225 |
-| cc 通过（严格：得分 = 1.0）| **178 / 217** |
-| cc 平均分（OSWorld 口径）| **0.837** |
-| cc 平均步数 | 19.8 |
-| cc 平均观测 token | 26171 |
-| cc 平均用时 | 271s |
-| 执行轴 a11y 占比 | 44% （880/2008）|
+| 已跑题数 | **226** / 369 |
+| 我手工通过 | 180 / 226 |
+| cc 通过（严格：得分 = 1.0）| **179 / 218** |
+| cc 平均分（OSWorld 口径）| **0.838** |
+| cc 平均步数 | 20.0 |
+| cc 平均观测 token | 26028 |
+| cc 平均用时 | 273s |
+| 执行轴 a11y 占比 | 44% （883/2014）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 149 | 122 | 21.7 |
+| Bash 打开 | 150 | 123 | 22.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -316,6 +316,7 @@
 | 223 | multi_apps | I am collecting the contact information of some prof | ✅ | ✅ | 25 | 10804 | 395.8s |
 | 224 | multi_apps | Hello! I'm eagerly planning a culinary adventure to  | ✅ | ✅ | 35 | 31286 | 401.8s |
 | 225 | multi_apps | Find a paper list of all the new foundation language | ✗ 0.0 | ✗ 0.0 | 28 | 15404 | 397.3s |
+| 226 | multi_apps | Please update my bookkeeping sheet with the recent t | ✅ | ✅ | 40 | 16751 | 481.0s |
 
 ## 每题的过程记录
 
@@ -1830,4 +1831,14 @@
 - **我手工**（第 2 次，得分 0.0）：第二次 74 步 / 1317s 仍未过。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过（65 步）。转下一题。
+### 第 226 题 · 8e116af7
+
+> Please update my bookkeeping sheet with the recent transactions from the provided folder, detailing my expenses over the past few days.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：判据抛 TypeError: float() argument ... not NoneType——出在官方 compare_table 的 sheet_fuzzy 规则里，它对单元格做 float() 而那一格是 None，说明表里有该填而没填的空格。这次是真没做完，不是判据的问题。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 1.0）：cc 第三次
+- **我手工**（第 3 次，得分 1.0）：第三次 40 步通过——印证了前两次的诊断：判据抛的 NoneType 异常确实是"表里还有空格没填"，这次填全了就过了。
 
