@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **240** / 369 |
-| 我手工通过 | 186 / 240 |
-| cc 通过（严格：得分 = 1.0）| **185 / 232** |
-| cc 平均分（OSWorld 口径）| **0.817** |
+| 已跑题数 | **242** / 369 |
+| 我手工通过 | 187 / 242 |
+| cc 通过（严格：得分 = 1.0）| **186 / 234** |
+| cc 平均分（OSWorld 口径）| **0.814** |
 | cc 平均步数 | 20.3 |
-| cc 平均观测 token | 24931 |
+| cc 平均观测 token | 24805 |
 | cc 平均用时 | 273s |
-| 执行轴 a11y 占比 | 43% （904/2092）|
+| 执行轴 a11y 占比 | 43% （908/2103）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 164 | 129 | 22.2 |
+| Bash 打开 | 166 | 130 | 22.2 |
 
 ## cc 未通过的题，成因分类
 
@@ -94,6 +94,7 @@
 | 236 | 未归类（可能是模型或链路） | I want to apply for a faculty position in Hong |
 | 237 | 未归类（可能是模型或链路） | I am an assistant professor of CS at HKU, I wa |
 | 239 | 未归类（可能是模型或链路） | I have a JSON-formatted data file opened now t |
+| 241 | 未归类（可能是模型或链路） | I'm really enjoying this paper. Could you plea |
 
 ## 逐题
 
@@ -339,6 +340,8 @@
 | 238 | multi_apps | I recently started using the famous personal academi | ✅ | ✅ | 8 | 1473 | 49.8s |
 | 239 | multi_apps | I have a JSON-formatted data file opened now that st | ✗ 0.0 | ✗ 0.0 | 22 | 10340 | 280.4s |
 | 240 | multi_apps | I want to test the quality of the network environmen | ✅ | ✅ | 21 | 31289 | 264.4s |
+| 241 | multi_apps | I'm really enjoying this paper. Could you please loc | ✗ 0.0 | ✗ 0.0 | 21 | 16418 | 236.9s |
+| 242 | multi_apps | Could you please pull up the Google Scholar page of  | ✅ | ✅ | 28 | 21438 | 262.9s |
 
 ## 每题的过程记录
 
@@ -1979,4 +1982,20 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 21 步一次通过。
+### 第 241 题 · a82b78bb
+
+> I'm really enjoying this paper. Could you please locate the personal webpages of the initial author and the last three authors? Please include them in a browser bookmark folder titled 'Liked Authors' under the 'Bookmarks bar'.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 21 步未过（书签判据）。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 242 题 · 36037439
+
+> Could you please pull up the Google Scholar page of the corresponding author for me in Chrome?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 28 步一次通过。
 
