@@ -21,12 +21,12 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **229** / 369 |
-| 我手工通过 | 182 / 229 |
-| cc 通过（严格：得分 = 1.0）| **181 / 221** |
-| cc 平均分（OSWorld 口径）| **0.838** |
-| cc 平均步数 | 20.0 |
-| cc 平均观测 token | 25740 |
+| 已跑题数 | **231** / 369 |
+| 我手工通过 | 182 / 231 |
+| cc 通过（严格：得分 = 1.0）| **181 / 223** |
+| cc 平均分（OSWorld 口径）| **0.832** |
+| cc 平均步数 | 20.1 |
+| cc 平均观测 token | 25469 |
 | cc 平均用时 | 272s |
 | 执行轴 a11y 占比 | 44% （883/2019）|
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 153 | 125 | 22.0 |
+| Bash 打开 | 155 | 125 | 22.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -87,6 +87,8 @@
 | 221 | 未归类（可能是模型或链路） | Tomorrow, I'm scheduled to deliver a talk, and |
 | 225 | 未归类（可能是模型或链路） | Find a paper list of all the new foundation la |
 | 229 | 未归类（可能是模型或链路） | Transfer the data from our 'Employee Performan |
+| 230 | 未归类（可能是模型或链路） | Can you organize my desktop by identifying aca |
+| 231 | 未归类（可能是模型或链路） | Could you please review the 'case study.docx'  |
 
 ## 逐题
 
@@ -321,6 +323,8 @@
 | 227 | multi_apps | Cross-check the invoices with the bank statements an | ✅ | ✅ | 8 | 8872 | 71.7s |
 | 228 | multi_apps | Please sift through the event photos in '/home/user/ | ✅ | ✅ | 16 | 2645 | 126.6s |
 | 229 | multi_apps | Transfer the data from our 'Employee Performance Eva | ✗ 0.5 | ✗ 0.5 | 32 | 8326 | 347.3s |
+| 230 | multi_apps | Can you organize my desktop by identifying academic  | ✗ 0.0 | ✗ 0.0 | 9 | 15105 | 110.2s |
+| 231 | multi_apps | Could you please review the 'case study.docx' file l | ✗ 0.4 | ✗ 0.4 | 19 | 6258 | 209.8s |
 
 ## 每题的过程记录
 
@@ -1867,4 +1871,24 @@
 - **我手工**（第 2 次，得分 0.515）：第二次同分 0.515。
 - **cc**（第 3 次，得分 0.5147）：cc 第三次
 - **我手工**（第 3 次，得分 0.515）：三次同分 0.515（PDF 表单字段比对）。转下一题。
+### 第 230 题 · 869de13e
+
+> Can you organize my desktop by identifying academic papers, coding projects, and other documents, ensuring no file is misplaced? Specifically, place academic papers in the 'Paper_reading' folder, coding projects in 'Projects', and categorize everything else under 'Miscellaneous'. For files lacking clear extensions or names, apply content analysis to determine their appropriate classification.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 9 步未过（三个 exact_match 全 0）。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 231 题 · 2c1ebcd7
+
+> Could you please review the 'case study.docx' file located in the 'students work' folder on the Desktop? The References section at the end of the document is supposed to follow APA 7th edition style, but right now it does not: several entries are written in a different citation style, and some entries contain inaccurate or incomplete publication details. Please correct every reference entry so that the whole list complies with APA 7th edition guidelines, verifying each source's actual publication details (year, volume, issue, page numbers, DOI) and fixing them where they are wrong or missing. Keep the references in alphabetical order, do not change any other part of the document, and save the file in place under the same name.
+
+- **cc**（第 1 次，得分 0.3164）：cc 第一次
+- **我手工**（第 1 次，得分 0.316）：连续值判据 0.316。
+- **cc**（第 2 次，得分 0.3561）：cc 第二次
+- **我手工**（第 2 次，得分 0.356）：第二次 0.356（略高于第一次的 0.316）。
+- **cc**（第 3 次，得分 0.3561）：cc 第三次
+- **我手工**（第 3 次，得分 0.356）：三次 0.316 / 0.356 / 0.356，取最好 0.356。转下一题。
 
