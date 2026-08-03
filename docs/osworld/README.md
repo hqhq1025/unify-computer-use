@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **187** / 369 |
-| 我手工通过 | 160 / 187 |
-| cc 通过（严格：得分 = 1.0）| **160 / 185** |
-| cc 平均分（OSWorld 口径）| **0.880** |
-| cc 平均步数 | 18.6 |
-| cc 平均观测 token | 27647 |
-| cc 平均用时 | 254s |
-| 执行轴 a11y 占比 | 43% （749/1755）|
+| 已跑题数 | **190** / 369 |
+| 我手工通过 | 162 / 190 |
+| cc 通过（严格：得分 = 1.0）| **162 / 188** |
+| cc 平均分（OSWorld 口径）| **0.877** |
+| cc 平均步数 | 18.3 |
+| cc 平均观测 token | 27196 |
+| cc 平均用时 | 250s |
+| 执行轴 a11y 占比 | 43% （756/1766）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 117 | 104 | 20.5 |
+| Bash 打开 | 120 | 106 | 20.1 |
 
 ## cc 未通过的题，成因分类
 
@@ -72,6 +72,7 @@
 | 173 | 未归类（可能是模型或链路） | Export the current document into PDF, keep the |
 | 174 | 未归类（可能是模型或链路） | Could you help me insert a 7(columns)*5(rows)  |
 | 180 | 未归类（可能是模型或链路） | I am making a guideline for students of my cou |
+| 190 | 未归类（可能是模型或链路） | Hey, my LibreOffice Writer seems to have froze |
 
 ## 逐题
 
@@ -264,6 +265,9 @@
 | 185 | libreoffice_writer | I found Italic font very hard to discern from the no | ✅ | ✅ | 32 | 30781 | 365.1s |
 | 186 | libreoffice_writer | Please help me make the first letter of each word to | ✅ | ✅ | 10 | 16282 | 104.0s |
 | 187 | libreoffice_writer | Hey, can you throw in a blank page right after this  | ✅ | ✅ | 10 | 11677 | 124.4s |
+| 188 | libreoffice_writer | Make Times New Roman the default Font | ✅ | ✅ | 10 | 16218 | 105.1s |
+| 189 | libreoffice_writer | Share this document with my team and let us edit it  | ✅ | ✅ | 5 | 8985 | 56.7s |
+| 190 | multi_apps | Hey, my LibreOffice Writer seems to have frozen and  | ✗ 0.0 | ✗ 0.0 | 4 | 2103 | 48.8s |
 
 ## 每题的过程记录
 
@@ -1503,4 +1507,27 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 10 步一次通过。
+### 第 188 题 · f178a4a9
+
+> Make Times New Roman the default Font
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 10 步一次通过。
+### 第 189 题 · bb8ccc78
+
+> Share this document with my team and let us edit it together in real-time.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：infeasible 题，cc 5 步后如实拒绝。
+- **我手工**（第 1 次，得分 1.0）：infeasible 题，cc 5 步后如实拒绝。
+### 第 190 题 · 2b9493d7
+
+> Hey, my LibreOffice Writer seems to have frozen and I can't get it to close normally. Can you help me force quit the application from the command line? I'm on Ubuntu and I don't want to restart my computer or lose any other work I have open.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 4 步未过。（第一次尝试因 PATH 里找不到 claude 直接崩了，已修，不计入次数。）
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次 7 步仍未过。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
