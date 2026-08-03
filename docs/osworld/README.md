@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **244** / 369 |
-| 我手工通过 | 188 / 244 |
-| cc 通过（严格：得分 = 1.0）| **187 / 236** |
-| cc 平均分（OSWorld 口径）| **0.812** |
+| 已跑题数 | **247** / 369 |
+| 我手工通过 | 190 / 247 |
+| cc 通过（严格：得分 = 1.0）| **189 / 239** |
+| cc 平均分（OSWorld 口径）| **0.810** |
 | cc 平均步数 | 20.3 |
-| cc 平均观测 token | 25172 |
-| cc 平均用时 | 273s |
-| 执行轴 a11y 占比 | 43% （918/2135）|
+| cc 平均观测 token | 24910 |
+| cc 平均用时 | 272s |
+| 执行轴 a11y 占比 | 43% （921/2142）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 168 | 131 | 22.2 |
+| Bash 打开 | 171 | 133 | 22.1 |
 
 ## cc 未通过的题，成因分类
 
@@ -96,6 +96,7 @@
 | 239 | 未归类（可能是模型或链路） | I have a JSON-formatted data file opened now t |
 | 241 | 未归类（可能是模型或链路） | I'm really enjoying this paper. Could you plea |
 | 244 | 未归类（可能是模型或链路） | My friend is a "plugin guru" and he recommende |
+| 247 | 未归类（可能是模型或链路） | I browsed a lot of interesting blog articles t |
 
 ## 逐题
 
@@ -345,6 +346,9 @@
 | 242 | multi_apps | Could you please pull up the Google Scholar page of  | ✅ | ✅ | 28 | 21438 | 262.9s |
 | 243 | multi_apps | I remember there is a file named "secret.docx" on th | ✅ | ✅ | 5 | 129 | 45.0s |
 | 244 | multi_apps | My friend is a "plugin guru" and he recommended some | ✗ 0.0 | ✗ 0.0 | 44 | 126801 | 585.3s |
+| 245 | multi_apps | I have developed a new Chrome extension myself, so i | ✅ | ✅ | 15 | 12455 | 156.4s |
+| 246 | multi_apps | I now want to count the meeting cities of the three  | ✅ | ✅ | 11 | 2138 | 89.6s |
+| 247 | multi_apps | I browsed a lot of interesting blog articles today.  | ✗ 0.0 | ✗ 0.0 | 33 | 10796 | 347.7s |
 
 ## 每题的过程记录
 
@@ -2015,6 +2019,28 @@
 - **我手工**（第 1 次，得分 0.0）：cc 44 步未过（Chrome 扩展安装判据）。
 - **cc**（第 2 次，得分 0.0）：cc 第二次
 - **我手工**（第 2 次，得分 0.0）：第二次同样。安装 Chrome 扩展需要访问 Chrome 网上应用店，本机环境未必支持。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 245 题 · a74b607e
+
+> I have developed a new Chrome extension myself, so it needs to be installed manually. Please help me install the extension located in the Desktop directory into the Chrome browser.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 15 步一次通过。
+### 第 246 题 · 6f4073b8
+
+> I now want to count the meeting cities of the three machine learning conferences in the past ten years from 2013 to 2019(including 2013 and 2019). I have listed the names and years of the conferences in excel. Please fill in the vacant locations.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 11 步一次通过。
+### 第 247 题 · da922383
+
+> I browsed a lot of interesting blog articles today. I hope to store these articles in my local designated folder just like zotero stores papers. Please download the blogs opening now in pdf format and save them in their title to /home/user/Documents/Blog.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 33 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
