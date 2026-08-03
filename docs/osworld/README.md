@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **257** / 369 |
-| 我手工通过 | 196 / 257 |
-| cc 通过（严格：得分 = 1.0）| **195 / 249** |
-| cc 平均分（OSWorld 口径）| **0.805** |
+| 已跑题数 | **259** / 369 |
+| 我手工通过 | 197 / 259 |
+| cc 通过（严格：得分 = 1.0）| **196 / 251** |
+| cc 平均分（OSWorld 口径）| **0.806** |
 | cc 平均步数 | 20.1 |
-| cc 平均观测 token | 24306 |
-| cc 平均用时 | 267s |
+| cc 平均观测 token | 24064 |
+| cc 平均用时 | 266s |
 | 执行轴 a11y 占比 | 42% （926/2191）|
 
 ### 两种口径要分开看
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 181 | 139 | 21.7 |
+| Bash 打开 | 183 | 140 | 21.7 |
 
 ## cc 未通过的题，成因分类
 
@@ -101,6 +101,7 @@
 | 252 | 未归类（可能是模型或链路） | Recently, I've been exploring the use of the V |
 | 255 | 未归类（可能是模型或链路） | I want to obtain a local file version of the c |
 | 256 | 未归类（可能是模型或链路） | I am currently utilizing LibreOffice Writer to |
+| 259 | 未归类（可能是模型或链路） | I've received a request from my friend who ask |
 
 ## 逐题
 
@@ -363,6 +364,8 @@
 | 255 | multi_apps | I want to obtain a local file version of the content | ✗ 0.7 | ✗ 0.7 | 14 | 2433 | 228.3s |
 | 256 | multi_apps | I am currently utilizing LibreOffice Writer to compo | ✗ 0.0 | ✗ 0.0 | 8 | 1625 | 68.5s |
 | 257 | multi_apps | I've noticed that the image on the second slide is t | ✅ | ✅ | 13 | 4027 | 123.6s |
+| 258 | multi_apps | I have an image of my receipt located in /home/user. | ✅ | ✅ | 19 | 2333 | 163.7s |
+| 259 | multi_apps | I've received a request from my friend who asked for | ✗ 0.9 | ✗ 0.9 | 19 | 3113 | 225.4s |
 
 ## 每题的过程记录
 
@@ -2133,4 +2136,20 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 13 步一次通过。判据与第 47 题相同（check_brightness_decrease_and_structure_sim），而第 47 题当时三次未过——那次 cc 拒绝覆盖原图，这次题面明确要求了输出。
+### 第 258 题 · a503b07f
+
+> I have an image of my receipt located in /home/user. I'm looking to transform it into a PDF file. Can you assist me with this task? Save the resulting PDF as "receipt.pdf" on the desktop.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 19 步一次通过。
+### 第 259 题 · 09a37c51
+
+> I've received a request from my friend who asked for assistance in editing an image. The document with the requirements and the picture to be adjusted are on the Desktop. Please remove the original scenic background from the picture, keep the person, place the person on a clean white background, and save the edited picture as "pic.jpg" on the Desktop. Thank you!
+
+- **cc**（第 1 次，得分 0.9091925121673613）：cc 第一次
+- **我手工**（第 1 次，得分 0.909）：连续值判据 0.909。
+- **cc**（第 2 次，得分 0.9082242133425328）：cc 第二次
+- **我手工**（第 2 次，得分 0.908）：第二次 0.908。
+- **cc**（第 3 次，得分 0.9089812729325708）：cc 第三次
+- **我手工**（第 3 次，得分 0.909）：三次 0.909 / 0.908 / 0.909，非常稳定但差最后一点。转下一题。
 
