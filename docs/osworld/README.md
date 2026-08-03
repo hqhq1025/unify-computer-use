@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **208** / 369 |
-| 我手工通过 | 167 / 208 |
-| cc 通过（严格：得分 = 1.0）| **166 / 201** |
-| cc 平均分（OSWorld 口径）| **0.844** |
-| cc 平均步数 | 18.7 |
-| cc 平均观测 token | 26303 |
-| cc 平均用时 | 256s |
-| 执行轴 a11y 占比 | 44% （821/1872）|
+| 已跑题数 | **209** / 369 |
+| 我手工通过 | 167 / 209 |
+| cc 通过（严格：得分 = 1.0）| **166 / 202** |
+| cc 平均分（OSWorld 口径）| **0.840** |
+| cc 平均步数 | 18.8 |
+| cc 平均观测 token | 26618 |
+| cc 平均用时 | 257s |
+| 执行轴 a11y 占比 | 44% （826/1895）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 133 | 110 | 20.3 |
+| Bash 打开 | 134 | 110 | 20.5 |
 
 ## cc 未通过的题，成因分类
 
@@ -82,6 +82,7 @@
 | 206 | 未归类（可能是模型或链路） | Please convert a .xlsx file opened in LibreOff |
 | 207 | 未归类（可能是模型或链路） | Could you help me convert the opened ods file  |
 | 208 | 未归类（可能是模型或链路） | Could you convert all `.doc` files in current  |
+| 209 | 未归类（可能是模型或链路） | Could you help me copy the data in Cell B6 in  |
 
 ## 逐题
 
@@ -295,6 +296,7 @@
 | 206 | multi_apps | Please convert a .xlsx file opened in LibreOffice Ca | ✗ 0.0 | ✗ 0.0 | 23 | 39417 | 281.6s |
 | 207 | multi_apps | Could you help me convert the opened ods file in the | ✗ 0.0 | ✗ 0.0 | 5 | 9493 | 47.0s |
 | 208 | multi_apps | Could you convert all `.doc` files in current direct | ✗ 0.0 | ✗ 0.0 | 7 | 10554 | 148.4s |
+| 209 | multi_apps | Could you help me copy the data in Cell B6 in this L | ✗ 0.0 | ✗ 0.0 | 31 | 27145 | 366.2s |
 
 ## 每题的过程记录
 
@@ -1691,4 +1693,15 @@
 
 - **cc**（第 1 次，得分 0.0）：cc 第一次
 - **我手工**（第 4 次，未判分）：**更正性质：这道题在本机跑法下天然测不了。** 判据去 ~/.bash_history 里 grep 命令行（题目意图是"必须用命令行做"），而 cc 通过 MCP 的 Bash 工具执行，非交互式 shell 不写 history。第 208 题轨迹里实测它跑了 `soffice --headless --convert-to pdf --outdir ~/Desktop *.doc`，完全正确，而 history 文件只有 1 字节。官方 agent 用 pyautogui 往真实终端窗口打字才会写进 history。这是跑法差异，不是模型失败。共 4 道：190 196 207 208。
+- **我手工**（第 1 次，得分 0.0）：cc 7 步。见上条更正：这道题判据查 bash_history，本机跑法下测不了。
+### 第 209 题 · f8cfa149
+
+> Could you help me copy the data in Cell B6 in this Libreoffice Calc file and search it in the Chrome browser.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 31 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次 27 步仍未过。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
