@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **259** / 369 |
-| 我手工通过 | 197 / 259 |
-| cc 通过（严格：得分 = 1.0）| **196 / 251** |
-| cc 平均分（OSWorld 口径）| **0.806** |
-| cc 平均步数 | 20.1 |
-| cc 平均观测 token | 24064 |
-| cc 平均用时 | 266s |
-| 执行轴 a11y 占比 | 42% （926/2191）|
+| 已跑题数 | **260** / 369 |
+| 我手工通过 | 198 / 260 |
+| cc 通过（严格：得分 = 1.0）| **197 / 252** |
+| cc 平均分（OSWorld 口径）| **0.807** |
+| cc 平均步数 | 20.2 |
+| cc 平均观测 token | 24000 |
+| cc 平均用时 | 267s |
+| 执行轴 a11y 占比 | 42% （927/2194）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 183 | 140 | 21.7 |
+| Bash 打开 | 184 | 141 | 21.7 |
 
 ## cc 未通过的题，成因分类
 
@@ -366,6 +366,7 @@
 | 257 | multi_apps | I've noticed that the image on the second slide is t | ✅ | ✅ | 13 | 4027 | 123.6s |
 | 258 | multi_apps | I have an image of my receipt located in /home/user. | ✅ | ✅ | 19 | 2333 | 163.7s |
 | 259 | multi_apps | I've received a request from my friend who asked for | ✗ 0.9 | ✗ 0.9 | 19 | 3113 | 225.4s |
+| 260 | multi_apps | I'm a huge movie fan and have kept a record of all t | ✅ | ✅ | 26 | 11980 | 344.9s |
 
 ## 每题的过程记录
 
@@ -2152,4 +2153,14 @@
 - **我手工**（第 2 次，得分 0.908）：第二次 0.908。
 - **cc**（第 3 次，得分 0.9089812729325708）：cc 第三次
 - **我手工**（第 3 次，得分 0.909）：三次 0.909 / 0.908 / 0.909，非常稳定但差最后一点。转下一题。
+### 第 260 题 · 3e3fc409
+
+> I'm a huge movie fan and have kept a record of all the movies I've watched. I'm curious to find out if there are any films released before 2024 from the IMDB Top 30 list that I haven't seen yet. Help me create another sheet 'unseen_movies' in the opened Excel. This sheet should share the same headers and sort the results according to IMDB rankings from high to low.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 26 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 1.0）：cc 第三次
+- **我手工**（第 3 次，得分 1.0）：第三次 26 步通过。
 
