@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **209** / 369 |
-| 我手工通过 | 167 / 209 |
-| cc 通过（严格：得分 = 1.0）| **166 / 202** |
-| cc 平均分（OSWorld 口径）| **0.840** |
-| cc 平均步数 | 18.8 |
-| cc 平均观测 token | 26618 |
+| 已跑题数 | **212** / 369 |
+| 我手工通过 | 170 / 212 |
+| cc 通过（严格：得分 = 1.0）| **169 / 205** |
+| cc 平均分（OSWorld 口径）| **0.842** |
+| cc 平均步数 | 18.9 |
+| cc 平均观测 token | 26575 |
 | cc 平均用时 | 257s |
-| 执行轴 a11y 占比 | 44% （826/1895）|
+| 执行轴 a11y 占比 | 44% （833/1914）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 134 | 110 | 20.5 |
+| Bash 打开 | 137 | 113 | 20.6 |
 
 ## cc 未通过的题，成因分类
 
@@ -297,6 +297,9 @@
 | 207 | multi_apps | Could you help me convert the opened ods file in the | ✗ 0.0 | ✗ 0.0 | 5 | 9493 | 47.0s |
 | 208 | multi_apps | Could you convert all `.doc` files in current direct | ✗ 0.0 | ✗ 0.0 | 7 | 10554 | 148.4s |
 | 209 | multi_apps | Could you help me copy the data in Cell B6 in this L | ✗ 0.0 | ✗ 0.0 | 31 | 27145 | 366.2s |
+| 210 | multi_apps | Convert an OpenOffice/LibreOffice Impress presentati | ✅ | ✅ | 32 | 38939 | 383.5s |
+| 211 | multi_apps | Please complete the code and retrieve the output fro | ✅ | ✅ | 4 | 7659 | 27.2s |
+| 212 | multi_apps | Examine the spreadsheet on the desktop, which contai | ✅ | ✅ | 45 | 21332 | 417.1s |
 
 ## 每题的过程记录
 
@@ -1704,4 +1707,22 @@
 - **我手工**（第 2 次，得分 0.0）：第二次 27 步仍未过。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 210 题 · 6d72aad6
+
+> Convert an OpenOffice/LibreOffice Impress presentation into a video using only LibreOffice Impress’s built-in export features (no terminal/ffmpeg, no extensions, no other apps), then play the exported video in VLC.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：infeasible 题，cc 32 步探查后如实拒绝。
+### 第 211 题 · f918266a
+
+> Please complete the code and retrieve the output from the Python script 'calculator.py' located on the desktop and save it as 'log.txt' in the same directory as the Python file.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 4 步一次通过。
+### 第 212 题 · da52d699
+
+> Examine the spreadsheet on the desktop, which contains a record of books read in 2022. Take the website https://howlongtoread.com/ as a reference to identify the book with the slowest reading pace, measured in words per day. I have an empty document named 'book_list_result.docx' on the desktop; please open it and record the title there.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 45 步一次通过。
 
