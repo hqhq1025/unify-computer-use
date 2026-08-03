@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **190** / 369 |
-| 我手工通过 | 162 / 190 |
-| cc 通过（严格：得分 = 1.0）| **162 / 188** |
+| 已跑题数 | **192** / 369 |
+| 我手工通过 | 163 / 192 |
+| cc 通过（严格：得分 = 1.0）| **163 / 190** |
 | cc 平均分（OSWorld 口径）| **0.877** |
 | cc 平均步数 | 18.3 |
-| cc 平均观测 token | 27196 |
-| cc 平均用时 | 250s |
+| cc 平均观测 token | 26828 |
+| cc 平均用时 | 254s |
 | 执行轴 a11y 占比 | 43% （756/1766）|
 
 ### 两种口径要分开看
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 120 | 106 | 20.1 |
+| Bash 打开 | 122 | 107 | 20.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -73,6 +73,7 @@
 | 174 | 未归类（可能是模型或链路） | Could you help me insert a 7(columns)*5(rows)  |
 | 180 | 未归类（可能是模型或链路） | I am making a guideline for students of my cou |
 | 190 | 未归类（可能是模型或链路） | Hey, my LibreOffice Writer seems to have froze |
+| 192 | 未归类（可能是模型或链路） | Could you help me create an Animated GIF src_c |
 
 ## 逐题
 
@@ -268,6 +269,8 @@
 | 188 | libreoffice_writer | Make Times New Roman the default Font | ✅ | ✅ | 10 | 16218 | 105.1s |
 | 189 | libreoffice_writer | Share this document with my team and let us edit it  | ✅ | ✅ | 5 | 8985 | 56.7s |
 | 190 | multi_apps | Hey, my LibreOffice Writer seems to have frozen and  | ✗ 0.0 | ✗ 0.0 | 4 | 2103 | 48.8s |
+| 191 | multi_apps | Could you help me push the changes from commandline  | ✅ | ✅ | 9 | 4128 | 78.7s |
+| 192 | multi_apps | Could you help me create an Animated GIF src_clip.gi | ✗ 0.8 | ✗ 0.8 | 24 | 5110 | 596.7s |
 
 ## 每题的过程记录
 
@@ -1530,4 +1533,20 @@
 - **我手工**（第 2 次，得分 0.0）：第二次 7 步仍未过。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 191 题 · 2c9fc0de
+
+> Could you help me push the changes from commandline in current project to origin main, with the commit message "daily update"?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 9 步一次通过。
+### 第 192 题 · 2fe4b718
+
+> Could you help me create an Animated GIF src_clip.gif from a video file using VLC and GIMP from the source of video "src.mp4" in the desktop, 5-second clip beginning at 00:03?
+
+- **cc**（第 1 次，得分 0.8367647456999785）：cc 第一次
+- **我手工**（第 1 次，得分 0.837）：compare_images 连续值判据，0.837。
+- **cc**（第 2 次，得分 0.7298650427567268）：cc 第二次
+- **我手工**（第 2 次，得分 0.73）：第二次 0.730，比第一次的 0.837 还低——连续值判据下两次的差异反映的是做法不同，不是稳定退步。
+- **cc**（第 3 次，得分 0.8367647456999785）：cc 第三次
+- **我手工**（第 3 次，得分 0.837）：第三次回到 0.837。三次分别 0.837 / 0.730 / 0.837，取最好 0.837。转下一题。
 
