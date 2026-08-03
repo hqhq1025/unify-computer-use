@@ -244,7 +244,39 @@ def assert_binary_is_fresh(binary):
                 time.strftime("%m-%d %H:%M", time.localtime(newest_at))))
 
 
+# claude CLI 的候选位置。
+#
+# 实测第 190 题当场炸了：`FileNotFoundError: No such file or directory: 'claude'`。
+# 它装在 ~/.npm-global/bin/，而那次后台跑测继承到的 PATH 只有
+# /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin。
+#
+# 跑测依赖"调用者的 PATH 恰好对"是个脆弱点：同一台机器、同一份代码，
+# 换个终端或换个 cron 环境就跑不起来，而错误发生在 register_mcp 里，
+# 看上去像 MCP 出了问题。所以这里自己找一遍。
+CLAUDE_CANDIDATES = (
+    os.path.expanduser("~/.npm-global/bin"),
+    os.path.expanduser("~/.local/bin"),
+    os.path.expanduser("~/.claude/local"),
+    "/usr/local/bin",
+)
+
+
+def ensure_claude_on_path():
+    """把 claude 所在目录补进 PATH。找不到就直接说清楚，别让它在别处炸。"""
+    if shutil.which("claude"):
+        return
+    for directory in CLAUDE_CANDIDATES:
+        if os.path.exists(os.path.join(directory, "claude")):
+            os.environ["PATH"] = directory + os.pathsep + os.environ.get("PATH", "")
+            return
+    raise RuntimeError(
+        "PATH 里找不到 claude，也不在这些位置：{}。"
+        "跑测靠 `claude -p` 驱动真实的 Claude Code，没有它什么都跑不了。"
+        .format(", ".join(CLAUDE_CANDIDATES)))
+
+
 def register_mcp(binary, workdir):
+    ensure_claude_on_path()
     assert_binary_is_fresh(binary)
     os.makedirs(workdir, exist_ok=True)
     result = subprocess.run(["claude", "mcp", "add", SERVER_NAME, "--", binary, "mcp"],
