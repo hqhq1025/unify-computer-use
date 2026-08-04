@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **306** / 369 |
-| 我手工通过 | 231 / 306 |
-| cc 通过（严格：得分 = 1.0）| **229 / 297** |
-| cc 平均分（OSWorld 口径）| **0.802** |
-| cc 平均步数 | 20.1 |
-| cc 平均观测 token | 21728 |
-| cc 平均用时 | 267s |
-| 执行轴 a11y 占比 | 43% （1032/2402）|
+| 已跑题数 | **309** / 369 |
+| 我手工通过 | 233 / 309 |
+| cc 通过（严格：得分 = 1.0）| **231 / 300** |
+| cc 平均分（OSWorld 口径）| **0.801** |
+| cc 平均步数 | 20.0 |
+| cc 平均观测 token | 21515 |
+| cc 平均用时 | 265s |
+| 执行轴 a11y 占比 | 43% （1032/2406）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 229 | 173 | 21.3 |
+| Bash 打开 | 232 | 175 | 21.1 |
 
 ## cc 未通过的题，成因分类
 
@@ -115,6 +115,7 @@
 | 286 | 未归类（可能是模型或链路） | I enjoy reading during my spare time, but this |
 | 304 | 未归类（可能是模型或链路） | I click in terminal: terminal->132x43 to chang |
 | 306 | 未归类（可能是模型或链路） | Please create an SSH user named "charles" with |
+| 309 | 未归类（可能是模型或链路） | Copy all files matching "*failed.ipynb" in the |
 
 ## 逐题
 
@@ -426,6 +427,9 @@
 | 304 | os | I click in terminal: terminal->132x43 to change term | ✗ 0.0 | ✗ 0.0 | 31 | 10371 | 303.0s |
 | 305 | os | Recursively go through the folders of the 'photos' d | ✅ | ✅ | 4 | 1321 | 22.3s |
 | 306 | os | Please create an SSH user named "charles" with passw | ✗ 0.0 | ✗ 0.0 | 12 | 553 | 140.0s |
+| 307 | os | Please set the default Python version to Python4 on  | ✅ | ✅ | 1 | 49 | 18.6s |
+| 308 | os | Copy directory hierarchy from "$sourceDir" to "$targ | ✅ | ✅ | 11 | 5946 | 153.4s |
+| 309 | os | Copy all files matching "*failed.ipynb" in the curre | ✗ 0.0 | ✗ 0.0 | 6 | 3795 | 35.7s |
 
 ## 每题的过程记录
 
@@ -2545,6 +2549,28 @@
 
 - **cc**（第 1 次，得分 0.0）：cc 第一次
 - **我手工**（第 1 次，得分 0.0）：cc 12 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 307 题 · c288e301
+
+> Please set the default Python version to Python4 on my Ubuntu system.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：infeasible 题，cc 1 步就认出做不到。
+### 第 308 题 · 4783cc41
+
+> Copy directory hierarchy from "$sourceDir" to "$targetDir"
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：infeasible 题，cc 11 步探查后如实拒绝。
+### 第 309 题 · 5c1075ca
+
+> Copy all files matching "*failed.ipynb" in the current directory tree to "./fails" preserving the directory hierarchy
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 6 步未过。
 - **cc**（第 2 次，得分 0.0）：cc 第二次
 - **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
