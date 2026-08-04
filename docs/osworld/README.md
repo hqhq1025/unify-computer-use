@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **317** / 369 |
-| 我手工通过 | 240 / 317 |
-| cc 通过（严格：得分 = 1.0）| **238 / 308** |
-| cc 平均分（OSWorld 口径）| **0.803** |
+| 已跑题数 | **320** / 369 |
+| 我手工通过 | 243 / 320 |
+| cc 通过（严格：得分 = 1.0）| **241 / 311** |
+| cc 平均分（OSWorld 口径）| **0.804** |
 | cc 平均步数 | 19.4 |
-| cc 平均观测 token | 21520 |
+| cc 平均观测 token | 21543 |
 | cc 平均用时 | 257s |
-| 执行轴 a11y 占比 | 43% （1110/2592）|
+| 执行轴 a11y 占比 | 43% （1137/2635）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 243 | 182 | 20.3 |
+| Bash 打开 | 246 | 185 | 20.3 |
 
 ## cc 未通过的题，成因分类
 
@@ -439,6 +439,9 @@
 | 315 | thunderbird | Help me to remove the account "anonym-x2024@outlook. | ✅ | ✅ | 6 | 12122 | 71.3s |
 | 316 | thunderbird | Help me access my outlook account with address "anon | ✅ | ✅ | 11 | 8744 | 131.4s |
 | 317 | thunderbird | Could you help me open up the profile management tab | ✗ 0.0 | ✗ 0.0 | 10 | 42980 | 134.7s |
+| 318 | thunderbird | Could you help me back up all the email files in my  | ✅ | ✅ | 29 | 31065 | 346.8s |
+| 319 | thunderbird | Set up a plain text signature for my email account i | ✅ | ✅ | 10 | 10614 | 99.7s |
+| 320 | thunderbird | Create a local folder called "Promotions" and create | ✅ | ✅ | 28 | 33938 | 338.4s |
 
 ## 每题的过程记录
 
@@ -2677,4 +2680,22 @@
 - **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 318 题 · 9bc3cc16
+
+> Could you help me back up all the email files in my inbox to ~/emails.bak? Please save them separately in eml format.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 29 步一次通过。
+### 第 319 题 · 3f28fe4f
+
+> Set up a plain text signature for my email account in Thunderbird. The first line is my name "Anonym" and the second line is my affiliation "XYZ Lab".
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 10 步一次通过（thunderbird 段第一题）。
+### 第 320 题 · 5203d847
+
+> Create a local folder called "Promotions" and create a filter to auto move the inbox emails whose subject contains “discount” to the new folder
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 28 步一次通过。
 
