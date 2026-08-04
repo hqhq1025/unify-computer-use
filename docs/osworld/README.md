@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **342** / 369 |
-| 我手工通过 | 259 / 342 |
-| cc 通过（严格：得分 = 1.0）| **257 / 333** |
-| cc 平均分（OSWorld 口径）| **0.801** |
+| 已跑题数 | **345** / 369 |
+| 我手工通过 | 262 / 345 |
+| cc 通过（严格：得分 = 1.0）| **260 / 336** |
+| cc 平均分（OSWorld 口径）| **0.803** |
 | cc 平均步数 | 19.2 |
-| cc 平均观测 token | 21022 |
+| cc 平均观测 token | 20946 |
 | cc 平均用时 | 253s |
-| 执行轴 a11y 占比 | 44% （1243/2829）|
+| 执行轴 a11y 占比 | 44% （1251/2845）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 268 | 201 | 20.1 |
+| Bash 打开 | 271 | 204 | 20.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -470,6 +470,9 @@
 | 340 | vlc | Can you change the color of the volume slider to bla | ✅ | ✅ | 37 | 22276 | 451.5s |
 | 341 | vlc | Enable VLC Minimal Interface in window mode so the b | ✅ | ✅ | 19 | 7370 | 176.3s |
 | 342 | vlc | My VLC Media Player has been auto-closing once the v | ✅ | ✅ | 20 | 11812 | 194.8s |
+| 343 | vlc | I want to watch two or more videos in same time on V | ✅ | ✅ | 16 | 4366 | 170.2s |
+| 344 | vlc | Can you disable the cone icon in the splash screen?  | ✅ | ✅ | 22 | 15468 | 255.3s |
+| 345 | vlc | Automatically adjust the brightness and contrast of  | ✅ | ✅ | 5 | 4657 | 59.2s |
 
 ## 每题的过程记录
 
@@ -2882,4 +2885,23 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 20 步一次通过。
+### 第 343 题 · f3977615
+
+> I want to watch two or more videos in same time on VLC. I tried to run multiple instances of VLC. It worked but can't play videos on those new instances. When I play video it plays on first instance instead of new instance.
+Is there any way to solve this problem?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 16 步一次通过。
+### 第 344 题 · 215dfd39
+
+> Can you disable the cone icon in the splash screen? I am tired of its skeuomorphic design.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 22 步一次通过。
+### 第 345 题 · cb130f0d
+
+> Automatically adjust the brightness and contrast of this video to match my room's lighting.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：infeasible 题，cc 5 步正确拒绝。
 
