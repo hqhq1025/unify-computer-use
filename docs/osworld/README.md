@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **272** / 369 |
-| 我手工通过 | 206 / 272 |
-| cc 通过（严格：得分 = 1.0）| **204 / 264** |
-| cc 平均分（OSWorld 口径）| **0.804** |
+| 已跑题数 | **273** / 369 |
+| 我手工通过 | 206 / 273 |
+| cc 通过（严格：得分 = 1.0）| **204 / 265** |
+| cc 平均分（OSWorld 口径）| **0.801** |
 | cc 平均步数 | 20.7 |
-| cc 平均观测 token | 23543 |
+| cc 平均观测 token | 23515 |
 | cc 平均用时 | 274s |
-| 执行轴 a11y 占比 | 43% （980/2294）|
+| 执行轴 a11y 占比 | 43% （981/2295）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 196 | 148 | 22.3 |
+| Bash 打开 | 197 | 148 | 22.3 |
 
 ## cc 未通过的题，成因分类
 
@@ -107,6 +107,7 @@
 | 264 | 未归类（可能是模型或链路） | I am a Chinese citizen and I want to go to Mac |
 | 271 | 未归类（可能是模型或链路） | I'm using libreoffice impress to write slidesh |
 | 272 | 未归类（可能是模型或链路） | The landscape at 00:08 in this video is so bea |
+| 273 | 未归类（可能是模型或链路） | Help me export the first image from the doc fi |
 
 ## 逐题
 
@@ -384,6 +385,7 @@
 | 270 | multi_apps | Help me to install Orchis theme from gnome-look.org  | ✅ | ✅ | 22 | 3236 | 212.8s |
 | 271 | multi_apps | I'm using libreoffice impress to write slideshows. I | ✗ 1.0 | ✗ 1.0 | 33 | 26864 | 486.2s |
 | 272 | multi_apps | The landscape at 00:08 in this video is so beautiful | ✗ 0.8 | ✗ 0.8 | 31 | 27712 | 379.3s |
+| 273 | multi_apps | Help me export the first image from the doc file att | ✗ 0.0 | ✗ 0.0 | 21 | 12606 | 268.2s |
 
 ## 每题的过程记录
 
@@ -2270,4 +2272,10 @@
 - **我手工**（第 2 次，得分 0.804）：第二次同分。
 - **cc**（第 3 次，得分 0.8035433081070689）：cc 第三次
 - **我手工**（第 3 次，得分 0.804）：三次同分 0.804。转下一题。
+### 第 273 题 · c2751594
+
+> Help me export the first image from the doc file attached in the most recent email in Notes folder, and set this image as the new desktop background.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：判据本来抛 NotImplementedError: get_vm_wallpaper is not shimmed yet——**又是仪器缺一块**。已补上（读 gsettings 的 picture-uri，实测取到 2MB 壁纸字节）。补完后判据不再崩，得分仍是 0.0，说明壁纸确实没换成目标图，这次是真没做成。
 

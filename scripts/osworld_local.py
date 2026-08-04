@@ -26,6 +26,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.parse
 import urllib.request
 
 OSWORLD_ROOT = os.environ.get("OSWORLD_ROOT", "/home/user/OSWorld")
@@ -231,10 +232,48 @@ class LocalController:
             return None
 
     def get_vm_window_size(self, app_class_name):
-        raise NotImplementedError("get_vm_window_size is not shimmed yet")
+        """按窗口类名取窗口尺寸。"""
+        try:
+            out = subprocess.run(
+                ["xdotool", "search", "--class", app_class_name],
+                capture_output=True, text=True).stdout.split()
+            if not out:
+                return None
+            geo = subprocess.run(["xdotool", "getwindowgeometry", out[0]],
+                                 capture_output=True, text=True).stdout
+            match = re.search(r"Geometry:\s*(\d+)x(\d+)", geo)
+            if not match:
+                return None
+            return {"width": int(match.group(1)), "height": int(match.group(2))}
+        except Exception:
+            return None
 
     def get_vm_wallpaper(self):
-        raise NotImplementedError("get_vm_wallpaper is not shimmed yet")
+        """当前壁纸的字节内容。
+
+        判据（compare_images）拿它和标准图比。原来这里直接抛
+        NotImplementedError，于是第 273 题判 0——**而那不是模型的失败，
+        是仪器缺了一块**。这已经是同一类问题的第 N 次：
+        垫片缺一个 getter，判据就整条崩掉，看上去像模型没做成。
+
+        GNOME 的壁纸路径在 gsettings 里，可能是 file:// URI。
+        """
+        try:
+            for key in ("picture-uri-dark", "picture-uri"):
+                out = subprocess.run(
+                    ["gsettings", "get", "org.gnome.desktop.background", key],
+                    capture_output=True, text=True).stdout.strip().strip("'\"")
+                if not out:
+                    continue
+                path = out
+                if path.startswith("file://"):
+                    path = urllib.parse.unquote(path[len("file://"):])
+                if os.path.exists(path):
+                    with open(path, "rb") as handle:
+                        return handle.read()
+        except Exception:
+            pass
+        return None
 
     def get_vm_desktop_path(self):
         return os.path.expanduser("~/Desktop")
