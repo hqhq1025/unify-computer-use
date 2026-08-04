@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **273** / 369 |
-| 我手工通过 | 206 / 273 |
-| cc 通过（严格：得分 = 1.0）| **204 / 265** |
-| cc 平均分（OSWorld 口径）| **0.801** |
-| cc 平均步数 | 20.9 |
-| cc 平均观测 token | 23476 |
-| cc 平均用时 | 275s |
-| 执行轴 a11y 占比 | 43% （983/2297）|
+| 已跑题数 | **275** / 369 |
+| 我手工通过 | 207 / 275 |
+| cc 通过（严格：得分 = 1.0）| **205 / 267** |
+| cc 平均分（OSWorld 口径）| **0.798** |
+| cc 平均步数 | 20.7 |
+| cc 平均观测 token | 23333 |
+| cc 平均用时 | 274s |
+| 执行轴 a11y 占比 | 43% （984/2300）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 197 | 148 | 22.5 |
+| Bash 打开 | 199 | 149 | 22.3 |
 
 ## cc 未通过的题，成因分类
 
@@ -108,6 +108,7 @@
 | 271 | 未归类（可能是模型或链路） | I'm using libreoffice impress to write slidesh |
 | 272 | 未归类（可能是模型或链路） | The landscape at 00:08 in this video is so bea |
 | 273 | 未归类（可能是模型或链路） | Help me export the first image from the doc fi |
+| 275 | 未归类（可能是模型或链路） | Help me to automatically set up my work space. |
 
 ## 逐题
 
@@ -386,6 +387,8 @@
 | 271 | multi_apps | I'm using libreoffice impress to write slideshows. I | ✗ 1.0 | ✗ 1.0 | 33 | 26864 | 486.2s |
 | 272 | multi_apps | The landscape at 00:08 in this video is so beautiful | ✗ 0.8 | ✗ 0.8 | 31 | 27712 | 379.3s |
 | 273 | multi_apps | Help me export the first image from the doc file att | ✗ 0.0 | ✗ 0.0 | 21 | 12606 | 268.2s |
+| 274 | multi_apps | I'm tracking updates for a short tale set on https:/ | ✅ | ✅ | 7 | 5311 | 57.2s |
+| 275 | multi_apps | Help me to automatically set up my work space. To be | ✗ 0.0 | ✗ 0.0 | 13 | 7236 | 141.8s |
 
 ## 每题的过程记录
 
@@ -2280,6 +2283,22 @@
 - **我手工**（第 1 次，得分 0.0）：判据本来抛 NotImplementedError: get_vm_wallpaper is not shimmed yet——**又是仪器缺一块**。已补上（读 gsettings 的 picture-uri，实测取到 2MB 壁纸字节）。补完后判据不再崩，得分仍是 0.0，说明壁纸确实没换成目标图，这次是真没做成。
 - **cc**（第 2 次，得分 0.0）：cc 第二次（判据已修）
 - **我手工**（第 2 次，得分 0.0）：第二次 29 步仍未过。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 274 题 · 788b3701
+
+> I'm tracking updates for a short tale set on https://github.com/liangjs333/4th-year-in-tsinghua-eng. I have already downloaded several chapters for reading and archiving. Please assist me in downloading the next chapter I haven't obtained yet and save it to my novel collection folder.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 7 步一次通过。
+### 第 275 题 · 48c46dc7
+
+> Help me to automatically set up my work space. To be specific, open project directory of OSWorld in terminal and file manager, then open github homepage and the online document of Python in chrome browser.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 13 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
