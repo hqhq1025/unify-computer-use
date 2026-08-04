@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **323** / 369 |
-| 我手工通过 | 245 / 323 |
-| cc 通过（严格：得分 = 1.0）| **243 / 314** |
-| cc 平均分（OSWorld 口径）| **0.803** |
-| cc 平均步数 | 19.5 |
-| cc 平均观测 token | 21535 |
-| cc 平均用时 | 258s |
-| 执行轴 a11y 占比 | 43% （1162/2675）|
+| 已跑题数 | **326** / 369 |
+| 我手工通过 | 248 / 326 |
+| cc 通过（严格：得分 = 1.0）| **246 / 317** |
+| cc 平均分（OSWorld 口径）| **0.805** |
+| cc 平均步数 | 19.4 |
+| cc 平均观测 token | 21481 |
+| cc 平均用时 | 257s |
+| 执行轴 a11y 占比 | 44% （1173/2694）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 249 | 187 | 20.4 |
+| Bash 打开 | 252 | 190 | 20.3 |
 
 ## cc 未通过的题，成因分类
 
@@ -446,6 +446,9 @@
 | 321 | thunderbird | Add a star to every email in local Bills folder | ✅ | ✅ | 11 | 12017 | 124.8s |
 | 322 | thunderbird | Set up to forward every email received by anonym-x20 | ✅ | ✅ | 16 | 14006 | 160.0s |
 | 323 | thunderbird | Attach the my AWS bill to the email. The bill is sto | ✗ 0.0 | ✗ 0.0 | 33 | 23777 | 490.2s |
+| 324 | thunderbird | Create two local folders in Thunderbird for me: COMP | ✅ | ✅ | 14 | 14163 | 142.1s |
+| 325 | thunderbird | I've got a bunch of email accounts in Thunderbird, a | ✅ | ✅ | 7 | 15189 | 90.4s |
+| 326 | thunderbird | When I reply to an email, it quotes the original mes | ✅ | ✅ | 5 | 9103 | 56.1s |
 
 ## 每题的过程记录
 
@@ -2724,4 +2727,22 @@
 - **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 324 题 · a10b69e1
+
+> Create two local folders in Thunderbird for me: COMPANY and UNIVERSITY.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 14 步一次通过。
+### 第 325 题 · 3f49d2cc
+
+> I've got a bunch of email accounts in Thunderbird, and it's a hassle to check them one by one. Can you show me how to set up a unified inbox so I can see all my emails in one place?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 7 步一次通过。
+### 第 326 题 · f201fbc3
+
+> When I reply to an email, it quotes the original message but offsets it with an indentation and ">" character. I find this unnecessary and distracting. Could you just remove the quoting entirely so my replies start with a clean slate?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 5 步一次通过。
 
