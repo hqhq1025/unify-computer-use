@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **277** / 369 |
-| 我手工通过 | 209 / 277 |
-| cc 通过（严格：得分 = 1.0）| **207 / 269** |
-| cc 平均分（OSWorld 口径）| **0.800** |
-| cc 平均步数 | 20.8 |
-| cc 平均观测 token | 23304 |
-| cc 平均用时 | 274s |
-| 执行轴 a11y 占比 | 43% （990/2316）|
+| 已跑题数 | **278** / 369 |
+| 我手工通过 | 209 / 278 |
+| cc 通过（严格：得分 = 1.0）| **207 / 270** |
+| cc 平均分（OSWorld 口径）| **0.797** |
+| cc 平均步数 | 20.7 |
+| cc 平均观测 token | 23233 |
+| cc 平均用时 | 273s |
+| 执行轴 a11y 占比 | 43% （991/2321）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 201 | 151 | 22.4 |
+| Bash 打开 | 202 | 151 | 22.3 |
 
 ## cc 未通过的题，成因分类
 
@@ -109,6 +109,7 @@
 | 272 | 未归类（可能是模型或链路） | The landscape at 00:08 in this video is so bea |
 | 273 | 未归类（可能是模型或链路） | Help me export the first image from the doc fi |
 | 275 | 未归类（可能是模型或链路） | Help me to automatically set up my work space. |
+| 278 | 未归类（可能是模型或链路） | Configure VS Code to edit GIMP script-fu scrip |
 
 ## 逐题
 
@@ -391,6 +392,7 @@
 | 275 | multi_apps | Help me to automatically set up my work space. To be | ✗ 0.0 | ✗ 0.0 | 13 | 7236 | 141.8s |
 | 276 | multi_apps | Hey, my friend has just sent me a web novel, but in  | ✅ | ✅ | 16 | 7300 | 177.0s |
 | 277 | multi_apps | Open 'character.png' in GIMP and extract the pixel a | ✅ | ✅ | 41 | 28035 | 559.5s |
+| 278 | multi_apps | Configure VS Code to edit GIMP script-fu scripts eff | ✗ 0.0 | ✗ 0.0 | 29 | 27872 | 402.2s |
 
 ## 每题的过程记录
 
@@ -2315,4 +2317,14 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 41 步一次通过（两个结构相似度判据全中）。
+### 第 278 题 · 42f4d1c7
+
+> Configure VS Code to edit GIMP script-fu scripts effectively by installing lisp extension. Test by writing code to resize the image "character.png" to 128 * 128 as "resized.png".
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 29 步未过（图片尺寸判据过了，扩展安装判据没过）。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样：装扩展这一环没成。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次都是同一模式：check_image_size 全 1.0（图片处理做对了），is_extension_installed 全 0.0。装 Chrome 扩展要访问网上应用店，本机环境未必支持——第 244 题也是卡在装扩展上。转下一题。
 
