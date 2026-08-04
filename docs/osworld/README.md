@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **287** / 369 |
-| 我手工通过 | 214 / 287 |
-| cc 通过（严格：得分 = 1.0）| **212 / 278** |
-| cc 平均分（OSWorld 口径）| **0.796** |
+| 已跑题数 | **290** / 369 |
+| 我手工通过 | 217 / 290 |
+| cc 通过（严格：得分 = 1.0）| **215 / 281** |
+| cc 平均分（OSWorld 口径）| **0.798** |
 | cc 平均步数 | 20.6 |
-| cc 平均观测 token | 22772 |
+| cc 平均观测 token | 22717 |
 | cc 平均用时 | 274s |
-| 执行轴 a11y 占比 | 43% （1011/2357）|
+| 执行轴 a11y 占比 | 43% （1012/2359）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 210 | 156 | 22.0 |
+| Bash 打开 | 213 | 159 | 22.1 |
 
 ## cc 未通过的题，成因分类
 
@@ -404,7 +404,10 @@
 | 284 | multi_apps | I want to learn python programming and my friend rec | ✅ | ✅ | 11 | 7927 | 128.0s |
 | 285 | multi_apps | I am writing my paper thesis. I have listed all refe | ✗ 0.0 | ✗ 0.0 | 14 | 14249 | 232.3s |
 | 286 | multi_apps | I enjoy reading during my spare time, but this book  | ✗ 1.0 | ✗ 1.0 | 12 | 8110 | 116.4s |
+| 287 | multi_apps | I am grading students' English exam papers, but the  | ✅ | ✅ | 28 | 19528 | 381.6s |
 | 288 | multi_apps | Please help me convert the file "Meeting-Agenda.docx | ✗ 0.0 | — | — | — | — |
+| 289 | multi_apps | Find the daily paper list on Huggingface and take do | ✅ | ✅ | 26 | 13399 | 275.1s |
+| 290 | multi_apps | I am an NLP researcher. Check out the best long pape | ✅ | ✅ | 21 | 12909 | 295.1s |
 
 ## 每题的过程记录
 
@@ -2399,9 +2402,27 @@
 - **我手工**（第 2 次，得分 0.995）：第二次同分。
 - **cc**（第 3 次，得分 0.9957239064716509）：cc 第三次
 - **我手工**（第 3 次，得分 0.996）：三次 0.995 / 0.995 / 0.996。转下一题。
+### 第 287 题 · aceb0368
+
+> I am grading students' English exam papers, but the test consists only of multiple-choice questions. It's too exhausting to check each question one by one and record the detailed scores. Can you help me compare the remaining students' answers with the answer key and record the detailed scoring in the opened spreadsheet?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 28 步一次通过。
 ### 第 288 题 · 22a4636f
 
 > Please help me convert the file "Meeting-Agenda.docx" to a pdf file and upload to the folder 'meetings' in my google drive.
 
 - **我手工**（第 1 次，未判分）：需要真实的第三方凭据（Google Drive / 登录态），本机不具备——环境不支持，未被测试，不计为模型失败。
+### 第 289 题 · 236833a3
+
+> Find the daily paper list on Huggingface and take down the meta information of papers on 1st March, 2024 in the opened .docx file. I have recorded two papers. Please conform to the format and complete others.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 26 步一次通过。
+### 第 290 题 · 67890eb6
+
+> I am an NLP researcher. Check out the best long paper awards of ACL from 2019 to 2022 and record the 'title', 'year', 'author list' and 'PDF link' into table best_awards_acl.xlsx on the desktop. Separate authors only by commas, use offical aclanthology urls not arxiv, and sort rows by years in descending orders.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 21 步一次通过。
 
