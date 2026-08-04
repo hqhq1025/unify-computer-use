@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **304** / 369 |
-| 我手工通过 | 230 / 304 |
-| cc 通过（严格：得分 = 1.0）| **228 / 295** |
-| cc 平均分（OSWorld 口径）| **0.804** |
-| cc 平均步数 | 20.2 |
-| cc 平均观测 token | 21923 |
-| cc 平均用时 | 269s |
+| 已跑题数 | **306** / 369 |
+| 我手工通过 | 231 / 306 |
+| cc 通过（严格：得分 = 1.0）| **229 / 297** |
+| cc 平均分（OSWorld 口径）| **0.802** |
+| cc 平均步数 | 20.1 |
+| cc 平均观测 token | 21728 |
+| cc 平均用时 | 267s |
 | 执行轴 a11y 占比 | 43% （1032/2402）|
 
 ### 两种口径要分开看
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 227 | 172 | 21.5 |
+| Bash 打开 | 229 | 173 | 21.3 |
 
 ## cc 未通过的题，成因分类
 
@@ -114,6 +114,7 @@
 | 285 | 未归类（可能是模型或链路） | I am writing my paper thesis. I have listed al |
 | 286 | 未归类（可能是模型或链路） | I enjoy reading during my spare time, but this |
 | 304 | 未归类（可能是模型或链路） | I click in terminal: terminal->132x43 to chang |
+| 306 | 未归类（可能是模型或链路） | Please create an SSH user named "charles" with |
 
 ## 逐题
 
@@ -423,6 +424,8 @@
 | 302 | os | I want to see the battery percentage. Can you help m | ✅ | ✅ | 8 | 1568 | 73.0s |
 | 303 | os | I want to have my computer automatically locked afte | ✅ | ✅ | 6 | 2124 | 63.8s |
 | 304 | os | I click in terminal: terminal->132x43 to change term | ✗ 0.0 | ✗ 0.0 | 31 | 10371 | 303.0s |
+| 305 | os | Recursively go through the folders of the 'photos' d | ✅ | ✅ | 4 | 1321 | 22.3s |
+| 306 | os | Please create an SSH user named "charles" with passw | ✗ 0.0 | ✗ 0.0 | 12 | 553 | 140.0s |
 
 ## 每题的过程记录
 
@@ -2526,6 +2529,22 @@
 
 - **cc**（第 1 次，得分 0.0）：cc 第一次
 - **我手工**（第 1 次，得分 0.0）：cc 31 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 305 题 · 23393935
+
+> Recursively go through the folders of the 'photos' directory and copy any .jpg files found into another directory named 'cpjpg'.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 4 步一次通过。
+### 第 306 题 · 5812b315
+
+> Please create an SSH user named "charles" with password "Ex@mpleP@55w0rd!" on Ubuntu who is only allowed to access the folder "/home/test1".
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 12 步未过。
 - **cc**（第 2 次，得分 0.0）：cc 第二次
 - **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
