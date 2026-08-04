@@ -656,7 +656,7 @@ def ensure_app_running(app_group, log=print):
     return True
 
 
-def apply_config(task, log=print):
+def apply_config(task, log=print, cache_dir=None):
     """执行一道题的 config 段。返回 (是否就绪, 跳过的步骤说明)。
 
     不支持的步骤**不静默跳过**：返回原因，让调用方把这道题记成"环境不支持"。
@@ -689,10 +689,30 @@ def apply_config(task, log=print):
                 log("  打开: {}".format(path))
             elif kind == "execute":
                 command = _substitute(params["command"])
-                if isinstance(command, list):
-                    subprocess.run(command, capture_output=True, timeout=180)
-                else:
-                    subprocess.run(command, shell=True, capture_output=True, timeout=180)
+                done = subprocess.run(
+                    command, shell=not isinstance(command, list),
+                    capture_output=True, timeout=180)
+                # **stdout / stderr 参数不能忽略。**
+                #
+                # 官方的 execute 支持把输出写成缓存目录里的一个文件，后面的
+                # getter 再用 cache_file 去读它。实测第 263 题就是这样：
+                # postconfig 跑 `diff a.pdf b.pdf` 并声明 stdout="diff.out"，
+                # 判据 check_list 再去读那个文件。
+                #
+                # 我原来的实现只跑命令、丢掉输出，于是 get_cache_file 断言
+                # 文件存在时直接 AssertionError——而那道题的另一个判据
+                # compare_table 已经是 1.0。一次做对的操作被记成 0 分。
+                for key, data in (("stdout", done.stdout), ("stderr", done.stderr)):
+                    name = params.get(key)
+                    if not name:
+                        continue
+                    # **必须写进判据实际用的那个缓存目录**。
+                    # LocalEnv.cache_dir 是每次新建的临时目录，
+                    # 写进全局 CACHE_DIR 的话 get_cache_file 照样找不到。
+                    target = os.path.join(cache_dir or CACHE_DIR, name)
+                    os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
+                    with open(target, "wb") as handle:
+                        handle.write(data or b"")
                 log("  执行: {}".format(str(command)[:90]))
             elif kind == "command":
                 command = _substitute(params["command"])
@@ -846,7 +866,8 @@ def evaluate(task, env=None, log=print, retry_on_zero=True):
     post = spec.get("postconfig") or []
     if post and retry_on_zero:
         log("  跑 postconfig（{} 步）以固化被测状态".format(len(post)))
-        apply_config({"config": post}, log=lambda *a: None)
+        apply_config({"config": post}, log=lambda *a: None,
+                     cache_dir=env.cache_dir)
         time.sleep(3)
 
     funcs = _as_list(spec.get("func"))

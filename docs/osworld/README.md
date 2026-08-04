@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **261** / 369 |
-| 我手工通过 | 198 / 261 |
-| cc 通过（严格：得分 = 1.0）| **197 / 253** |
-| cc 平均分（OSWorld 口径）| **0.804** |
-| cc 平均步数 | 20.2 |
-| cc 平均观测 token | 23886 |
-| cc 平均用时 | 266s |
+| 已跑题数 | **263** / 369 |
+| 我手工通过 | 200 / 263 |
+| cc 通过（严格：得分 = 1.0）| **198 / 255** |
+| cc 平均分（OSWorld 口径）| **0.802** |
+| cc 平均步数 | 20.1 |
+| cc 平均观测 token | 23787 |
+| cc 平均用时 | 265s |
 | 执行轴 a11y 占比 | 42% （931/2210）|
 
 ### 两种口径要分开看
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 185 | 141 | 21.7 |
+| Bash 打开 | 187 | 142 | 21.6 |
 
 ## cc 未通过的题，成因分类
 
@@ -103,6 +103,7 @@
 | 256 | 未归类（可能是模型或链路） | I am currently utilizing LibreOffice Writer to |
 | 259 | 未归类（可能是模型或链路） | I've received a request from my friend who ask |
 | 261 | 未归类（可能是模型或链路） | I've drafted an e-mail reminder for those who  |
+| 263 | 未归类（可能是模型或链路） | There's an e-mail containing the AWS invoice f |
 
 ## 逐题
 
@@ -369,6 +370,8 @@
 | 259 | multi_apps | I've received a request from my friend who asked for | ✗ 0.9 | ✗ 0.9 | 19 | 3113 | 225.4s |
 | 260 | multi_apps | I'm a huge movie fan and have kept a record of all t | ✅ | ✅ | 26 | 11980 | 344.9s |
 | 261 | multi_apps | I've drafted an e-mail reminder for those who haven' | ✗ 0.0 | ✗ 0.0 | 18 | 11008 | 174.8s |
+| 262 | multi_apps | Append one entry of AI researcher Yann LeCun from Go | ✅ | ✅ | 12 | 1548 | 96.4s |
+| 263 | multi_apps | There's an e-mail containing the AWS invoice for Dec | ✅ | ✗ 0.0 | 13 | 9986 | 103.1s |
 
 ## 每题的过程记录
 
@@ -2175,4 +2178,16 @@
 - **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 262 题 · 5990457f
+
+> Append one entry of AI researcher Yann LeCun from Google Scholar into an existing table researchers.xlsx.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 12 步一次通过。
+### 第 263 题 · 415ef462
+
+> There's an e-mail containing the AWS invoice for December saved in local "Bills" folder. Extract the invoice PDF to the my receipts folder. Follow the file name pattern of the old files and append a record at the end of my tally book.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：**cc 做对了，是我的垫片丢了 execute 的 stdout 参数。** 官方 execute 支持把命令输出写成缓存目录里的文件（这道题是 `diff a.pdf b.pdf` → diff.out），后面的 check_list 再用 cache_file 去读。我的实现只跑命令、丢掉输出，于是 get_cache_file 断言失败抛 AssertionError——而另一个判据 compare_table 已经是 1.0。修好后重新判分 1.0。
 
