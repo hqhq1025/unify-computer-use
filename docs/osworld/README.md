@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **275** / 369 |
-| 我手工通过 | 207 / 275 |
-| cc 通过（严格：得分 = 1.0）| **205 / 267** |
-| cc 平均分（OSWorld 口径）| **0.798** |
-| cc 平均步数 | 20.7 |
-| cc 平均观测 token | 23333 |
+| 已跑题数 | **277** / 369 |
+| 我手工通过 | 209 / 277 |
+| cc 通过（严格：得分 = 1.0）| **207 / 269** |
+| cc 平均分（OSWorld 口径）| **0.800** |
+| cc 平均步数 | 20.8 |
+| cc 平均观测 token | 23304 |
 | cc 平均用时 | 274s |
-| 执行轴 a11y 占比 | 43% （984/2300）|
+| 执行轴 a11y 占比 | 43% （990/2316）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 199 | 149 | 22.3 |
+| Bash 打开 | 201 | 151 | 22.4 |
 
 ## cc 未通过的题，成因分类
 
@@ -389,6 +389,8 @@
 | 273 | multi_apps | Help me export the first image from the doc file att | ✗ 0.0 | ✗ 0.0 | 21 | 12606 | 268.2s |
 | 274 | multi_apps | I'm tracking updates for a short tale set on https:/ | ✅ | ✅ | 7 | 5311 | 57.2s |
 | 275 | multi_apps | Help me to automatically set up my work space. To be | ✗ 0.0 | ✗ 0.0 | 13 | 7236 | 141.8s |
+| 276 | multi_apps | Hey, my friend has just sent me a web novel, but in  | ✅ | ✅ | 16 | 7300 | 177.0s |
+| 277 | multi_apps | Open 'character.png' in GIMP and extract the pixel a | ✅ | ✅ | 41 | 28035 | 559.5s |
 
 ## 每题的过程记录
 
@@ -2301,4 +2303,16 @@
 - **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 276 题 · 42d25c08
+
+> Hey, my friend has just sent me a web novel, but in txt files. Could you please help me to convert it to epub format for easy reading on my mobile and kindle? I have found several tools to obtain an epub file, opened in the browser. But I'm not sure which one helps. Please help me to do this and ensure to name the file with novel's title.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 16 步一次通过（epub 语义比对）。
+### 第 277 题 · e8172110
+
+> Open 'character.png' in GIMP and extract the pixel art character. Save the selected character as 'character_gimp.png'. Additionally, write a Python script to automate this selection process, ensuring it precisely mimics the manual extraction done in GIMP. Output the result from the script as 'character_code.png'.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 41 步一次通过（两个结构相似度判据全中）。
 
