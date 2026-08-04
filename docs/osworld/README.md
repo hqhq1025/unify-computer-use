@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **280** / 369 |
-| 我手工通过 | 211 / 280 |
-| cc 通过（严格：得分 = 1.0）| **209 / 272** |
-| cc 平均分（OSWorld 口径）| **0.798** |
+| 已跑题数 | **282** / 369 |
+| 我手工通过 | 212 / 282 |
+| cc 通过（严格：得分 = 1.0）| **210 / 274** |
+| cc 平均分（OSWorld 口径）| **0.796** |
 | cc 平均步数 | 20.7 |
-| cc 平均观测 token | 23138 |
-| cc 平均用时 | 273s |
-| 执行轴 a11y 占比 | 43% （995/2328）|
+| cc 平均观测 token | 22964 |
+| cc 平均用时 | 272s |
+| 执行轴 a11y 占比 | 43% （998/2333）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 204 | 153 | 22.3 |
+| Bash 打开 | 206 | 154 | 22.2 |
 
 ## cc 未通过的题，成因分类
 
@@ -110,6 +110,7 @@
 | 273 | 未归类（可能是模型或链路） | Help me export the first image from the doc fi |
 | 275 | 未归类（可能是模型或链路） | Help me to automatically set up my work space. |
 | 278 | 未归类（可能是模型或链路） | Configure VS Code to edit GIMP script-fu scrip |
+| 282 | 未归类（可能是模型或链路） | Export the table to a CSV file and then write  |
 
 ## 逐题
 
@@ -395,6 +396,8 @@
 | 278 | multi_apps | Configure VS Code to edit GIMP script-fu scripts eff | ✗ 0.0 | ✗ 0.0 | 29 | 27872 | 402.2s |
 | 279 | multi_apps | Download the image from "https://huggingface.co/data | ✅ | ✅ | 22 | 5356 | 269.0s |
 | 280 | multi_apps | Divide my image vertically into three equal sections | ✅ | ✅ | 16 | 3352 | 173.1s |
+| 281 | multi_apps | Launch GIMP from the command line to edit "cola.png" | ✅ | ✅ | 18 | 4343 | 240.9s |
+| 282 | multi_apps | Export the table to a CSV file and then write code t | ✗ 0.0 | ✗ 0.0 | 15 | 8190 | 153.1s |
 
 ## 每题的过程记录
 
@@ -2341,4 +2344,20 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 16 步一次通过。
+### 第 281 题 · 91190194
+
+> Launch GIMP from the command line to edit "cola.png" and crop the top 20% off the image for my avatar as "cropped.png".
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 18 步一次通过。
+### 第 282 题 · 7f35355e
+
+> Export the table to a CSV file and then write code to find the median Stock Price after filling empty Stock Price values with the average Stock Price. Save only the numeric result in "result.txt".
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 15 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
