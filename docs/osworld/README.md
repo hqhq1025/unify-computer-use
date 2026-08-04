@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **310** / 369 |
-| 我手工通过 | 235 / 310 |
-| cc 通过（严格：得分 = 1.0）| **233 / 301** |
-| cc 平均分（OSWorld 口径）| **0.805** |
-| cc 平均步数 | 19.8 |
-| cc 平均观测 token | 21858 |
-| cc 平均用时 | 263s |
-| 执行轴 a11y 占比 | 43% （1095/2525）|
+| 已跑题数 | **312** / 369 |
+| 我手工通过 | 236 / 312 |
+| cc 通过（严格：得分 = 1.0）| **234 / 303** |
+| cc 平均分（OSWorld 口径）| **0.803** |
+| cc 平均步数 | 19.7 |
+| cc 平均观测 token | 21686 |
+| cc 平均用时 | 261s |
+| 执行轴 a11y 占比 | 43% （1095/2534）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 236 | 177 | 20.9 |
+| Bash 打开 | 238 | 178 | 20.7 |
 
 ## cc 未通过的题，成因分类
 
@@ -115,6 +115,7 @@
 | 304 | 未归类（可能是模型或链路） | I click in terminal: terminal->132x43 to chang |
 | 306 | 未归类（可能是模型或链路） | Please create an SSH user named "charles" with |
 | 309 | 未归类（可能是模型或链路） | Copy all files matching "*failed.ipynb" in the |
+| 312 | 未归类（可能是模型或链路） | Use terminal command to count all the lines of |
 
 ## 逐题
 
@@ -430,6 +431,8 @@
 | 308 | os | Copy directory hierarchy from "$sourceDir" to "$targ | ✅ | ✅ | 11 | 5946 | 153.4s |
 | 309 | os | Copy all files matching "*failed.ipynb" in the curre | ✗ 0.0 | ✗ 0.0 | 6 | 3795 | 35.7s |
 | 310 | os | Append "<br/>" to the end of each line in "1\n2\n3"  | ✅ | ✅ | 4 | 1407 | 50.4s |
+| 311 | os | Compress all files under "/tmp/test_files" that were | ✅ | ✅ | 4 | 357 | 32.0s |
+| 312 | os | Use terminal command to count all the lines of all p | ✗ 0.0 | ✗ 0.0 | 8 | 2729 | 83.4s |
 
 ## 每题的过程记录
 
@@ -2610,4 +2613,20 @@
 - **cc**（第 5 次，得分 0.0）：cc 第五次（同名文件残留已清）
 - **cc**（第 6 次，得分 1.0）：cc 第六次（缓存键改成 URL 哈希）
 - **我手工**（第 6 次，得分 1.0）：**根因找到并修复：素材缓存键用了 URL 最后一段文件名。** os 段几乎每题的判据脚本都叫 eval.sh，于是第一道题下载的那个被后面所有题复用——判据一直在拿上一题的标准考这一题。实测 ~/eval.sh 里躺的是第 309 题的脚本（检查 vimrc 有没有 set number），手工跑直接输出 "The File Has Set Number!"。cc 前五次都做对了，判的却是另一道题。缓存键改成 URL 的 SHA1 前缀后第六次 1.0。
+### 第 311 题 · 37887e8c
+
+> Compress all files under "/tmp/test_files" that were last modified 30 days ago and put them in "/tmp/test_files/old_files". Move all other files to "/tmp/test_files/new_files.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 4 步一次通过。
+### 第 312 题 · 4127319a
+
+> Use terminal command to count all the lines of all php files in current directory recursively, show the result on the terminal
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 8 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
