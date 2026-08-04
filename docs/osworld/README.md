@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **339** / 369 |
-| 我手工通过 | 256 / 339 |
-| cc 通过（严格：得分 = 1.0）| **254 / 330** |
-| cc 平均分（OSWorld 口径）| **0.800** |
+| 已跑题数 | **342** / 369 |
+| 我手工通过 | 259 / 342 |
+| cc 通过（严格：得分 = 1.0）| **257 / 333** |
+| cc 平均分（OSWorld 口径）| **0.801** |
 | cc 平均步数 | 19.2 |
-| cc 平均观测 token | 21065 |
+| cc 平均观测 token | 21022 |
 | cc 平均用时 | 253s |
-| 执行轴 a11y 占比 | 44% （1229/2800）|
+| 执行轴 a11y 占比 | 44% （1243/2829）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 265 | 198 | 20.0 |
+| Bash 打开 | 268 | 201 | 20.1 |
 
 ## cc 未通过的题，成因分类
 
@@ -467,6 +467,9 @@
 | 337 | vlc | Hey, could you turn this video the right way up for  | ✅ | ✅ | 17 | 6323 | 211.8s |
 | 338 | vlc | I am reading lecture note in PDF while a music video | ✅ | ✅ | 30 | 10628 | 329.5s |
 | 339 | vlc | I like watching movies (using VLC) on my laptop and  | ✅ | ✅ | 22 | 16678 | 209.8s |
+| 340 | vlc | Can you change the color of the volume slider to bla | ✅ | ✅ | 37 | 22276 | 451.5s |
+| 341 | vlc | Enable VLC Minimal Interface in window mode so the b | ✅ | ✅ | 19 | 7370 | 176.3s |
+| 342 | vlc | My VLC Media Player has been auto-closing once the v | ✅ | ✅ | 20 | 11812 | 194.8s |
 
 ## 每题的过程记录
 
@@ -2861,4 +2864,22 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 22 步一次通过。
+### 第 340 题 · d06f0d4d
+
+> Can you change the color of the volume slider to black-ish color? I often use the player in a low-light environment, and a darker color scheme would be less straining on my eyes, especially during nighttime usage.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 37 步一次通过。
+### 第 341 题 · a5bbbcd5
+
+> Enable VLC Minimal Interface in window mode so the bottom playback controls are hidden, and make sure the setting persists after restarting VLC. I often multitask on my computer, and the persistent toolbar in VLC is very distracting.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 19 步一次通过。
+### 第 342 题 · 5ac2891a
+
+> My VLC Media Player has been auto-closing once the video ends. It is very annoying. Could you help me prevent the VLC Media Player from auto-closing once the video ends?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 20 步一次通过。
 
