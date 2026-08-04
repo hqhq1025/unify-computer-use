@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **290** / 369 |
-| 我手工通过 | 217 / 290 |
-| cc 通过（严格：得分 = 1.0）| **215 / 281** |
-| cc 平均分（OSWorld 口径）| **0.798** |
+| 已跑题数 | **292** / 369 |
+| 我手工通过 | 219 / 292 |
+| cc 通过（严格：得分 = 1.0）| **217 / 283** |
+| cc 平均分（OSWorld 口径）| **0.799** |
 | cc 平均步数 | 20.6 |
-| cc 平均观测 token | 22717 |
+| cc 平均观测 token | 22577 |
 | cc 平均用时 | 274s |
-| 执行轴 a11y 占比 | 43% （1012/2359）|
+| 执行轴 a11y 占比 | 43% （1014/2362）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 213 | 159 | 22.1 |
+| Bash 打开 | 215 | 161 | 22.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -408,6 +408,8 @@
 | 288 | multi_apps | Please help me convert the file "Meeting-Agenda.docx | ✗ 0.0 | — | — | — | — |
 | 289 | multi_apps | Find the daily paper list on Huggingface and take do | ✅ | ✅ | 26 | 13399 | 275.1s |
 | 290 | multi_apps | I am an NLP researcher. Check out the best long pape | ✅ | ✅ | 21 | 12909 | 295.1s |
+| 291 | os | I want to install Spotify on my current system. Coul | ✅ | ✅ | 14 | 1545 | 255.7s |
+| 292 | os | Could you set the 'Dim screen when inactive' to off  | ✅ | ✅ | 8 | 2632 | 76.4s |
 
 ## 每题的过程记录
 
@@ -2425,4 +2427,18 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 21 步一次通过。
+### 第 291 题 · 94d95f96
+
+> I want to install Spotify on my current system. Could you please help me?
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 28 步未过。
+- **cc**（第 2 次，得分 1.0）：cc 第二次
+- **我手工**（第 2 次，得分 1.0）：第二次 14 步通过。
+### 第 292 题 · bedcedc4
+
+> Could you set the 'Dim screen when inactive' to off in setting?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 8 步一次通过（两个子判据 or 关系）。
 
