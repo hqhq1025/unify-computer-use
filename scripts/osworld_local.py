@@ -63,12 +63,24 @@ class LocalController:
     def __init__(self, cache_dir):
         self.cache_dir = cache_dir
 
+    # 命令一律在**用户主目录**下跑。
+    #
+    # 官方 OSWorld 在虚拟机里执行这些命令时，当前目录就是 ~。而我这边如果不
+    # 指定，就会继承跑测进程的当前目录（/home/user/unify-computer-use），
+    # 于是判据的 `bash eval.sh` 和 agent 在终端里看到的"当前目录"**根本不是
+    # 同一个**。
+    #
+    # 实测第 310 题：题目是"给每行加 <br/> 存进 output.txt"，cc 做对了并写到
+    # /home/user/OSWorld/output.txt（它终端的当前目录），而 eval.sh 躺在
+    # /home/user/unify-computer-use/。两边都对，就是对不上，判 0。
+    HOME = os.path.expanduser("~")
+
     def execute_python_command(self, command):
         # **不加 pyautogui 前缀。** 官方 controller 会注入一段 pyautogui 初始化，
         # 那是给"在 VM 里替 agent 打字"用的；评估阶段的命令都只是读文件、
         # 打印结果，注入它只会在没装 pyautogui 的机器上平白失败。
         result = subprocess.run(
-            [sys.executable, "-c", command],
+            [sys.executable, "-c", command], cwd=self.HOME,
             capture_output=True, text=True, timeout=180)
         return {
             "output": result.stdout,
@@ -79,8 +91,8 @@ class LocalController:
 
     def execute_command(self, command):
         shell = isinstance(command, str)
-        result = subprocess.run(command, shell=shell, capture_output=True,
-                                text=True, timeout=180)
+        result = subprocess.run(command, shell=shell, cwd=self.HOME,
+                                capture_output=True, text=True, timeout=180)
         return {
             "output": result.stdout,
             "error": result.stderr,
@@ -734,8 +746,13 @@ def apply_config(task, log=print, cache_dir=None):
         try:
             if kind == "download":
                 for item in params.get("files") or []:
-                    _download(item["url"], item["path"])
-                    log("  素材: {}".format(item["path"]))
+                    # 相对路径按**主目录**解析，和判据跑命令的目录保持一致。
+                    # 见 LocalController.HOME 那段注释。
+                    path = item["path"]
+                    if not os.path.isabs(path):
+                        path = os.path.join(os.path.expanduser("~"), path)
+                    _download(item["url"], path)
+                    log("  素材: {}".format(path))
             elif kind == "launch":
                 command = params["command"]
                 if isinstance(command, str):
@@ -754,6 +771,7 @@ def apply_config(task, log=print, cache_dir=None):
                 command = _substitute(params["command"])
                 done = subprocess.run(
                     command, shell=not isinstance(command, list),
+                    cwd=os.path.expanduser("~"),
                     capture_output=True, timeout=180)
                 # **stdout / stderr 参数不能忽略。**
                 #
@@ -776,6 +794,7 @@ def apply_config(task, log=print, cache_dir=None):
                 # 两个 kind 在官方那边行为一致，这里也必须一致。
                 command = _substitute(params["command"])
                 done = subprocess.run(command, shell=isinstance(command, str),
+                                      cwd=os.path.expanduser("~"),
                                       capture_output=True, timeout=180)
                 _write_streams(params, done, cache_dir)
                 log("  命令: {}".format(str(command)[:90]))
