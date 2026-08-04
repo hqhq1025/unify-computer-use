@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **294** / 369 |
-| 我手工通过 | 221 / 294 |
-| cc 通过（严格：得分 = 1.0）| **219 / 285** |
-| cc 平均分（OSWorld 口径）| **0.801** |
+| 已跑题数 | **296** / 369 |
+| 我手工通过 | 223 / 296 |
+| cc 通过（严格：得分 = 1.0）| **221 / 287** |
+| cc 平均分（OSWorld 口径）| **0.802** |
 | cc 平均步数 | 20.5 |
-| cc 平均观测 token | 22470 |
+| cc 平均观测 token | 22373 |
 | cc 平均用时 | 273s |
-| 执行轴 a11y 占比 | 43% （1014/2362）|
+| 执行轴 a11y 占比 | 43% （1016/2365）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 217 | 163 | 21.9 |
+| Bash 打开 | 219 | 165 | 21.8 |
 
 ## cc 未通过的题，成因分类
 
@@ -412,6 +412,8 @@
 | 292 | os | Could you set the 'Dim screen when inactive' to off  | ✅ | ✅ | 8 | 2632 | 76.4s |
 | 293 | os | Can you remove vim from favorite app in 'favorites'? | ✅ | ✅ | 4 | 456 | 27.7s |
 | 294 | os | Switch to the user `Charles` using the password `Ex@ | ✅ | ✅ | 2 | 116 | 15.1s |
+| 295 | os | I am currently working on a ubuntu system but I do n | ✅ | ✅ | 4 | 1857 | 46.4s |
+| 296 | os | The volume of my system is too small. Can you help m | ✅ | ✅ | 18 | 2611 | 259.8s |
 
 ## 每题的过程记录
 
@@ -2455,4 +2457,16 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：infeasible 题，cc 2 步正确拒绝。
+### 第 295 题 · f9be0997
+
+> I am currently working on a ubuntu system but I do not want the notifications to bother me. Can you help me to switch to 'Do not disturb mode'?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 4 步一次通过。
+### 第 296 题 · 28cc3b7e
+
+> The volume of my system is too small. Can you help me turn up to the max volume?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 18 步一次通过。
 
