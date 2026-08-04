@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **320** / 369 |
-| 我手工通过 | 243 / 320 |
-| cc 通过（严格：得分 = 1.0）| **241 / 311** |
-| cc 平均分（OSWorld 口径）| **0.804** |
-| cc 平均步数 | 19.4 |
-| cc 平均观测 token | 21543 |
-| cc 平均用时 | 257s |
-| 执行轴 a11y 占比 | 43% （1137/2635）|
+| 已跑题数 | **323** / 369 |
+| 我手工通过 | 245 / 323 |
+| cc 通过（严格：得分 = 1.0）| **243 / 314** |
+| cc 平均分（OSWorld 口径）| **0.803** |
+| cc 平均步数 | 19.5 |
+| cc 平均观测 token | 21535 |
+| cc 平均用时 | 258s |
+| 执行轴 a11y 占比 | 43% （1162/2675）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 246 | 185 | 20.3 |
+| Bash 打开 | 249 | 187 | 20.4 |
 
 ## cc 未通过的题，成因分类
 
@@ -117,6 +117,7 @@
 | 309 | 未归类（可能是模型或链路） | Copy all files matching "*failed.ipynb" in the |
 | 312 | 未归类（可能是模型或链路） | Use terminal command to count all the lines of |
 | 317 | 未归类（可能是模型或链路） | Could you help me open up the profile manageme |
+| 323 | 未归类（可能是模型或链路） | Attach the my AWS bill to the email. The bill  |
 
 ## 逐题
 
@@ -442,6 +443,9 @@
 | 318 | thunderbird | Could you help me back up all the email files in my  | ✅ | ✅ | 29 | 31065 | 346.8s |
 | 319 | thunderbird | Set up a plain text signature for my email account i | ✅ | ✅ | 10 | 10614 | 99.7s |
 | 320 | thunderbird | Create a local folder called "Promotions" and create | ✅ | ✅ | 28 | 33938 | 338.4s |
+| 321 | thunderbird | Add a star to every email in local Bills folder | ✅ | ✅ | 11 | 12017 | 124.8s |
+| 322 | thunderbird | Set up to forward every email received by anonym-x20 | ✅ | ✅ | 16 | 14006 | 160.0s |
+| 323 | thunderbird | Attach the my AWS bill to the email. The bill is sto | ✗ 0.0 | ✗ 0.0 | 33 | 23777 | 490.2s |
 
 ## 每题的过程记录
 
@@ -2698,4 +2702,26 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 28 步一次通过。
+### 第 321 题 · dd84e895
+
+> Add a star to every email in local Bills folder
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 11 步一次通过。
+### 第 322 题 · 9b7bc335
+
+> Set up to forward every email received by anonym-x2024@outlook.com in the future to anonym-x2024@gmail.com. Please don't touch the online account. Just locally in the Thunderbird!
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 16 步一次通过。
+### 第 323 题 · d38192b0
+
+> Attach the my AWS bill to the email. The bill is stored at ~/aws-bill.pdf. Don't close it or send it. I haven't finish all the contents.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 33 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
