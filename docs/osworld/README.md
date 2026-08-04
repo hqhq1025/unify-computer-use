@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **328** / 369 |
-| 我手工通过 | 250 / 328 |
-| cc 通过（严格：得分 = 1.0）| **248 / 319** |
-| cc 平均分（OSWorld 口径）| **0.806** |
+| 已跑题数 | **329** / 369 |
+| 我手工通过 | 250 / 329 |
+| cc 通过（严格：得分 = 1.0）| **248 / 320** |
+| cc 平均分（OSWorld 口径）| **0.804** |
 | cc 平均步数 | 19.4 |
-| cc 平均观测 token | 21516 |
+| cc 平均观测 token | 21539 |
 | cc 平均用时 | 257s |
-| 执行轴 a11y 占比 | 44% （1191/2720）|
+| 执行轴 a11y 占比 | 44% （1203/2752）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 254 | 192 | 20.3 |
+| Bash 打开 | 255 | 192 | 20.3 |
 
 ## cc 未通过的题，成因分类
 
@@ -118,6 +118,7 @@
 | 312 | 未归类（可能是模型或链路） | Use terminal command to count all the lines of |
 | 317 | 未归类（可能是模型或链路） | Could you help me open up the profile manageme |
 | 323 | 未归类（可能是模型或链路） | Attach the my AWS bill to the email. The bill  |
+| 329 | 未归类（可能是模型或链路） | Thunderbird's message filters seem to only fir |
 
 ## 逐题
 
@@ -451,6 +452,7 @@
 | 326 | thunderbird | When I reply to an email, it quotes the original mes | ✅ | ✅ | 5 | 9103 | 56.1s |
 | 327 | thunderbird | Considering I work late into the night and use Thund | ✅ | ✅ | 12 | 36118 | 168.2s |
 | 328 | thunderbird | Due to certain security considerations and the natur | ✅ | ✅ | 32 | 24003 | 469.2s |
+| 329 | thunderbird | Thunderbird's message filters seem to only fire on I | ✗ 0.0 | ✗ 0.0 | 10 | 18476 | 137.8s |
 
 ## 每题的过程记录
 
@@ -2759,4 +2761,14 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：infeasible 题，cc 32 步探查后如实拒绝。
+### 第 329 题 · 08c73485
+
+> Thunderbird's message filters seem to only fire on Inbox automatically. If you want to filter on subfolders, you'd have to start this filter manually. I am wondering if the filter can be applied automatically. Could you help me apply automatic message filters to subfolders
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 10 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
