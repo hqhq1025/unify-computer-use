@@ -113,8 +113,26 @@ class LocalController:
             "status": "success" if result.returncode == 0 else "error",
         }
 
+    # 命令里出现这些符号就必须走 shell，否则它们会被当成普通参数。
+    SHELL_METACHARS = ("|", ">", ">>", "<", "&&", "||", ";", "*", "?")
+
     def execute_command(self, command):
+        """执行命令。**列表里混着管道符时要走 shell。**
+
+        官方把命令原样 POST 给 VM 里的 /execute，由那边决定怎么跑。
+        我这边按列表直接 exec，于是第 351 题的
+
+            ["code", "--list-extensions", "|", "grep", "njpwerner.autodocstring"]
+
+        里的 `|` 和 `grep` 被当成了 `code` 的普通参数——命令什么都没输出，
+        getter 返回 None，官方判据抛 TypeError: NoneType is not iterable。
+
+        一个"看起来是列表所以不该走 shell"的合理假设，撞上题目里混写的用法。
+        """
         shell = isinstance(command, str)
+        if not shell and any(part in self.SHELL_METACHARS for part in command):
+            command = " ".join(command)
+            shell = True
         result = subprocess.run(command, shell=shell, cwd=self.HOME,
                                 capture_output=True, text=True, timeout=180)
         return {

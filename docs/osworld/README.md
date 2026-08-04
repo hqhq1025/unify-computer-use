@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **348** / 369 |
-| 我手工通过 | 265 / 348 |
-| cc 通过（严格：得分 = 1.0）| **263 / 339** |
-| cc 平均分（OSWorld 口径）| **0.805** |
-| cc 平均步数 | 19.2 |
-| cc 平均观测 token | 20914 |
-| cc 平均用时 | 252s |
-| 执行轴 a11y 占比 | 44% （1256/2858）|
+| 已跑题数 | **351** / 369 |
+| 我手工通过 | 268 / 351 |
+| cc 通过（严格：得分 = 1.0）| **265 / 342** |
+| cc 平均分（OSWorld 口径）| **0.804** |
+| cc 平均步数 | 19.1 |
+| cc 平均观测 token | 20916 |
+| cc 平均用时 | 253s |
+| 执行轴 a11y 占比 | 44% （1260/2870）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 274 | 207 | 20.0 |
+| Bash 打开 | 277 | 209 | 19.9 |
 
 ## cc 未通过的题，成因分类
 
@@ -123,6 +123,7 @@
 | 334 | 未归类（可能是模型或链路） | Snap a photo of the current video scene, save  |
 | 335 | 未归类（可能是模型或链路） | Make this part of the video my computer's back |
 | 336 | 未归类（可能是模型或链路） | Can you enable fullscreen mode in VLC so that  |
+| 351 | 未归类（可能是模型或链路） | Please help me install the autoDocstring exten |
 
 ## 逐题
 
@@ -476,6 +477,9 @@
 | 346 | vlc | Play the latest season of 'Stranger Things' purchase | ✅ | ✅ | 4 | 5084 | 62.9s |
 | 347 | vs_code | Please help me change all the places in this documen | ✅ | ✅ | 12 | 22490 | 185.4s |
 | 348 | vs_code | Please help me use VS Code to open the "project" in  | ✅ | ✅ | 19 | 18486 | 203.2s |
+| 349 | vs_code | Please help me install the extension Python in VS Co | ✅ | ✅ | 7 | 19506 | 131.6s |
+| 350 | vs_code | Please help me change the color theme of VS Code to  | ✅ | ✅ | 9 | 26711 | 137.3s |
+| 351 | vs_code | Please help me install the autoDocstring extension i | ✅ | ✗ 0.0 | 12 | 17529 | 1074.2s |
 
 ## 每题的过程记录
 
@@ -2925,4 +2929,22 @@ Is there any way to solve this problem?
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 19 步一次通过。
+### 第 349 题 · eabc805a
+
+> Please help me install the extension Python in VS Code.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 7 步一次通过。判据是 is_extension_installed——前面第 244、278 两题正是卡在装扩展上，这次过了，说明那两题的失败是任务本身难度，不是环境完全不支持装扩展。
+### 第 350 题 · 982d12a5
+
+> Please help me change the color theme of VS Code to Visual Studio Dark.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 9 步一次通过。
+### 第 351 题 · 4e60007a
+
+> Please help me install the autoDocstring extension in VS Code.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：**cc 做对了，是我的垫片把管道符当成了普通参数。** 判据的命令是列表 ["code","--list-extensions","|","grep","njpwerner.autodocstring"]，我按列表直接 exec，`|` 和 `grep` 成了 code 的参数，命令没有输出，getter 返回 None，官方判据抛 TypeError。改成"列表里出现 shell 元字符就走 shell"后重新判分 1.0。
 
