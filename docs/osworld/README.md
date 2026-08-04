@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **260** / 369 |
-| 我手工通过 | 198 / 260 |
-| cc 通过（严格：得分 = 1.0）| **197 / 252** |
-| cc 平均分（OSWorld 口径）| **0.807** |
+| 已跑题数 | **261** / 369 |
+| 我手工通过 | 198 / 261 |
+| cc 通过（严格：得分 = 1.0）| **197 / 253** |
+| cc 平均分（OSWorld 口径）| **0.804** |
 | cc 平均步数 | 20.2 |
-| cc 平均观测 token | 24000 |
-| cc 平均用时 | 267s |
-| 执行轴 a11y 占比 | 42% （927/2194）|
+| cc 平均观测 token | 23886 |
+| cc 平均用时 | 266s |
+| 执行轴 a11y 占比 | 42% （931/2210）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 184 | 141 | 21.7 |
+| Bash 打开 | 185 | 141 | 21.7 |
 
 ## cc 未通过的题，成因分类
 
@@ -102,6 +102,7 @@
 | 255 | 未归类（可能是模型或链路） | I want to obtain a local file version of the c |
 | 256 | 未归类（可能是模型或链路） | I am currently utilizing LibreOffice Writer to |
 | 259 | 未归类（可能是模型或链路） | I've received a request from my friend who ask |
+| 261 | 未归类（可能是模型或链路） | I've drafted an e-mail reminder for those who  |
 
 ## 逐题
 
@@ -367,6 +368,7 @@
 | 258 | multi_apps | I have an image of my receipt located in /home/user. | ✅ | ✅ | 19 | 2333 | 163.7s |
 | 259 | multi_apps | I've received a request from my friend who asked for | ✗ 0.9 | ✗ 0.9 | 19 | 3113 | 225.4s |
 | 260 | multi_apps | I'm a huge movie fan and have kept a record of all t | ✅ | ✅ | 26 | 11980 | 344.9s |
+| 261 | multi_apps | I've drafted an e-mail reminder for those who haven' | ✗ 0.0 | ✗ 0.0 | 18 | 11008 | 174.8s |
 
 ## 每题的过程记录
 
@@ -2163,4 +2165,14 @@
 - **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 1.0）：cc 第三次
 - **我手工**（第 3 次，得分 1.0）：第三次 26 步通过。
+### 第 261 题 · f5c13cdd
+
+> I've drafted an e-mail reminder for those who haven't paid tuition. Please help me to check out their e-mails from the payment record and add to the receiver field.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 18 步未过（判据读 a11y 树）。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
