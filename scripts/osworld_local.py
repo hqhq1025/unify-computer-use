@@ -596,6 +596,14 @@ def restart_leaking_desktop_icons(log=print):
 SHARED_TASK_FILES = ("eval.sh", "setup.sh", "output.txt", "diff.out",
                      "grep.out", "apt.out")
 
+# os 段的题会在主目录下建工作目录，名字也是共用的。
+#
+# 实测第 313 题（"把当前目录树下所有普通文件权限改成 644"）：它的 setup.sh
+# 建的是 ~/testDir，而 cc 去改了 ~/project——**那是别的题留下的残留**，
+# 它看到就以为那是"当前目录"。主目录里已经堆着三百多道题的产物，
+# 一个似是而非的目录名就足以把 agent 引到错的地方。
+SHARED_TASK_DIRS = ("testDir", "project", "fails", "test_dir", "workspace")
+
 
 def clean_shared_task_files(log=print):
     """清掉上一题留下的同名脚本与输出文件。"""
@@ -609,6 +617,11 @@ def clean_shared_task_files(log=print):
                 removed.append(name)
             except OSError:
                 pass
+    for name in SHARED_TASK_DIRS:
+        path = os.path.join(home, name)
+        if os.path.isdir(path):
+            shutil.rmtree(path, ignore_errors=True)
+            removed.append(name + "/")
     if removed:
         log("清掉上一题的同名文件: {}".format(", ".join(removed)))
 
