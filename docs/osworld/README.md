@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **278** / 369 |
-| 我手工通过 | 209 / 278 |
-| cc 通过（严格：得分 = 1.0）| **207 / 270** |
-| cc 平均分（OSWorld 口径）| **0.797** |
+| 已跑题数 | **280** / 369 |
+| 我手工通过 | 211 / 280 |
+| cc 通过（严格：得分 = 1.0）| **209 / 272** |
+| cc 平均分（OSWorld 口径）| **0.798** |
 | cc 平均步数 | 20.7 |
-| cc 平均观测 token | 23233 |
+| cc 平均观测 token | 23138 |
 | cc 平均用时 | 273s |
-| 执行轴 a11y 占比 | 43% （991/2321）|
+| 执行轴 a11y 占比 | 43% （995/2328）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 202 | 151 | 22.3 |
+| Bash 打开 | 204 | 153 | 22.3 |
 
 ## cc 未通过的题，成因分类
 
@@ -393,6 +393,8 @@
 | 276 | multi_apps | Hey, my friend has just sent me a web novel, but in  | ✅ | ✅ | 16 | 7300 | 177.0s |
 | 277 | multi_apps | Open 'character.png' in GIMP and extract the pixel a | ✅ | ✅ | 41 | 28035 | 559.5s |
 | 278 | multi_apps | Configure VS Code to edit GIMP script-fu scripts eff | ✗ 0.0 | ✗ 0.0 | 29 | 27872 | 402.2s |
+| 279 | multi_apps | Download the image from "https://huggingface.co/data | ✅ | ✅ | 22 | 5356 | 269.0s |
+| 280 | multi_apps | Divide my image vertically into three equal sections | ✅ | ✅ | 16 | 3352 | 173.1s |
 
 ## 每题的过程记录
 
@@ -2327,4 +2329,16 @@
 - **我手工**（第 2 次，得分 0.0）：第二次同样：装扩展这一环没成。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次都是同一模式：check_image_size 全 1.0（图片处理做对了），is_extension_installed 全 0.0。装 Chrome 扩展要访问网上应用店，本机环境未必支持——第 244 题也是卡在装扩展上。转下一题。
+### 第 279 题 · 3c8f201a
+
+> Download the image from "https://huggingface.co/datasets/xlangai/ubuntu_osworld_file_cache/resolve/main/multi_apps/3c8f201a-009d-4bbe-8b65-a6f8b35bb57f/kingbird.jpeg", and then use GIMP to compress it to under 600KB as "compressed.jpeg" on the Desktop. Resize if needed.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 22 步一次通过。
+### 第 280 题 · d68204bf
+
+> Divide my image vertically into three equal sections with command line. Reorder the original sections from warmest to coolest from left to right, without changing the colors or applying any tint/filter, and save the result as "rearranged.png".
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 16 步一次通过。
 
