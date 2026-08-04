@@ -26,9 +26,9 @@
 | cc 通过（严格：得分 = 1.0）| **233 / 301** |
 | cc 平均分（OSWorld 口径）| **0.805** |
 | cc 平均步数 | 19.8 |
-| cc 平均观测 token | 21924 |
+| cc 平均观测 token | 21858 |
 | cc 平均用时 | 263s |
-| 执行轴 a11y 占比 | 43% （1094/2523）|
+| 执行轴 a11y 占比 | 43% （1095/2525）|
 
 ### 两种口径要分开看
 
@@ -2097,6 +2097,8 @@
 - **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+- **cc**（第 4 次，得分 0.0）：复核：缓存串号与 DISPLAY 已修
+- **我手工**（第 4 次，得分 0.0）：复核仍 0.0。
 ### 第 242 题 · 36037439
 
 > Could you please pull up the Google Scholar page of the corresponding author for me in Chrome?
@@ -2425,6 +2427,8 @@
 
 > I am writing my paper thesis. I have listed all referenced papers in the opened docx. But my mentor asked me to use latex instead of word writer. So could you help me export the dblp bibtex of these papers into 'references.bib'. By the way, if the paper is published, do not use the arxiv version. Separate each bibtex dict with a blank line for clarity.
 
+- **cc**（第 4 次，得分 0.0）：复核：缓存串号与 DISPLAY 已修
+- **我手工**（第 4 次，得分 0.0）：复核仍 0.0。10 道复核完毕：28 从 0 变 1.0，173 从 0.998 变 0.0，其余 8 道不变——素材串号会同时造成虚高和虚低。
 - **cc**（第 1 次，得分 0.0）：cc 第一次
 - **我手工**（第 1 次，得分 0.0）：cc 14 步未过。
 - **cc**（第 2 次，得分 0.0）：cc 第二次
