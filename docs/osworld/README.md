@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **345** / 369 |
-| 我手工通过 | 262 / 345 |
-| cc 通过（严格：得分 = 1.0）| **260 / 336** |
-| cc 平均分（OSWorld 口径）| **0.803** |
+| 已跑题数 | **348** / 369 |
+| 我手工通过 | 265 / 348 |
+| cc 通过（严格：得分 = 1.0）| **263 / 339** |
+| cc 平均分（OSWorld 口径）| **0.805** |
 | cc 平均步数 | 19.2 |
-| cc 平均观测 token | 20946 |
-| cc 平均用时 | 253s |
-| 执行轴 a11y 占比 | 44% （1251/2845）|
+| cc 平均观测 token | 20914 |
+| cc 平均用时 | 252s |
+| 执行轴 a11y 占比 | 44% （1256/2858）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 271 | 204 | 20.0 |
+| Bash 打开 | 274 | 207 | 20.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -473,6 +473,9 @@
 | 343 | vlc | I want to watch two or more videos in same time on V | ✅ | ✅ | 16 | 4366 | 170.2s |
 | 344 | vlc | Can you disable the cone icon in the splash screen?  | ✅ | ✅ | 22 | 15468 | 255.3s |
 | 345 | vlc | Automatically adjust the brightness and contrast of  | ✅ | ✅ | 5 | 4657 | 59.2s |
+| 346 | vlc | Play the latest season of 'Stranger Things' purchase | ✅ | ✅ | 4 | 5084 | 62.9s |
+| 347 | vs_code | Please help me change all the places in this documen | ✅ | ✅ | 12 | 22490 | 185.4s |
+| 348 | vs_code | Please help me use VS Code to open the "project" in  | ✅ | ✅ | 19 | 18486 | 203.2s |
 
 ## 每题的过程记录
 
@@ -2904,4 +2907,22 @@ Is there any way to solve this problem?
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：infeasible 题，cc 5 步正确拒绝。
+### 第 346 题 · 7882ed6e
+
+> Play the latest season of 'Stranger Things' purchased from the Google Play Movies & TV store directly in VLC.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：infeasible 题，cc 4 步正确拒绝。
+### 第 347 题 · 0ed39f63
+
+> Please help me change all the places in this document that say "text" to "test".
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 12 步一次通过。
+### 第 348 题 · 53ad5833
+
+> Please help me use VS Code to open the "project" in the "user" folder under "home".
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 19 步一次通过。
 
