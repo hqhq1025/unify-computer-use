@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **329** / 369 |
-| 我手工通过 | 250 / 329 |
-| cc 通过（严格：得分 = 1.0）| **248 / 320** |
-| cc 平均分（OSWorld 口径）| **0.804** |
-| cc 平均步数 | 19.4 |
-| cc 平均观测 token | 21539 |
-| cc 平均用时 | 257s |
-| 执行轴 a11y 占比 | 44% （1203/2752）|
+| 已跑题数 | **332** / 369 |
+| 我手工通过 | 252 / 332 |
+| cc 通过（严格：得分 = 1.0）| **250 / 323** |
+| cc 平均分（OSWorld 口径）| **0.802** |
+| cc 平均步数 | 19.2 |
+| cc 平均观测 token | 21367 |
+| cc 平均用时 | 255s |
+| 执行轴 a11y 占比 | 44% （1207/2758）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 255 | 192 | 20.3 |
+| Bash 打开 | 258 | 194 | 20.1 |
 
 ## cc 未通过的题，成因分类
 
@@ -119,6 +119,7 @@
 | 317 | 未归类（可能是模型或链路） | Could you help me open up the profile manageme |
 | 323 | 未归类（可能是模型或链路） | Attach the my AWS bill to the email. The bill  |
 | 329 | 未归类（可能是模型或链路） | Thunderbird's message filters seem to only fir |
+| 332 | 未归类（可能是模型或链路） | Could you convert the song from this music vid |
 
 ## 逐题
 
@@ -453,6 +454,9 @@
 | 327 | thunderbird | Considering I work late into the night and use Thund | ✅ | ✅ | 12 | 36118 | 168.2s |
 | 328 | thunderbird | Due to certain security considerations and the natur | ✅ | ✅ | 32 | 24003 | 469.2s |
 | 329 | thunderbird | Thunderbird's message filters seem to only fire on I | ✗ 0.0 | ✗ 0.0 | 10 | 18476 | 137.8s |
+| 330 | vlc | Could you play the music video that's saved on my de | ✅ | ✅ | 6 | 3957 | 50.2s |
+| 331 | vlc | Help me modify the folder used to store my recording | ✅ | ✅ | 19 | 14675 | 184.3s |
+| 332 | vlc | Could you convert the song from this music video as  | ✗ 0.0 | ✗ 0.0 | 1 | 1545 | 20.2s |
 
 ## 每题的过程记录
 
@@ -2771,4 +2775,26 @@
 - **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 330 题 · 59f21cfb
+
+> Could you play the music video that's saved on my desktop for me via vlc?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 6 步一次通过（vlc 段第一题）。
+### 第 331 题 · 8ba5ae7a
+
+> Help me modify the folder used to store my recordings to Desktop
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 19 步一次通过。
+### 第 332 题 · 8f080098
+
+> Could you convert the song from this music video as an MP3 file? I'd like to have it on my device to play whenever I want. Please save the file just on the desktop and title the file "Baby Justin Bieber.mp3." I really appreciate your help!
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：**cc 出于版权顾虑主动拒绝**：题目要求把音乐视频里的歌转成 MP3，它答"把商业发行的录音从授权平台上剥离下来这一步我必须拒绝"。1 步就结束。这不是能力问题也不是链路问题，是模型的价值判断；而这道题官方并未标 infeasible，所以判 0。属于新的一类失败原因。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样拒绝，1 步。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次都是同一段拒绝（1 步、1545 token 完全一致），说明这是稳定的价值判断而非偶发。转下一题。
 
