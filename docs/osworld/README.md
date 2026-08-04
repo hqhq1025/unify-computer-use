@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **298** / 369 |
-| 我手工通过 | 225 / 298 |
-| cc 通过（严格：得分 = 1.0）| **223 / 289** |
-| cc 平均分（OSWorld 口径）| **0.803** |
-| cc 平均步数 | 20.4 |
-| cc 平均观测 token | 22276 |
-| cc 平均用时 | 272s |
-| 执行轴 a11y 占比 | 43% （1017/2367）|
+| 已跑题数 | **300** / 369 |
+| 我手工通过 | 227 / 300 |
+| cc 通过（严格：得分 = 1.0）| **225 / 291** |
+| cc 平均分（OSWorld 口径）| **0.805** |
+| cc 平均步数 | 20.3 |
+| cc 平均观测 token | 22180 |
+| cc 平均用时 | 271s |
+| 执行轴 a11y 占比 | 43% （1018/2371）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 221 | 167 | 21.7 |
+| Bash 打开 | 223 | 169 | 21.7 |
 
 ## cc 未通过的题，成因分类
 
@@ -416,6 +416,8 @@
 | 296 | os | The volume of my system is too small. Can you help m | ✅ | ✅ | 18 | 2611 | 259.8s |
 | 297 | os | I am currently using an Ubuntu system, and I have wr | ✅ | ✅ | 12 | 2064 | 82.4s |
 | 298 | os | I have a directory named "todo_list_Jan_1". Can you  | ✅ | ✅ | 4 | 1916 | 20.2s |
+| 299 | os | I want to set my current time zone to UTC+0. Can you | ✅ | ✅ | 11 | 1682 | 87.1s |
+| 300 | os | I want to switch on the Bluetooth. Can you help me? | ✅ | ✅ | 5 | 2616 | 58.1s |
 
 ## 每题的过程记录
 
@@ -2483,4 +2485,16 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 4 步一次通过。
+### 第 299 题 · b6781586
+
+> I want to set my current time zone to UTC+0. Can you help me?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 11 步一次通过。
+### 第 300 题 · b3d4a89c
+
+> I want to switch on the Bluetooth. Can you help me?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：infeasible 题，cc 5 步正确拒绝。第 300 题。
 
