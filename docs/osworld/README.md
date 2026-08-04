@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **302** / 369 |
-| 我手工通过 | 229 / 302 |
-| cc 通过（严格：得分 = 1.0）| **227 / 293** |
-| cc 平均分（OSWorld 口径）| **0.806** |
-| cc 平均步数 | 20.3 |
-| cc 平均观测 token | 22086 |
-| cc 平均用时 | 270s |
-| 执行轴 a11y 占比 | 43% （1019/2375）|
+| 已跑题数 | **304** / 369 |
+| 我手工通过 | 230 / 304 |
+| cc 通过（严格：得分 = 1.0）| **228 / 295** |
+| cc 平均分（OSWorld 口径）| **0.804** |
+| cc 平均步数 | 20.2 |
+| cc 平均观测 token | 21923 |
+| cc 平均用时 | 269s |
+| 执行轴 a11y 占比 | 43% （1032/2402）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 225 | 171 | 21.6 |
+| Bash 打开 | 227 | 172 | 21.5 |
 
 ## cc 未通过的题，成因分类
 
@@ -113,6 +113,7 @@
 | 282 | 未归类（可能是模型或链路） | Export the table to a CSV file and then write  |
 | 285 | 未归类（可能是模型或链路） | I am writing my paper thesis. I have listed al |
 | 286 | 未归类（可能是模型或链路） | I enjoy reading during my spare time, but this |
+| 304 | 未归类（可能是模型或链路） | I click in terminal: terminal->132x43 to chang |
 
 ## 逐题
 
@@ -420,6 +421,8 @@
 | 300 | os | I want to switch on the Bluetooth. Can you help me? | ✅ | ✅ | 5 | 2616 | 58.1s |
 | 301 | os | My glasses are broken, and I'm having trouble seeing | ✅ | ✅ | 4 | 2976 | 44.5s |
 | 302 | os | I want to see the battery percentage. Can you help m | ✅ | ✅ | 8 | 1568 | 73.0s |
+| 303 | os | I want to have my computer automatically locked afte | ✅ | ✅ | 6 | 2124 | 63.8s |
+| 304 | os | I click in terminal: terminal->132x43 to change term | ✗ 0.0 | ✗ 0.0 | 31 | 10371 | 303.0s |
 
 ## 每题的过程记录
 
@@ -2511,4 +2514,20 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：infeasible 题，cc 8 步正确拒绝。
+### 第 303 题 · a4d98375
+
+> I want to have my computer automatically locked after I leaved. Can you help me?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 6 步一次通过。
+### 第 304 题 · 13584542
+
+> I click in terminal: terminal->132x43 to change terminal size but after each reboot terminal size is set to default setting and I have to change it again. Help me set it permanently
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 31 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
