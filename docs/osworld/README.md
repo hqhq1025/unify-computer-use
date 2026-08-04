@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **269** / 369 |
-| 我手工通过 | 205 / 269 |
-| cc 通过（严格：得分 = 1.0）| **203 / 261** |
-| cc 平均分（OSWorld 口径）| **0.802** |
-| cc 平均步数 | 20.5 |
-| cc 平均观测 token | 23527 |
-| cc 平均用时 | 270s |
-| 执行轴 a11y 占比 | 42% （942/2235）|
+| 已跑题数 | **271** / 369 |
+| 我手工通过 | 206 / 271 |
+| cc 通过（严格：得分 = 1.0）| **204 / 263** |
+| cc 平均分（OSWorld 口径）| **0.804** |
+| cc 平均步数 | 20.6 |
+| cc 平均观测 token | 23548 |
+| cc 平均用时 | 273s |
+| 执行轴 a11y 占比 | 43% （969/2278）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 193 | 147 | 22.0 |
+| Bash 打开 | 195 | 148 | 22.2 |
 
 ## cc 未通过的题，成因分类
 
@@ -105,6 +105,7 @@
 | 261 | 未归类（可能是模型或链路） | I've drafted an e-mail reminder for those who  |
 | 263 | 未归类（可能是模型或链路） | There's an e-mail containing the AWS invoice f |
 | 264 | 未归类（可能是模型或链路） | I am a Chinese citizen and I want to go to Mac |
+| 271 | 未归类（可能是模型或链路） | I'm using libreoffice impress to write slidesh |
 
 ## 逐题
 
@@ -379,6 +380,8 @@
 | 267 | multi_apps | There are several pictures of mountains in my Pictur | ✅ | ✅ | 20 | 2438 | 177.4s |
 | 268 | multi_apps | I have a collection of MP3s with blank meta data, bu | ✅ | ✅ | 8 | 4722 | 82.8s |
 | 269 | multi_apps | Install LanguageTool extension for my LibreOffice | ✅ | ✅ | 51 | 14397 | 860.7s |
+| 270 | multi_apps | Help me to install Orchis theme from gnome-look.org  | ✅ | ✅ | 22 | 3236 | 212.8s |
+| 271 | multi_apps | I'm using libreoffice impress to write slideshows. I | ✗ 1.0 | ✗ 1.0 | 33 | 26864 | 486.2s |
 
 ## 每题的过程记录
 
@@ -2239,4 +2242,20 @@
 - **我手工**（第 1 次，得分 0.0）：判据本来两个子项都抛 AssertionError——根因是我的垫片只给 execute 加了 stdout 落盘、漏了 command 分支（这道题的 postconfig 用的是 command，唯一线索是日志里打"命令"而不是"执行"）。修好后判据不再崩：check_list[0]=1.0、check_list[1]=0.0，第二项查 apt 已安装包，那是真没装上。
 - **cc**（第 2 次，得分 1.0）：cc 第二次（判据已修）
 - **我手工**（第 2 次，得分 1.0）：第二次 51 步通过，两个子判据全中。
+### 第 270 题 · f8369178
+
+> Help me to install Orchis theme from gnome-look.org and change to it for my GNOME desktop.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 22 步一次通过（同样走 cache_file 判据，落盘修复后正常）。
+### 第 271 题 · 778efd0a
+
+> I'm using libreoffice impress to write slideshows. I found that the video being played by VLC media player had a good soundtrack. Please extract the audio to planet.wav and use it as background music for this slideshow.
+
+- **cc**（第 1 次，得分 0.9961747826576062）：cc 第一次
+- **我手工**（第 1 次，得分 0.996）：音频比对连续值判据 0.996，几乎满分。
+- **cc**（第 2 次，得分 0.9961747826576062）：cc 第二次
+- **我手工**（第 2 次，得分 0.996）：第二次同分 0.996。
+- **cc**（第 3 次，得分 0.9961747826576062）：cc 第三次
+- **我手工**（第 3 次，得分 0.996）：三次同分 0.996。转下一题。
 
