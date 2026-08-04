@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **336** / 369 |
-| 我手工通过 | 253 / 336 |
-| cc 通过（严格：得分 = 1.0）| **251 / 327** |
-| cc 平均分（OSWorld 口径）| **0.798** |
+| 已跑题数 | **339** / 369 |
+| 我手工通过 | 256 / 339 |
+| cc 通过（严格：得分 = 1.0）| **254 / 330** |
+| cc 平均分（OSWorld 口径）| **0.800** |
 | cc 平均步数 | 19.2 |
-| cc 平均观测 token | 21124 |
+| cc 平均观测 token | 21065 |
 | cc 平均用时 | 253s |
-| 执行轴 a11y 占比 | 44% （1220/2780）|
+| 执行轴 a11y 占比 | 44% （1229/2800）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 262 | 195 | 20.0 |
+| Bash 打开 | 265 | 198 | 20.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -464,6 +464,9 @@
 | 334 | vlc | Snap a photo of the current video scene, save it as  | ✗ 0.4 | ✗ 0.4 | 16 | 12225 | 160.4s |
 | 335 | vlc | Make this part of the video my computer's background | ✗ 0.3 | ✗ 0.3 | 25 | 7665 | 268.0s |
 | 336 | vlc | Can you enable fullscreen mode in VLC so that the vi | ✗ 0.0 | ✗ 0.0 | 9 | 3427 | 91.3s |
+| 337 | vlc | Hey, could you turn this video the right way up for  | ✅ | ✅ | 17 | 6323 | 211.8s |
+| 338 | vlc | I am reading lecture note in PDF while a music video | ✅ | ✅ | 30 | 10628 | 329.5s |
+| 339 | vlc | I like watching movies (using VLC) on my laptop and  | ✅ | ✅ | 22 | 16678 | 209.8s |
 
 ## 每题的过程记录
 
@@ -2840,4 +2843,22 @@
 - **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 337 题 · aa4b5023
+
+> Hey, could you turn this video the right way up for me? And once it's flipped around, could you save it for me with the name '1984_Apple_Macintosh_Commercial.mp4' on the main screen where all my files are?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 17 步一次通过（两个子判据 or 关系）。
+### 第 338 题 · 386dbd0e
+
+> I am reading lecture note in PDF while a music video is running in VLC media player. But I find I need to switch to the player every time I need to pause/start.Could you help me change the setting to allow pausing the video using keyboard shortcut without minimizing the PDF reader? I want to focus on the lecture note and don't be disturbed by the app switching.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 30 步一次通过。
+### 第 339 题 · 9195653c
+
+> I like watching movies (using VLC) on my laptop and sometimes the volume is too low for my taste even when the volume in VLC is set to the maximum of 125% on the volume control. Can you increase the max volume of the video to the 200% of the original volume?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 22 步一次通过。
 
