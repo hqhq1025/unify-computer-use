@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **263** / 369 |
-| 我手工通过 | 200 / 263 |
-| cc 通过（严格：得分 = 1.0）| **198 / 255** |
-| cc 平均分（OSWorld 口径）| **0.802** |
-| cc 平均步数 | 20.1 |
-| cc 平均观测 token | 23787 |
-| cc 平均用时 | 265s |
-| 执行轴 a11y 占比 | 42% （931/2210）|
+| 已跑题数 | **264** / 369 |
+| 我手工通过 | 200 / 264 |
+| cc 通过（严格：得分 = 1.0）| **198 / 256** |
+| cc 平均分（OSWorld 口径）| **0.798** |
+| cc 平均步数 | 20.4 |
+| cc 平均观测 token | 23767 |
+| cc 平均用时 | 269s |
+| 执行轴 a11y 占比 | 42% （936/2221）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 187 | 142 | 21.6 |
+| Bash 打开 | 188 | 142 | 21.9 |
 
 ## cc 未通过的题，成因分类
 
@@ -104,6 +104,7 @@
 | 259 | 未归类（可能是模型或链路） | I've received a request from my friend who ask |
 | 261 | 未归类（可能是模型或链路） | I've drafted an e-mail reminder for those who  |
 | 263 | 未归类（可能是模型或链路） | There's an e-mail containing the AWS invoice f |
+| 264 | 未归类（可能是模型或链路） | I am a Chinese citizen and I want to go to Mac |
 
 ## 逐题
 
@@ -372,6 +373,7 @@
 | 261 | multi_apps | I've drafted an e-mail reminder for those who haven' | ✗ 0.0 | ✗ 0.0 | 18 | 11008 | 174.8s |
 | 262 | multi_apps | Append one entry of AI researcher Yann LeCun from Go | ✅ | ✅ | 12 | 1548 | 96.4s |
 | 263 | multi_apps | There's an e-mail containing the AWS invoice for Dec | ✅ | ✗ 0.0 | 13 | 9986 | 103.1s |
+| 264 | multi_apps | I am a Chinese citizen and I want to go to Macau to  | ✗ 0.0 | ✗ 0.0 | 45 | 19583 | 621.4s |
 
 ## 每题的过程记录
 
@@ -2190,4 +2192,14 @@
 
 - **cc**（第 1 次，得分 0.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：**cc 做对了，是我的垫片丢了 execute 的 stdout 参数。** 官方 execute 支持把命令输出写成缓存目录里的文件（这道题是 `diff a.pdf b.pdf` → diff.out），后面的 check_list 再用 cache_file 去读。我的实现只跑命令、丢掉输出，于是 get_cache_file 断言失败抛 AssertionError——而另一个判据 compare_table 已经是 1.0。修好后重新判分 1.0。
+### 第 264 题 · 7ff48d5b
+
+> I am a Chinese citizen and I want to go to Macau to watch a concert recently, but I have not yet applied for a visa for Macau. I live in Futian District, Shenzhen City. I heard that Shenzhen currently has 24-hour self-service check-in machines. Please help me find the addresses of 5 24-hour self-service check-in machines in Futian District and save them in Chinese in this open word document.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 45 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
