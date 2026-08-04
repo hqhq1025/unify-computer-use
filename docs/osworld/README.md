@@ -21,12 +21,12 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **334** / 369 |
-| 我手工通过 | 253 / 334 |
-| cc 通过（严格：得分 = 1.0）| **251 / 325** |
-| cc 平均分（OSWorld 口径）| **0.802** |
+| 已跑题数 | **335** / 369 |
+| 我手工通过 | 253 / 335 |
+| cc 通过（严格：得分 = 1.0）| **251 / 326** |
+| cc 平均分（OSWorld 口径）| **0.800** |
 | cc 平均步数 | 19.2 |
-| cc 平均观测 token | 21273 |
+| cc 平均观测 token | 21206 |
 | cc 平均用时 | 254s |
 | 执行轴 a11y 占比 | 44% （1212/2770）|
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 260 | 195 | 20.0 |
+| Bash 打开 | 261 | 195 | 20.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -121,6 +121,7 @@
 | 329 | 未归类（可能是模型或链路） | Thunderbird's message filters seem to only fir |
 | 332 | 未归类（可能是模型或链路） | Could you convert the song from this music vid |
 | 334 | 未归类（可能是模型或链路） | Snap a photo of the current video scene, save  |
+| 335 | 未归类（可能是模型或链路） | Make this part of the video my computer's back |
 
 ## 逐题
 
@@ -460,6 +461,7 @@
 | 332 | vlc | Could you convert the song from this music video as  | ✗ 0.0 | ✗ 0.0 | 1 | 1545 | 20.2s |
 | 333 | vlc | Can you start streaming the video from this link for | ✅ | ✅ | 6 | 3421 | 70.4s |
 | 334 | vlc | Snap a photo of the current video scene, save it as  | ✗ 0.4 | ✗ 0.4 | 16 | 12225 | 160.4s |
+| 335 | vlc | Make this part of the video my computer's background | ✗ 0.3 | ✗ 0.3 | 25 | 7665 | 268.0s |
 
 ## 每题的过程记录
 
@@ -2816,4 +2818,14 @@
 - **我手工**（第 2 次，得分 0.361）：第二次 0.361（低于第一次）。
 - **cc**（第 3 次，得分 0.3608447088720973）：cc 第三次
 - **我手工**（第 3 次，得分 0.401）：三次 0.401 / 0.361 / 0.361，取最好 0.401。转下一题。
+### 第 335 题 · efcf0d81
+
+> Make this part of the video my computer's background picture
+
+- **cc**（第 1 次，得分 0.28184798749673856）：cc 第一次
+- **我手工**（第 1 次，得分 0.282）：连续值判据 0.282。
+- **cc**（第 2 次，得分 0.28184798749673856）：cc 第二次
+- **我手工**（第 2 次，得分 0.282）：第二次同分。
+- **cc**（第 3 次，得分 0.2821961674321188）：cc 第三次
+- **我手工**（第 3 次，得分 0.282）：三次同分 0.282。转下一题。
 
