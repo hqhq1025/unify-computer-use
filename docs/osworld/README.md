@@ -22,13 +22,13 @@
 | 项 | 值 |
 |---|---|
 | 已跑题数 | **310** / 369 |
-| 我手工通过 | 234 / 310 |
-| cc 通过（严格：得分 = 1.0）| **232 / 301** |
-| cc 平均分（OSWorld 口径）| **0.801** |
-| cc 平均步数 | 19.7 |
-| cc 平均观测 token | 21237 |
-| cc 平均用时 | 262s |
-| 执行轴 a11y 占比 | 43% （1032/2413）|
+| 我手工通过 | 235 / 310 |
+| cc 通过（严格：得分 = 1.0）| **233 / 301** |
+| cc 平均分（OSWorld 口径）| **0.805** |
+| cc 平均步数 | 19.9 |
+| cc 平均观测 token | 21969 |
+| cc 平均用时 | 264s |
+| 执行轴 a11y 占比 | 43% （1079/2495）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 233 | 176 | 20.8 |
+| Bash 打开 | 235 | 177 | 21.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -49,7 +49,6 @@
 |---|---|---|
 | 3 | 环境：官方 setup 用 CDP 关标签 | Can you make my computer bring back the last t |
 | 4 | 未归类（可能是模型或链路） | Computer, can you turn the webpage I'm looking |
-| 28 | 未归类（可能是模型或链路） | Find flights from Seattle to New York on 5th n |
 | 30 | 题目：评估器选择器过时 | Find a Hotel in New York City with lowest pric |
 | 31 | 环境：站点地理路由 | Browse the list of women's Nike jerseys over $ |
 | 34 | 未归类（可能是模型或链路） | Show me all men's large-size short-sleeve shir |
@@ -148,7 +147,7 @@
 | 25 | chrome | On the current website, show me the cars available f | ✅ | ✅ | 22 | 150914 | 287.1s |
 | 26 | chrome | Open the baggage fee calculator in United Airlines w | ✅ | ✅ | 13 | 38812 | 146.5s |
 | 27 | chrome | Book an appointment to apply for a transportation ac | ✅ | ✅ | 29 | 69811 | 324.9s |
-| 28 | chrome | Find flights from Seattle to New York on 5th next mo | ✗ 0.0 | ✗ 0.0 | 32 | 80431 | 484.8s |
+| 28 | chrome | Find flights from Seattle to New York on 5th next mo | ✅ | ✅ | 25 | 91874 | 337.5s |
 | 29 | chrome | Search for a one way flight from Dublin to Vienna on | ✅ | ✅ | 15 | 86609 | 224.7s |
 | 30 | chrome | Find a Hotel in New York City with lowest price poss | ✗ 0.0 | ✗ 0.0 | 19 | 135059 | 334.3s |
 | 31 | chrome | Browse the list of women's Nike jerseys over $60. | ✗ 0.0 | ✗ 0.0 | 29 | 84148 | 396.5s |
@@ -626,6 +625,9 @@
 - **cc**（第 2 次，得分 0.0）：cc 第二次：shell 层 10 分钟超时（这类网页任务单次 5–8 分钟）。不是模型放弃，是我的运行窗口不够。
 - **cc**（第 3 次，得分 0.0）：cc 第三次（后台，放宽时限）
 - **我手工**（第 1 次，得分 0.0）：三次未过，转下一题。三次的自述一致：delta.com 的结果页始终没渲染出来（搜索条件都填对了：SEA→JFK、单程、Shop with Miles）。链路侧无缺陷——新加的 verify 诊断在这里给出了正确判断："Nothing changed: same window, still 143 elements"，即点击之后界面确实纹丝不动，是站点没响应。顺带排除了一个疑似缺陷：报错里的 scroll: no element matches "document web"，事后单测 find/verify 用同一个选择器都正常，说明是当时页面状态，不是选择器解析问题。
+- **cc**（第 4 次，得分 0.0）：复核：素材缓存串号已修
+- **cc**（第 5 次，得分 1.0）：复核：DISPLAY 与素材缓存都已修
+- **我手工**（第 5 次，得分 1.0）：**复核通过（1.0）。** 之前判 0 是两个仪器缺陷叠加：素材缓存键串号 + DISPLAY 没设导致 Chrome 根本没起来（判据报 ECONNREFUSED 1337）。两个都修好后 25 步通过。
 ### 第 29 题 · f79439ad
 
 > Search for a one way flight from Dublin to Vienna on 10th next month for 2 adults.
@@ -650,6 +652,8 @@
 - **我手工**（第 1 次，得分 0.0）：环境因素：store.nba.com 从这台机器**硬跳转到 nbastore.jp**（日文站、日元计价），题目要求的 $60 过滤在那里不存在。agent 正确诊断了这一点并改用 Fanatics（美国站，同样卖 Nike 球衣、美元计价），但预算用尽。这是地理路由问题，不是模型也不是链路。
 - **cc**（第 2 次，得分 0.0）：cc 第二次（预算加到 7）
 - **cc**（第 3 次，得分 0.0）：cc 第三次
+- **cc**（第 4 次，得分 0.0）：复核：缓存串号与 DISPLAY 已修
+- **我手工**（第 4 次，得分 0.0）：复核仍 0.0——判据确实没满足，不是仪器问题。
 ### 第 32 题 · 7f52cab9
 
 > On Google Shopping, search for drip coffee makers and filter the results to show only items that are on sale, priced between $25-60, and have a black finish. Stay on the search results page.
