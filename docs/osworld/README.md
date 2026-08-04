@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **335** / 369 |
-| 我手工通过 | 253 / 335 |
-| cc 通过（严格：得分 = 1.0）| **251 / 326** |
-| cc 平均分（OSWorld 口径）| **0.800** |
+| 已跑题数 | **336** / 369 |
+| 我手工通过 | 253 / 336 |
+| cc 通过（严格：得分 = 1.0）| **251 / 327** |
+| cc 平均分（OSWorld 口径）| **0.798** |
 | cc 平均步数 | 19.2 |
-| cc 平均观测 token | 21206 |
-| cc 平均用时 | 254s |
-| 执行轴 a11y 占比 | 44% （1212/2770）|
+| cc 平均观测 token | 21124 |
+| cc 平均用时 | 253s |
+| 执行轴 a11y 占比 | 44% （1220/2780）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 261 | 195 | 20.0 |
+| Bash 打开 | 262 | 195 | 20.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -122,6 +122,7 @@
 | 332 | 未归类（可能是模型或链路） | Could you convert the song from this music vid |
 | 334 | 未归类（可能是模型或链路） | Snap a photo of the current video scene, save  |
 | 335 | 未归类（可能是模型或链路） | Make this part of the video my computer's back |
+| 336 | 未归类（可能是模型或链路） | Can you enable fullscreen mode in VLC so that  |
 
 ## 逐题
 
@@ -462,6 +463,7 @@
 | 333 | vlc | Can you start streaming the video from this link for | ✅ | ✅ | 6 | 3421 | 70.4s |
 | 334 | vlc | Snap a photo of the current video scene, save it as  | ✗ 0.4 | ✗ 0.4 | 16 | 12225 | 160.4s |
 | 335 | vlc | Make this part of the video my computer's background | ✗ 0.3 | ✗ 0.3 | 25 | 7665 | 268.0s |
+| 336 | vlc | Can you enable fullscreen mode in VLC so that the vi | ✗ 0.0 | ✗ 0.0 | 9 | 3427 | 91.3s |
 
 ## 每题的过程记录
 
@@ -2828,4 +2830,14 @@
 - **我手工**（第 2 次，得分 0.282）：第二次同分。
 - **cc**（第 3 次，得分 0.2821961674321188）：cc 第三次
 - **我手工**（第 3 次，得分 0.282）：三次同分 0.282。转下一题。
+### 第 336 题 · 8d9fd4e2
+
+> Can you enable fullscreen mode in VLC so that the video fill up the whole screen?
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 9 步未过（VLC 全屏判据）。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
