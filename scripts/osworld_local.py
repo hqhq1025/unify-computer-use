@@ -656,6 +656,30 @@ def ensure_app_running(app_group, log=print):
     return True
 
 
+
+def _write_streams(params, done, cache_dir):
+    """把命令的 stdout/stderr 按声明写进**判据实际用的那个缓存目录**。
+
+    官方的 execute / command 都支持这个：跑完把输出存成缓存目录里的一个文件，
+    后面的 getter 再用 cache_file 去读。实测第 263 题（diff → diff.out）和
+    第 269 题（grep/apt → grep.out、apt.out）都靠它。
+
+    两个坑都踩过：
+      1. 只给 execute 加、忘了 command——第 269 题照样判 0，
+         唯一线索是日志里打的是"命令"不是"执行"。
+      2. 写进全局 CACHE_DIR 而不是 LocalEnv.cache_dir（每次新建的临时目录），
+         get_cache_file 照样找不到，看起来像"修了但没修"。
+    """
+    for key in ("stdout", "stderr"):
+        name = params.get(key)
+        if not name:
+            continue
+        target = os.path.join(cache_dir or CACHE_DIR, name)
+        os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
+        with open(target, "wb") as handle:
+            handle.write((done.stdout if key == "stdout" else done.stderr) or b"")
+
+
 def apply_config(task, log=print, cache_dir=None):
     """执行一道题的 config 段。返回 (是否就绪, 跳过的步骤说明)。
 
@@ -702,22 +726,19 @@ def apply_config(task, log=print, cache_dir=None):
                 # 我原来的实现只跑命令、丢掉输出，于是 get_cache_file 断言
                 # 文件存在时直接 AssertionError——而那道题的另一个判据
                 # compare_table 已经是 1.0。一次做对的操作被记成 0 分。
-                for key, data in (("stdout", done.stdout), ("stderr", done.stderr)):
-                    name = params.get(key)
-                    if not name:
-                        continue
-                    # **必须写进判据实际用的那个缓存目录**。
-                    # LocalEnv.cache_dir 是每次新建的临时目录，
-                    # 写进全局 CACHE_DIR 的话 get_cache_file 照样找不到。
-                    target = os.path.join(cache_dir or CACHE_DIR, name)
-                    os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
-                    with open(target, "wb") as handle:
-                        handle.write(data or b"")
+                _write_streams(params, done, cache_dir)
                 log("  执行: {}".format(str(command)[:90]))
             elif kind == "command":
+                # **和 execute 走同一条落盘逻辑。**
+                #
+                # 我原来只给 execute 加了 stdout 支持，结果第 269 题照样判 0——
+                # 那道题的两步 postconfig 用的是 `command` 而不是 `execute`
+                # （日志里打的是"命令"不是"执行"，这是唯一的线索）。
+                # 两个 kind 在官方那边行为一致，这里也必须一致。
                 command = _substitute(params["command"])
-                subprocess.run(command, shell=isinstance(command, str),
-                               capture_output=True, timeout=180)
+                done = subprocess.run(command, shell=isinstance(command, str),
+                                      capture_output=True, timeout=180)
+                _write_streams(params, done, cache_dir)
                 log("  命令: {}".format(str(command)[:90]))
             elif kind == "sleep":
                 time.sleep(float(params.get("seconds", 1)))

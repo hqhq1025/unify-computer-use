@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **267** / 369 |
-| 我手工通过 | 203 / 267 |
-| cc 通过（严格：得分 = 1.0）| **201 / 259** |
-| cc 平均分（OSWorld 口径）| **0.801** |
-| cc 平均步数 | 20.3 |
-| cc 平均观测 token | 23625 |
-| cc 平均用时 | 268s |
-| 执行轴 a11y 占比 | 42% （936/2223）|
+| 已跑题数 | **269** / 369 |
+| 我手工通过 | 204 / 269 |
+| cc 通过（严格：得分 = 1.0）| **202 / 261** |
+| cc 平均分（OSWorld 口径）| **0.798** |
+| cc 平均步数 | 20.4 |
+| cc 平均观测 token | 23551 |
+| cc 平均用时 | 269s |
+| 执行轴 a11y 占比 | 42% （938/2231）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 191 | 145 | 21.9 |
+| Bash 打开 | 193 | 146 | 21.9 |
 
 ## cc 未通过的题，成因分类
 
@@ -105,6 +105,7 @@
 | 261 | 未归类（可能是模型或链路） | I've drafted an e-mail reminder for those who  |
 | 263 | 未归类（可能是模型或链路） | There's an e-mail containing the AWS invoice f |
 | 264 | 未归类（可能是模型或链路） | I am a Chinese citizen and I want to go to Mac |
+| 269 | 未归类（可能是模型或链路） | Install LanguageTool extension for my LibreOff |
 
 ## 逐题
 
@@ -377,6 +378,8 @@
 | 265 | multi_apps | I downloaded a video to practice listening, but I do | ✅ | ✅ | 5 | 4798 | 60.5s |
 | 266 | multi_apps | Please extract all Python code and comments from Kar | ✅ | ✅ | 21 | 11231 | 232.9s |
 | 267 | multi_apps | There are several pictures of mountains in my Pictur | ✅ | ✅ | 20 | 2438 | 177.4s |
+| 268 | multi_apps | I have a collection of MP3s with blank meta data, bu | ✅ | ✅ | 8 | 4722 | 82.8s |
+| 269 | multi_apps | Install LanguageTool extension for my LibreOffice | ✗ 0.0 | ✗ 0.0 | 52 | 14954 | 870.8s |
 
 ## 每题的过程记录
 
@@ -2223,4 +2226,16 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 20 步一次通过。
+### 第 268 题 · 3f05f3b9
+
+> I have a collection of MP3s with blank meta data, but already named with their artists and titles. I've heard that Picard or Kid3 may help, but I'm unfamiliar with them. Can you help me to fix the meta data "title" and "artist"?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 8 步一次通过（五个 mp3 元数据判据全中）。
+### 第 269 题 · e1fc0df3
+
+> Install LanguageTool extension for my LibreOffice
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：判据本来两个子项都抛 AssertionError——根因是我的垫片只给 execute 加了 stdout 落盘、漏了 command 分支（这道题的 postconfig 用的是 command，唯一线索是日志里打"命令"而不是"执行"）。修好后判据不再崩：check_list[0]=1.0、check_list[1]=0.0，第二项查 apt 已安装包，那是真没装上。
 
