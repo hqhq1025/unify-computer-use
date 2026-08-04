@@ -18,6 +18,7 @@ server 通信取文件、跑命令。我们没有那一层——MCP 直接驱动
 **不记成失败**——把环境缺陷记成模型失败是最坏的一种数据污染。
 """
 
+import hashlib
 import json
 import os
 import re
@@ -390,8 +391,23 @@ def _substitute(command):
 
 
 def _download(url, dest):
+    """下载素材，按 **URL 全文的哈希** 做缓存键。
+
+    原来的缓存键取 URL 最后一段文件名，这在 os 段是灾难性的：那一段里
+    几乎每道题的判据脚本都叫 `eval.sh`，于是**第一道题下载的 eval.sh 被后面
+    所有题复用**——判据在拿上一题的标准考这一题。
+
+    实测第 310 题（"给每行加 <br/> 存进 output.txt"）连着五次判 0，
+    而 ~/eval.sh 里躺的是第 309 题的脚本，内容是"检查 vimrc 里有没有
+    set number"，手工跑一遍直接输出 "The File Has Set Number!"。
+    cc 每次都做对了，判的却是另一道题。
+
+    换成哈希之后不同 URL 一定落在不同的缓存文件上，同名不再互相覆盖。
+    """
     os.makedirs(CACHE_DIR, exist_ok=True)
-    cached = os.path.join(CACHE_DIR, url.rsplit("/", 3)[-1].replace("/", "_"))
+    name = url.rsplit("/", 1)[-1].replace("/", "_")
+    digest = hashlib.sha1(url.encode("utf-8")).hexdigest()[:12]
+    cached = os.path.join(CACHE_DIR, "{}-{}".format(digest, name))
     if not (os.path.exists(cached) and os.path.getsize(cached) > 0):
         with urllib.request.urlopen(url, timeout=300) as response:
             with open(cached, "wb") as handle:
@@ -544,6 +560,34 @@ def restart_leaking_desktop_icons(log=print):
             subprocess.run(["kill", "-9", str(pid)], capture_output=True)
             log("桌面图标扩展涨到 {:.0f}MB，已重启".format(rss_kb / 1024.0))
             time.sleep(3)
+
+
+# os 段的题**共用同名脚本**：setup.sh / eval.sh / 常见输出文件。
+#
+# 实测第 310 题连着判 0，查到 ~/eval.sh 里躺的是**第 309 题的判据**
+# （检查 vimrc 里有没有 set number），因为两道题的素材同名、后一道没覆盖成功
+# 或覆盖时机不对。判据于是在拿上一题的标准考这一题。
+#
+# 这类"同名文件跨题残留"和 Chrome 会话、GIMP 恢复框是同一类问题：
+# 官方靠恢复虚拟机快照解决，我们没有那一层，只能每题手工清。
+SHARED_TASK_FILES = ("eval.sh", "setup.sh", "output.txt", "diff.out",
+                     "grep.out", "apt.out")
+
+
+def clean_shared_task_files(log=print):
+    """清掉上一题留下的同名脚本与输出文件。"""
+    home = os.path.expanduser("~")
+    removed = []
+    for name in SHARED_TASK_FILES:
+        path = os.path.join(home, name)
+        if os.path.exists(path):
+            try:
+                os.remove(path)
+                removed.append(name)
+            except OSError:
+                pass
+    if removed:
+        log("清掉上一题的同名文件: {}".format(", ".join(removed)))
 
 
 def close_stale_apps(log=print):

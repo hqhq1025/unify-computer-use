@@ -192,6 +192,9 @@ def cmd_deploy(args):
         local.ensure_app_running(app)
     # 先关掉上一题留下的应用。见 close_stale_apps：不关会静默耗尽内存。
     local.close_stale_apps()
+    # os 段的题共用 eval.sh / setup.sh 这类文件名，不清就会拿上一题的判据
+    # 考这一题。见 clean_shared_task_files。
+    local.clean_shared_task_files()
     if local._touches_chrome(task):
         local.snapshot_state(task)
         local.clean_chrome_session()
