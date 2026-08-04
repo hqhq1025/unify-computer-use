@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **271** / 369 |
-| 我手工通过 | 206 / 271 |
-| cc 通过（严格：得分 = 1.0）| **204 / 263** |
+| 已跑题数 | **272** / 369 |
+| 我手工通过 | 206 / 272 |
+| cc 通过（严格：得分 = 1.0）| **204 / 264** |
 | cc 平均分（OSWorld 口径）| **0.804** |
-| cc 平均步数 | 20.6 |
-| cc 平均观测 token | 23548 |
-| cc 平均用时 | 273s |
-| 执行轴 a11y 占比 | 43% （969/2278）|
+| cc 平均步数 | 20.7 |
+| cc 平均观测 token | 23543 |
+| cc 平均用时 | 274s |
+| 执行轴 a11y 占比 | 43% （980/2294）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 195 | 148 | 22.2 |
+| Bash 打开 | 196 | 148 | 22.3 |
 
 ## cc 未通过的题，成因分类
 
@@ -106,6 +106,7 @@
 | 263 | 未归类（可能是模型或链路） | There's an e-mail containing the AWS invoice f |
 | 264 | 未归类（可能是模型或链路） | I am a Chinese citizen and I want to go to Mac |
 | 271 | 未归类（可能是模型或链路） | I'm using libreoffice impress to write slidesh |
+| 272 | 未归类（可能是模型或链路） | The landscape at 00:08 in this video is so bea |
 
 ## 逐题
 
@@ -382,6 +383,7 @@
 | 269 | multi_apps | Install LanguageTool extension for my LibreOffice | ✅ | ✅ | 51 | 14397 | 860.7s |
 | 270 | multi_apps | Help me to install Orchis theme from gnome-look.org  | ✅ | ✅ | 22 | 3236 | 212.8s |
 | 271 | multi_apps | I'm using libreoffice impress to write slideshows. I | ✗ 1.0 | ✗ 1.0 | 33 | 26864 | 486.2s |
+| 272 | multi_apps | The landscape at 00:08 in this video is so beautiful | ✗ 0.8 | ✗ 0.8 | 31 | 27712 | 379.3s |
 
 ## 每题的过程记录
 
@@ -2258,4 +2260,14 @@
 - **我手工**（第 2 次，得分 0.996）：第二次同分 0.996。
 - **cc**（第 3 次，得分 0.9961747826576062）：cc 第三次
 - **我手工**（第 3 次，得分 0.996）：三次同分 0.996。转下一题。
+### 第 272 题 · 47f7c0ce
+
+> The landscape at 00:08 in this video is so beautiful. Please extract this frame and set it as the background of the second page of the opened slides.
+
+- **cc**（第 1 次，得分 0.8035433081070689）：cc 第一次
+- **我手工**（第 1 次，得分 0.804）：连续值判据 0.804。
+- **cc**（第 2 次，得分 0.8035433081070689）：cc 第二次
+- **我手工**（第 2 次，得分 0.804）：第二次同分。
+- **cc**（第 3 次，得分 0.8035433081070689）：cc 第三次
+- **我手工**（第 3 次，得分 0.804）：三次同分 0.804。转下一题。
 
