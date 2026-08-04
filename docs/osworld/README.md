@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **296** / 369 |
-| 我手工通过 | 223 / 296 |
-| cc 通过（严格：得分 = 1.0）| **221 / 287** |
-| cc 平均分（OSWorld 口径）| **0.802** |
-| cc 平均步数 | 20.5 |
-| cc 平均观测 token | 22373 |
-| cc 平均用时 | 273s |
-| 执行轴 a11y 占比 | 43% （1016/2365）|
+| 已跑题数 | **298** / 369 |
+| 我手工通过 | 225 / 298 |
+| cc 通过（严格：得分 = 1.0）| **223 / 289** |
+| cc 平均分（OSWorld 口径）| **0.803** |
+| cc 平均步数 | 20.4 |
+| cc 平均观测 token | 22276 |
+| cc 平均用时 | 272s |
+| 执行轴 a11y 占比 | 43% （1017/2367）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 219 | 165 | 21.8 |
+| Bash 打开 | 221 | 167 | 21.7 |
 
 ## cc 未通过的题，成因分类
 
@@ -414,6 +414,8 @@
 | 294 | os | Switch to the user `Charles` using the password `Ex@ | ✅ | ✅ | 2 | 116 | 15.1s |
 | 295 | os | I am currently working on a ubuntu system but I do n | ✅ | ✅ | 4 | 1857 | 46.4s |
 | 296 | os | The volume of my system is too small. Can you help m | ✅ | ✅ | 18 | 2611 | 259.8s |
+| 297 | os | I am currently using an Ubuntu system, and I have wr | ✅ | ✅ | 12 | 2064 | 82.4s |
+| 298 | os | I have a directory named "todo_list_Jan_1". Can you  | ✅ | ✅ | 4 | 1916 | 20.2s |
 
 ## 每题的过程记录
 
@@ -2469,4 +2471,16 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 18 步一次通过。
+### 第 297 题 · 5ea617a3
+
+> I am currently using an Ubuntu system, and I have wrongly deleted a poster of party night. Could you help me recover it from the Trash?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 12 步一次通过。
+### 第 298 题 · e0df059f
+
+> I have a directory named "todo_list_Jan_1". Can you help me change its name into "todo_list_Jan_2"?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 4 步一次通过。
 
