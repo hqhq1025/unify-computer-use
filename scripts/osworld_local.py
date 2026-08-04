@@ -34,6 +34,29 @@ OSWORLD_ROOT = os.environ.get("OSWORLD_ROOT", "/home/user/OSWorld")
 STUBS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "osworld-stubs")
 CACHE_DIR = os.environ.get("OSWORLD_CACHE", "/tmp/osworld-cache")
 
+# X11 显示号。**必须显式设定，不能靠调用环境碰巧带着。**
+#
+# 整个垫片原来一次都没设过 DISPLAY。前面几百道题能跑，是因为调用它的 shell
+# 恰好带着这个变量；而后台跑测的环境是干净的，于是 `launch google-chrome
+# --remote-debugging-port=1337` 起不来——**没有任何报错**，只是 Chrome 不存在，
+# 所有走 CDP 的判据统统连不上 1337，报 ECONNREFUSED。
+#
+# 实测第 28 题复核时就是这样：判据抛
+# `BrowserType.connect_over_cdp: connect ECONNREFUSED ::1:1337`，
+# 而手工用 `DISPLAY=:0 google-chrome --remote-debugging-port=1337` 起就一切正常。
+#
+# 和 claude 找不到是同一类问题：跑测依赖"调用者的环境恰好对"，
+# 换个终端、换个 cron 就全盘失效，而失败的样子完全不像根因。
+DISPLAY = os.environ.get("DISPLAY") or ":0"
+
+
+def _gui_env():
+    """给 GUI 子进程用的环境：确保 DISPLAY 一定在。"""
+    env = dict(os.environ)
+    env.setdefault("DISPLAY", DISPLAY)
+    env["DISPLAY"] = env.get("DISPLAY") or DISPLAY
+    return env
+
 # Chrome 的远程调试端口，**只有这一个来源**。
 #
 # 原来这里是两个数：官方任务 config 用 `--remote-debugging-port=1337` 起 Chrome，
@@ -320,7 +343,7 @@ class LocalSetupController:
         params = self._params(args, kwargs)
         title = params.get("window_name") or params.get("title") or ""
         if title:
-            subprocess.run(["wmctrl", "-a", title], capture_output=True)
+            subprocess.run(["wmctrl", "-a", title], capture_output=True, env=_gui_env())
             time.sleep(0.5)
 
     def _execute_setup(self, *args, **kwargs):
@@ -801,7 +824,7 @@ def apply_config(task, log=print, cache_dir=None):
                 command = params["command"]
                 if isinstance(command, str):
                     command = [command]
-                subprocess.Popen(command, start_new_session=True,
+                subprocess.Popen(command, start_new_session=True, env=_gui_env(),
                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 log("  启动: {}".format(" ".join(command)[:90]))
             elif kind == "open":
@@ -846,13 +869,13 @@ def apply_config(task, log=print, cache_dir=None):
                 time.sleep(float(params.get("seconds", 1)))
             elif kind == "activate_window":
                 title = params.get("window_name") or ""
-                subprocess.run(["wmctrl", "-a", title], capture_output=True)
+                subprocess.run(["wmctrl", "-a", title], capture_output=True, env=_gui_env())
                 log("  激活窗口: {}".format(title))
             elif kind == "chrome_open_tabs":
                 urls = params.get("urls_to_open") or []
                 subprocess.Popen(
                     ["google-chrome", "--remote-debugging-port={}".format(CHROME_CDP_PORT)] + urls,
-                    start_new_session=True,
+                    start_new_session=True, env=_gui_env(),
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 # 目标标签要切到前台，但**不能在这里切**——实测第 7 题：
                 # 这一步跑的时候 Chrome 还在加载，CDP 里那个页面要么还不存在、
