@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **264** / 369 |
-| 我手工通过 | 200 / 264 |
-| cc 通过（严格：得分 = 1.0）| **198 / 256** |
-| cc 平均分（OSWorld 口径）| **0.798** |
-| cc 平均步数 | 20.4 |
-| cc 平均观测 token | 23767 |
-| cc 平均用时 | 269s |
-| 执行轴 a11y 占比 | 42% （936/2221）|
+| 已跑题数 | **267** / 369 |
+| 我手工通过 | 203 / 267 |
+| cc 通过（严格：得分 = 1.0）| **201 / 259** |
+| cc 平均分（OSWorld 口径）| **0.801** |
+| cc 平均步数 | 20.3 |
+| cc 平均观测 token | 23625 |
+| cc 平均用时 | 268s |
+| 执行轴 a11y 占比 | 42% （936/2223）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 188 | 142 | 21.9 |
+| Bash 打开 | 191 | 145 | 21.9 |
 
 ## cc 未通过的题，成因分类
 
@@ -374,6 +374,9 @@
 | 262 | multi_apps | Append one entry of AI researcher Yann LeCun from Go | ✅ | ✅ | 12 | 1548 | 96.4s |
 | 263 | multi_apps | There's an e-mail containing the AWS invoice for Dec | ✅ | ✗ 0.0 | 13 | 9986 | 103.1s |
 | 264 | multi_apps | I am a Chinese citizen and I want to go to Macau to  | ✗ 0.0 | ✗ 0.0 | 45 | 19583 | 621.4s |
+| 265 | multi_apps | I downloaded a video to practice listening, but I do | ✅ | ✅ | 5 | 4798 | 60.5s |
+| 266 | multi_apps | Please extract all Python code and comments from Kar | ✅ | ✅ | 21 | 11231 | 232.9s |
+| 267 | multi_apps | There are several pictures of mountains in my Pictur | ✅ | ✅ | 20 | 2438 | 177.4s |
 
 ## 每题的过程记录
 
@@ -2202,4 +2205,22 @@
 - **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 265 题 · 9f3bb592
+
+> I downloaded a video to practice listening, but I don't know how to remove the subtitles. Please help me remove the subtitles from the video and export it as "subtitles.srt" and store it in the same directory as the video.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 5 步一次通过。
+### 第 266 题 · dd60633f
+
+> Please extract all Python code and comments from Karpathy's GPT colab code cells (skip markdown parts), merge into "gpt_dev_pure_code.py" in Home directory. Include all Python code and # comments from code cells, but exclude markdown docstrings and file headers.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 21 步一次通过。
+### 第 267 题 · ce2b64a2
+
+> There are several pictures of mountains in my Pictures directory, but I don’t know the names of these mountains. Please help me identify these pictures and change the names of these pictures to the names of the mountains in the pictures. In the filename do not replace spaces with underscore.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 20 步一次通过。
 
