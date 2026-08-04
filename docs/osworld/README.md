@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **326** / 369 |
-| 我手工通过 | 248 / 326 |
-| cc 通过（严格：得分 = 1.0）| **246 / 317** |
-| cc 平均分（OSWorld 口径）| **0.805** |
+| 已跑题数 | **328** / 369 |
+| 我手工通过 | 250 / 328 |
+| cc 通过（严格：得分 = 1.0）| **248 / 319** |
+| cc 平均分（OSWorld 口径）| **0.806** |
 | cc 平均步数 | 19.4 |
-| cc 平均观测 token | 21481 |
+| cc 平均观测 token | 21516 |
 | cc 平均用时 | 257s |
-| 执行轴 a11y 占比 | 44% （1173/2694）|
+| 执行轴 a11y 占比 | 44% （1191/2720）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 252 | 190 | 20.3 |
+| Bash 打开 | 254 | 192 | 20.3 |
 
 ## cc 未通过的题，成因分类
 
@@ -449,6 +449,8 @@
 | 324 | thunderbird | Create two local folders in Thunderbird for me: COMP | ✅ | ✅ | 14 | 14163 | 142.1s |
 | 325 | thunderbird | I've got a bunch of email accounts in Thunderbird, a | ✅ | ✅ | 7 | 15189 | 90.4s |
 | 326 | thunderbird | When I reply to an email, it quotes the original mes | ✅ | ✅ | 5 | 9103 | 56.1s |
+| 327 | thunderbird | Considering I work late into the night and use Thund | ✅ | ✅ | 12 | 36118 | 168.2s |
+| 328 | thunderbird | Due to certain security considerations and the natur | ✅ | ✅ | 32 | 24003 | 469.2s |
 
 ## 每题的过程记录
 
@@ -2745,4 +2747,16 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 5 步一次通过。
+### 第 327 题 · 10a730d5
+
+> Considering I work late into the night and use Thunderbird frequently, I find that a full dark mode would be easier on my eyes during those hours. Can you help me enable a complete dark mode in Thunderbird?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 12 步一次通过。
+### 第 328 题 · a1af9f1c
+
+> Due to certain security considerations and the nature of my work, I prefer not to configure an incoming email service in Thunderbird. However, I still need to send emails. Can you help me set up Thunderbird to send emails from anonym-x2024@outlook.com without configuring its incoming email service?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：infeasible 题，cc 32 步探查后如实拒绝。
 
