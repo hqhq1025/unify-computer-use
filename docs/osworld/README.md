@@ -26,9 +26,9 @@
 | cc 通过（严格：得分 = 1.0）| **233 / 301** |
 | cc 平均分（OSWorld 口径）| **0.805** |
 | cc 平均步数 | 19.8 |
-| cc 平均观测 token | 21865 |
+| cc 平均观测 token | 21924 |
 | cc 平均用时 | 263s |
-| 执行轴 a11y 占比 | 43% （1087/2503）|
+| 执行轴 a11y 占比 | 43% （1094/2523）|
 
 ### 两种口径要分开看
 
@@ -1768,6 +1768,8 @@
 - **我手工**（第 2 次，得分 0.0）：第二次 25 步仍未过。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+- **cc**（第 4 次，得分 0.0）：复核：缓存串号与 DISPLAY 已修
+- **我手工**（第 4 次，得分 0.0）：复核仍 0.0。
 ### 第 199 题 · 78aed49a
 
 > Could you help me save all attachments of the oldest email in Bills local folders to the attachment/ folder in Google Drive and then move this email to a different folder "have_seen" in Local Folders.
@@ -1820,6 +1822,8 @@
 - **我手工**（第 2 次，得分 0.0）：第二次 45 步仍卡在活动标签页。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次都是同一模式：compare_htmls 全部 1.0（内容做对了），但 is_expected_active_tab 全部 0.0——它把事情做完了，却没把浏览器停在判据要的那一页上。转下一题。
+- **cc**（第 4 次，得分 0.0）：复核：缓存串号与 DISPLAY 已修
+- **我手工**（第 4 次，得分 0.0）：复核仍 0.0。这次第二个判据抛 TypeError: expected str... not NoneType——vm_file getter 找不到桌面上那个 HTML（agent 没生成），返回 None，官方判据直接崩。之前那次它是 1.0，是拿串号的缓存素材比出来的。
 ### 第 207 题 · ee9a3c83
 
 > Could you help me convert the opened ods file in the desktop to csv file with the same file name using command line when Libreoffice instance is running?
@@ -1848,6 +1852,8 @@
 - **我手工**（第 2 次，得分 0.0）：第二次 27 步仍未过。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+- **cc**（第 4 次，得分 0.0）：复核：缓存串号与 DISPLAY 已修
+- **我手工**（第 4 次，得分 0.0）：复核仍 0.0。
 ### 第 210 题 · 6d72aad6
 
 > Convert an OpenOffice/LibreOffice Impress presentation into a video using only LibreOffice Impress’s built-in export features (no terminal/ffmpeg, no extensions, no other apps), then play the exported video in VLC.
