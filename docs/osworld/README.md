@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **300** / 369 |
-| 我手工通过 | 227 / 300 |
-| cc 通过（严格：得分 = 1.0）| **225 / 291** |
-| cc 平均分（OSWorld 口径）| **0.805** |
+| 已跑题数 | **302** / 369 |
+| 我手工通过 | 229 / 302 |
+| cc 通过（严格：得分 = 1.0）| **227 / 293** |
+| cc 平均分（OSWorld 口径）| **0.806** |
 | cc 平均步数 | 20.3 |
-| cc 平均观测 token | 22180 |
-| cc 平均用时 | 271s |
-| 执行轴 a11y 占比 | 43% （1018/2371）|
+| cc 平均观测 token | 22086 |
+| cc 平均用时 | 270s |
+| 执行轴 a11y 占比 | 43% （1019/2375）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 223 | 169 | 21.7 |
+| Bash 打开 | 225 | 171 | 21.6 |
 
 ## cc 未通过的题，成因分类
 
@@ -418,6 +418,8 @@
 | 298 | os | I have a directory named "todo_list_Jan_1". Can you  | ✅ | ✅ | 4 | 1916 | 20.2s |
 | 299 | os | I want to set my current time zone to UTC+0. Can you | ✅ | ✅ | 11 | 1682 | 87.1s |
 | 300 | os | I want to switch on the Bluetooth. Can you help me? | ✅ | ✅ | 5 | 2616 | 58.1s |
+| 301 | os | My glasses are broken, and I'm having trouble seeing | ✅ | ✅ | 4 | 2976 | 44.5s |
+| 302 | os | I want to see the battery percentage. Can you help m | ✅ | ✅ | 8 | 1568 | 73.0s |
 
 ## 每题的过程记录
 
@@ -2497,4 +2499,16 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：infeasible 题，cc 5 步正确拒绝。第 300 题。
+### 第 301 题 · 3ce045a0
+
+> My glasses are broken, and I'm having trouble seeing small things clearly. Could you help me enlarge the text on my screen so it's easier to read?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 4 步一次通过（两个子判据 or 关系）。
+### 第 302 题 · fe41f596
+
+> I want to see the battery percentage. Can you help me display it on my screen?
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：infeasible 题，cc 8 步正确拒绝。
 
