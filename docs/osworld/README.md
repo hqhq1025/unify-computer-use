@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **282** / 369 |
-| 我手工通过 | 212 / 282 |
-| cc 通过（严格：得分 = 1.0）| **210 / 274** |
-| cc 平均分（OSWorld 口径）| **0.796** |
+| 已跑题数 | **285** / 369 |
+| 我手工通过 | 214 / 285 |
+| cc 通过（严格：得分 = 1.0）| **212 / 277** |
+| cc 平均分（OSWorld 口径）| **0.795** |
 | cc 平均步数 | 20.7 |
-| cc 平均观测 token | 22964 |
-| cc 平均用时 | 272s |
-| 执行轴 a11y 占比 | 43% （998/2333）|
+| cc 平均观测 token | 22888 |
+| cc 平均用时 | 275s |
+| 执行轴 a11y 占比 | 43% （1011/2357）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 206 | 154 | 22.2 |
+| Bash 打开 | 209 | 156 | 22.2 |
 
 ## cc 未通过的题，成因分类
 
@@ -111,6 +111,7 @@
 | 275 | 未归类（可能是模型或链路） | Help me to automatically set up my work space. |
 | 278 | 未归类（可能是模型或链路） | Configure VS Code to edit GIMP script-fu scrip |
 | 282 | 未归类（可能是模型或链路） | Export the table to a CSV file and then write  |
+| 285 | 未归类（可能是模型或链路） | I am writing my paper thesis. I have listed al |
 
 ## 逐题
 
@@ -398,6 +399,9 @@
 | 280 | multi_apps | Divide my image vertically into three equal sections | ✅ | ✅ | 16 | 3352 | 173.1s |
 | 281 | multi_apps | Launch GIMP from the command line to edit "cola.png" | ✅ | ✅ | 18 | 4343 | 240.9s |
 | 282 | multi_apps | Export the table to a CSV file and then write code t | ✗ 0.0 | ✗ 0.0 | 15 | 8190 | 153.1s |
+| 283 | multi_apps | Merge the contents of all .txt files from your vscod | ✅ | ✅ | 55 | 46138 | 625.8s |
+| 284 | multi_apps | I want to learn python programming and my friend rec | ✅ | ✅ | 11 | 7927 | 128.0s |
+| 285 | multi_apps | I am writing my paper thesis. I have listed all refe | ✗ 0.0 | ✗ 0.0 | 14 | 14249 | 232.3s |
 
 ## 每题的过程记录
 
@@ -2356,6 +2360,28 @@
 
 - **cc**（第 1 次，得分 0.0）：cc 第一次
 - **我手工**（第 1 次，得分 0.0）：cc 15 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 283 题 · 98e8e339
+
+> Merge the contents of all .txt files from your vscode project into a single document "concat.docx" on Desktop with libreoffice writer. No merging separator is needed. Ensure to set the overall font size of the document to 10.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 55 步一次通过。
+### 第 284 题 · 0e5303d4
+
+> I want to learn python programming and my friend recommends me this course website. I have grabbed the lecture slide for week 0. Please download the PDFs for other weeks into the opened folder and leave the file name as-it-is.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 11 步一次通过。
+### 第 285 题 · df67aebb
+
+> I am writing my paper thesis. I have listed all referenced papers in the opened docx. But my mentor asked me to use latex instead of word writer. So could you help me export the dblp bibtex of these papers into 'references.bib'. By the way, if the paper is published, do not use the arxiv version. Separate each bibtex dict with a blank line for clarity.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 14 步未过。
 - **cc**（第 2 次，得分 0.0）：cc 第二次
 - **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
