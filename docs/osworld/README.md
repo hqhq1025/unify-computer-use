@@ -21,13 +21,13 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **285** / 369 |
-| 我手工通过 | 214 / 285 |
-| cc 通过（严格：得分 = 1.0）| **212 / 277** |
-| cc 平均分（OSWorld 口径）| **0.795** |
-| cc 平均步数 | 20.7 |
-| cc 平均观测 token | 22888 |
-| cc 平均用时 | 275s |
+| 已跑题数 | **287** / 369 |
+| 我手工通过 | 214 / 287 |
+| cc 通过（严格：得分 = 1.0）| **212 / 278** |
+| cc 平均分（OSWorld 口径）| **0.796** |
+| cc 平均步数 | 20.6 |
+| cc 平均观测 token | 22772 |
+| cc 平均用时 | 274s |
 | 执行轴 a11y 占比 | 43% （1011/2357）|
 
 ### 两种口径要分开看
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 209 | 156 | 22.2 |
+| Bash 打开 | 210 | 156 | 22.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -112,6 +112,7 @@
 | 278 | 未归类（可能是模型或链路） | Configure VS Code to edit GIMP script-fu scrip |
 | 282 | 未归类（可能是模型或链路） | Export the table to a CSV file and then write  |
 | 285 | 未归类（可能是模型或链路） | I am writing my paper thesis. I have listed al |
+| 286 | 未归类（可能是模型或链路） | I enjoy reading during my spare time, but this |
 
 ## 逐题
 
@@ -402,6 +403,8 @@
 | 283 | multi_apps | Merge the contents of all .txt files from your vscod | ✅ | ✅ | 55 | 46138 | 625.8s |
 | 284 | multi_apps | I want to learn python programming and my friend rec | ✅ | ✅ | 11 | 7927 | 128.0s |
 | 285 | multi_apps | I am writing my paper thesis. I have listed all refe | ✗ 0.0 | ✗ 0.0 | 14 | 14249 | 232.3s |
+| 286 | multi_apps | I enjoy reading during my spare time, but this book  | ✗ 1.0 | ✗ 1.0 | 12 | 8110 | 116.4s |
+| 288 | multi_apps | Please help me convert the file "Meeting-Agenda.docx | ✗ 0.0 | — | — | — | — |
 
 ## 每题的过程记录
 
@@ -2386,4 +2389,19 @@
 - **我手工**（第 2 次，得分 0.0）：第二次同样。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
+### 第 286 题 · 5df7b33a
+
+> I enjoy reading during my spare time, but this book is too bulky. Each time I open it, I have to find where I left off, which is a hassle. I'd like to divide the book into several PDFs, each containing a different chapter, and name them following the example I set with chapter one.
+
+- **cc**（第 1 次，得分 0.9954928416511726）：cc 第一次
+- **我手工**（第 1 次，得分 0.995）：连续值判据 0.995，几乎满分。
+- **cc**（第 2 次，得分 0.9954928416511726）：cc 第二次
+- **我手工**（第 2 次，得分 0.995）：第二次同分。
+- **cc**（第 3 次，得分 0.9957239064716509）：cc 第三次
+- **我手工**（第 3 次，得分 0.996）：三次 0.995 / 0.995 / 0.996。转下一题。
+### 第 288 题 · 22a4636f
+
+> Please help me convert the file "Meeting-Agenda.docx" to a pdf file and upload to the folder 'meetings' in my google drive.
+
+- **我手工**（第 1 次，未判分）：需要真实的第三方凭据（Google Drive / 登录态），本机不具备——环境不支持，未被测试，不计为模型失败。
 
