@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **332** / 369 |
-| 我手工通过 | 252 / 332 |
-| cc 通过（严格：得分 = 1.0）| **250 / 323** |
+| 已跑题数 | **334** / 369 |
+| 我手工通过 | 253 / 334 |
+| cc 通过（严格：得分 = 1.0）| **251 / 325** |
 | cc 平均分（OSWorld 口径）| **0.802** |
 | cc 平均步数 | 19.2 |
-| cc 平均观测 token | 21367 |
-| cc 平均用时 | 255s |
-| 执行轴 a11y 占比 | 44% （1207/2758）|
+| cc 平均观测 token | 21273 |
+| cc 平均用时 | 254s |
+| 执行轴 a11y 占比 | 44% （1212/2770）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 258 | 194 | 20.1 |
+| Bash 打开 | 260 | 195 | 20.0 |
 
 ## cc 未通过的题，成因分类
 
@@ -120,6 +120,7 @@
 | 323 | 未归类（可能是模型或链路） | Attach the my AWS bill to the email. The bill  |
 | 329 | 未归类（可能是模型或链路） | Thunderbird's message filters seem to only fir |
 | 332 | 未归类（可能是模型或链路） | Could you convert the song from this music vid |
+| 334 | 未归类（可能是模型或链路） | Snap a photo of the current video scene, save  |
 
 ## 逐题
 
@@ -457,6 +458,8 @@
 | 330 | vlc | Could you play the music video that's saved on my de | ✅ | ✅ | 6 | 3957 | 50.2s |
 | 331 | vlc | Help me modify the folder used to store my recording | ✅ | ✅ | 19 | 14675 | 184.3s |
 | 332 | vlc | Could you convert the song from this music video as  | ✗ 0.0 | ✗ 0.0 | 1 | 1545 | 20.2s |
+| 333 | vlc | Can you start streaming the video from this link for | ✅ | ✅ | 6 | 3421 | 70.4s |
+| 334 | vlc | Snap a photo of the current video scene, save it as  | ✗ 0.4 | ✗ 0.4 | 16 | 12225 | 160.4s |
 
 ## 每题的过程记录
 
@@ -2797,4 +2800,20 @@
 - **我手工**（第 2 次，得分 0.0）：第二次同样拒绝，1 步。
 - **cc**（第 3 次，得分 0.0）：cc 第三次
 - **我手工**（第 3 次，得分 0.0）：三次都是同一段拒绝（1 步、1545 token 完全一致），说明这是稳定的价值判断而非偶发。转下一题。
+### 第 333 题 · bba3381f
+
+> Can you start streaming the video from this link for me? https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 6 步一次通过。
+### 第 334 题 · fba2c100
+
+> Snap a photo of the current video scene, save it as 'interstellar.png', and put it on the Desktop, please.
+
+- **cc**（第 1 次，得分 0.40134803601153984）：cc 第一次
+- **我手工**（第 1 次，得分 0.401）：连续值判据 0.401。
+- **cc**（第 2 次，得分 0.3607706125955127）：cc 第二次
+- **我手工**（第 2 次，得分 0.361）：第二次 0.361（低于第一次）。
+- **cc**（第 3 次，得分 0.3608447088720973）：cc 第三次
+- **我手工**（第 3 次，得分 0.401）：三次 0.401 / 0.361 / 0.361，取最好 0.401。转下一题。
 
