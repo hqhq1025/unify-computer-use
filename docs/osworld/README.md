@@ -21,14 +21,14 @@
 
 | 项 | 值 |
 |---|---|
-| 已跑题数 | **315** / 369 |
-| 我手工通过 | 239 / 315 |
-| cc 通过（严格：得分 = 1.0）| **237 / 306** |
-| cc 平均分（OSWorld 口径）| **0.805** |
-| cc 平均步数 | 19.5 |
-| cc 平均观测 token | 21432 |
-| cc 平均用时 | 258s |
-| 执行轴 a11y 占比 | 43% （1100/2570）|
+| 已跑题数 | **317** / 369 |
+| 我手工通过 | 240 / 317 |
+| cc 通过（严格：得分 = 1.0）| **238 / 308** |
+| cc 平均分（OSWorld 口径）| **0.803** |
+| cc 平均步数 | 19.4 |
+| cc 平均观测 token | 21520 |
+| cc 平均用时 | 257s |
+| 执行轴 a11y 占比 | 43% （1110/2592）|
 
 ### 两种口径要分开看
 
@@ -39,7 +39,7 @@
 | 口径 | 题数 | 通过 | 平均步数 |
 |---|---|---|---|
 | Bash 关闭（纯链路） | 68 | 56 | 15.2 |
-| Bash 打开 | 241 | 181 | 20.4 |
+| Bash 打开 | 243 | 182 | 20.3 |
 
 ## cc 未通过的题，成因分类
 
@@ -116,6 +116,7 @@
 | 306 | 未归类（可能是模型或链路） | Please create an SSH user named "charles" with |
 | 309 | 未归类（可能是模型或链路） | Copy all files matching "*failed.ipynb" in the |
 | 312 | 未归类（可能是模型或链路） | Use terminal command to count all the lines of |
+| 317 | 未归类（可能是模型或链路） | Could you help me open up the profile manageme |
 
 ## 逐题
 
@@ -436,6 +437,8 @@
 | 313 | os | Change the permission of all regular files under cur | ✅ | ✅ | 20 | 8328 | 248.8s |
 | 314 | os | Copies file 'file1' to each of directories 'dir1', ' | ✅ | ✅ | 5 | 4955 | 44.1s |
 | 315 | thunderbird | Help me to remove the account "anonym-x2024@outlook. | ✅ | ✅ | 6 | 12122 | 71.3s |
+| 316 | thunderbird | Help me access my outlook account with address "anon | ✅ | ✅ | 11 | 8744 | 131.4s |
+| 317 | thunderbird | Could you help me open up the profile management tab | ✗ 0.0 | ✗ 0.0 | 10 | 42980 | 134.7s |
 
 ## 每题的过程记录
 
@@ -2658,4 +2661,20 @@
 
 - **cc**（第 1 次，得分 1.0）：cc 第一次
 - **我手工**（第 1 次，得分 1.0）：cc 6 步一次通过。
+### 第 316 题 · 15c3b339
+
+> Help me access my outlook account with address "anonym-x2024@outlook.com" and password 'password' (without ') in Thunderbird. Just fill in the information and stay on that page. I will check it manually later.
+
+- **cc**（第 1 次，得分 1.0）：cc 第一次
+- **我手工**（第 1 次，得分 1.0）：cc 11 步一次通过（a11y 树判据，树预算修好后正常）。
+### 第 317 题 · 7b1e1ff9
+
+> Could you help me open up the profile management tabpage in Thunderbird? I want the profile management tabpage inside Thunderbird app, but not the profile chooser dialog during app launch.
+
+- **cc**（第 1 次，得分 0.0）：cc 第一次
+- **我手工**（第 1 次，得分 0.0）：cc 10 步未过。
+- **cc**（第 2 次，得分 0.0）：cc 第二次
+- **我手工**（第 2 次，得分 0.0）：第二次同样。
+- **cc**（第 3 次，得分 0.0）：cc 第三次
+- **我手工**（第 3 次，得分 0.0）：三次未过。转下一题。
 
